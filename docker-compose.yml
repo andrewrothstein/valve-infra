@@ -1,0 +1,22 @@
+version: "3.8"
+services:
+  dnsmasq:
+    build:
+      context: ./component-farm
+      dockerfile: dnsmasq.dockerfile
+    networks:
+      - private
+    cap_add:
+      - NET_ADMIN
+    volumes:
+      - ./component-farm/dhcp/dnsmasq.conf:/dnsmasq.conf
+      - ./component-farm/tftp/:/tftp/
+    # MISSING: --platform linux/amd64
+
+# TODO: Add the other services
+
+networks:
+  public:
+    external: true
+  private:
+    external: true
