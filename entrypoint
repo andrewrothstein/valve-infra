@@ -54,4 +54,5 @@ fi
 
 # Start the container, it relies on the environment we've loving
 # crafted above.
-docker-compose up
+docker-compose --env-file ./config/prod.env pull
+docker-compose --env-file ./config/prod.env up

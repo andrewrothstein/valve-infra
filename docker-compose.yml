@@ -13,6 +13,7 @@ services:
       args:
         DNS_SERVER: ${DNS_SERVER}
       dockerfile: power-cutter.dockerfile
+    image: registry.freedesktop.org/chturne/radv-infra/pwr-cutter
     network_mode: host
   dnsmasq:
     build:
@@ -24,6 +25,7 @@ services:
       - ./component-farm/dhcp/dnsmasq.conf:/dnsmasq.conf
       - ./component-farm/tftp/:/tftp
       - ${TMP_MOUNT}/nfs-roots:/tftp/nfs
+    image: registry.freedesktop.org/chturne/radv-infra/dnsmasq
     command: --log-facility=- --conf-file=/dnsmasq.conf --interface=${PRIVATE_INTERFACE}
     network_mode: host
   nfs:
@@ -50,6 +52,7 @@ services:
       - "32765:32765/udp"
       - "32767:32767"
       - "32767:32767/udp"
+    image: registry.freedesktop.org/chturne/radv-infra/nfs
   gitlab-runner:
     image: gitlab/gitlab-runner:alpine-v13.5.0
     volumes:
