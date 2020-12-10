@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 set -eux
 
@@ -60,6 +60,13 @@ if [ ! -d  $NFS_ROOTS ]; then
     # Create something hopefully bootable for stuff not otherwise configured.
     genroot "${NFS_ROOTS}/default"
 fi
+
+# Autoconfiguration will see to it that these "static" configuration
+# files are no longer needing to be copied like this
+rsync --delete -av ./component-farm/nfs/ $TMP_MOUNT/nfs/
+rsync --delete -av ./component-farm/gitlab-runner/ $TMP_MOUNT/gitlab-runner/
+rsync --delete -av ./component-farm/tftp/ $TMP_MOUNT/tftp/
+rsync --delete -av ./component-farm/dhcp/ $TMP_MOUNT/dhcp/
 
 # Start the container, it relies on the environment we've loving
 # crafted above.
