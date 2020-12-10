@@ -1,0 +1,58 @@
+#!/bin/sh
+
+set -eux
+
+. ./config/prod.env
+
+# Set the ip address for the private interface, which will be used
+
+# FIXME: Rest of this script can run as a normal user, but these
+# require something more than netdev membership it seems.
+ip link set dev $PRIVATE_INTERFACE up
+# FIXME: If the interface is already configured, this will fail. Flag
+# it off for development, for now. RTNETLINK answers: File exists
+ip addr add 10.42.0.1/24 dev $PRIVATE_INTERFACE || true
+
+if [ ! -d $TMP_MOUNT ]; then
+    echo "TMP_MOUNT path ($TMP_MOUNT) is not a directory"
+    exit 1
+fi
+
+if [ ! -e /sys/class/net/$PRIVATE_INTERFACE ]; then
+    echo "PRIVATE_INTERFACE ($PRIVATE_INTERFACE) does not exist"
+    exit 1
+fi
+
+# The hierachy is like /persistent_root/nfs-roots/board_name/{init,usr,bin,etc,...}
+NFS_ROOTS=${TMP_MOUNT}/nfs-roots
+
+genroot()
+{
+    ROOTFS=$1
+    [ ! -d "$ROOTFS" ] && mkdir -pv "$ROOTFS"
+
+    echo "exporting rootfs..."
+    cat <<EOF | docker build -t radv-infra-default-image -
+FROM debian:testing
+RUN apt-get -qy update && apt-get -qy install --no-install-recommends linux-image-amd64 systemd-sysv
+RUN passwd root -d
+EOF
+    CID=$(docker run -d radv-infra-default-image /bin/true)
+    docker export $CID | tar x -C $ROOTFS
+    docker stop $CID
+}
+
+# FIXME: Drive this from a static configuration of the known network (a config file)
+if [ ! -d  $NFS_ROOTS ]; then
+    echo "nfs-roots are not present in $TMP_MOUNT, initializing them..."
+    mkdir -pv ${NFS_ROOTS}/igalia-amd-gfx8-1
+    mkdir -pv ${NFS_ROOTS}/igalia-amd-gfx8-2
+
+    # Create something hopefully bootable for stuff not otherwise configured.
+    genroot "${NFS_ROOTS}/default"
+fi
+
+# Start the container, it relies on the environment we've loving
+# crafted above.
+docker-compose --env-file ./config/prod.env pull
+docker-compose --env-file ./config/prod.env up
