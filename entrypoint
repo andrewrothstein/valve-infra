@@ -2,6 +2,15 @@
 
 set -eux
 
+# Generate a configuration file based on the default values, or the overriding
+# env vars
+[ -d ./config/ ] || mkdir ./config/
+echo -e "DNS_SERVER=${DNS_SERVER:-10.0.0.6}
+TMP_MOUNT=${TMP_MOUNT:-/mnt/tmp}
+PERMANENT_MOUNT=${PERMANENT_MOUNT:-/mnt/permanent}
+PRIVATE_INTERFACE=${PRIVATE_INTERFACE:-private}
+" > ./config/prod.env
+
 . ./config/prod.env
 
 # Set the ip address for the private interface, which will be used
