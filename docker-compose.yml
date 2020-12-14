@@ -56,5 +56,5 @@ services:
   gitlab-runner:
     image: gitlab/gitlab-runner:alpine-v13.5.0
     volumes:
-      - ${TMP_MOUNT}/gitlab-runner:/etc/gitlab-runner
+      - ${PERMANENT_MOUNT}/gitlab-runner:/etc/gitlab-runner
       - /var/run/docker.sock:/var/run/docker.sock

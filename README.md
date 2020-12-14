@@ -40,7 +40,7 @@ Running the infrastructure with the following command:
 The project is voluntarily light on configuration options as it
 strives for auto-configuration as much as possible. However, it is
 possible to override the following parameters by setting the following
-environment variables in the container:
+environment variables (which all have good defaults),
 
 * DNS_SERVER: Needed by the power cutter to resolve the PDUs' IP address. This
   requirement will soon disapear. Defaults to `10.0.0.6`;
@@ -52,6 +52,11 @@ environment variables in the container:
   If you change this, make sure you pass the right mount point into the container.
 * PRIVATE_INTERFACE: The name of the network interface connected to private
   network. Defaults to `private`.
+
+Additionally, you may add secrets to the environment file in `./config/private.env`, which will override those specified above,
+
+* `GITLAB_REGISTRATION_TOKEN`: Token for registering new GitLab runners.
+* `GITLAB_ACCESS_TOKEN`: Token needed to communicate with the configured GitLab instance.
 
 ## Working on the project
 

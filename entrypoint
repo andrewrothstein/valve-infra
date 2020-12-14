@@ -1,6 +1,6 @@
 #!/bin/bash
 
-set -eux
+set -eu
 
 # Generate a configuration file based on the default values, or the overriding
 # env vars
@@ -11,7 +11,11 @@ PERMANENT_MOUNT=${PERMANENT_MOUNT:-/mnt/permanent}
 PRIVATE_INTERFACE=${PRIVATE_INTERFACE:-private}
 " > ./config/prod.env
 
+cat ./config/private.env >> ./config/prod.env
+
 . ./config/prod.env
+
+D=$(dirname $(readlink -f $0))
 
 # Set the ip address for the private interface, which will be used
 
@@ -64,11 +68,16 @@ fi
 # Autoconfiguration will see to it that these "static" configuration
 # files are no longer needing to be copied like this
 rsync --delete -av ./component-farm/nfs/ $TMP_MOUNT/nfs/
-rsync --delete -av ./component-farm/gitlab-runner/ $TMP_MOUNT/gitlab-runner/
 rsync --delete -av ./component-farm/tftp/ $TMP_MOUNT/tftp/
 rsync --delete -av ./component-farm/dhcp/ $TMP_MOUNT/dhcp/
 
-# Start the container, it relies on the environment we've loving
-# crafted above.
+if [ -n "$GITLAB_REGISTRATION_TOKEN" ] && [ -n "$GITLAB_ACCESS_TOKEN" ]; then
+    [ -d $PERMANENT_MOUNT/gitlab-runner ] || mkdir $PERMANENT_MOUNT/gitlab-runner
+    ./gitlab-runner-sync --registration-token $GITLAB_REGISTRATION_TOKEN \
+                         --access-token $GITLAB_ACCESS_TOKEN \
+                         --machine-data machines.db \
+                         --gitlab-config $PERMANENT_MOUNT/gitlab-runner/config.toml
+fi
+
 docker-compose --env-file ./config/prod.env pull
 docker-compose --env-file ./config/prod.env up

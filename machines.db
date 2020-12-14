@@ -1,0 +1,10 @@
+[
+    {
+        "name": "igalia-amd-gfx8-1",
+        "tags": ["igalia-amd-gfx8"]
+    },
+    {
+        "name": "igalia-amd-gfx8-2",
+        "tags": ["igalia-amd-gfx8"]
+    }
+]    
