@@ -10,24 +10,21 @@ services:
   pwr-cutter:
     build:
       context: ./component-farm
-      args:
-        DNS_SERVER: ${DNS_SERVER}
       dockerfile: power-cutter.dockerfile
     image: registry.freedesktop.org/mupuf/valve-infra/pwr-cutter
+    environment:
+      - PWR_CUTTER_HTTP_PORT=8089
     network_mode: host
-  dnsmasq:
-    build:
-      context: ./component-farm
-      dockerfile: dnsmasq.dockerfile
-    cap_add:
-      - NET_ADMIN
+  boots:
+    network_mode: host
+    image: registry.freedesktop.org/chturne/boots
+    environment:
+      - BOOTS_SERVICE_PORT=8087
+      - BOOTS_HTTP_SERVICE_PORT=8088
+      - PRIVATE_INTERFACE=$PRIVATE_INTERFACE
     volumes:
-      - ${TMP_MOUNT}/dhcp/dnsmasq.conf:/dnsmasq.conf
-      - ${TMP_MOUNT}/tftp/:/tftp
-      - ${TMP_MOUNT}/nfs-roots:/tftp/nfs
-    image: registry.freedesktop.org/mupuf/valve-infra/dnsmasq
-    command: --log-facility=- --conf-file=/dnsmasq.conf --interface=${PRIVATE_INTERFACE}
-    network_mode: host
+      - ${TMP_MOUNT}/boots:/boots
+    privileged: true
   nfs:
     build:
       context: ./component-farm/docker-nfs-server
@@ -38,8 +35,8 @@ services:
     entrypoint: ["bash", "/usr/local/bin/entrypoint.sh"]
     privileged: true
     volumes:
-      - ${TMP_MOUNT}/nfs/exports:/etc/exports
-      - ${TMP_MOUNT}/nfs-roots:/nfs
+      - ${TMP_MOUNT}/boots/nfs/exports:/etc/exports
+      - ${TMP_MOUNT}/boots/nfs-roots:/nfs
       - /lib/modules:/lib/modules
     # FIXME: Switching to NFSv4 would reduce the number of ports this
     # service needs.
@@ -56,5 +53,5 @@ services:
   gitlab-runner:
     image: gitlab/gitlab-runner:alpine-v13.5.0
     volumes:
-      - ${PERMANENT_MOUNT}/gitlab-runner:/etc/gitlab-runner
+      - ${TMP_MOUNT}/gitlab-runner:/etc/gitlab-runner
       - /var/run/docker.sock:/var/run/docker.sock

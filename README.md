@@ -35,7 +35,7 @@ If you intend to hack on the project, run the following commands:
 
 Running the infrastructure with the following command:
 
-    docker run --privileged --network=host --rm -it -v $(pwd):/app -v /var/run/docker.sock:/var/run/docker.sock -v /mnt:/mnt registry.freedesktop.org/mupuf/valve-infra/infra
+    docker run --privileged --network=host --rm -it -v $(pwd):/app -v /var/run/docker.sock:/var/run/docker.sock -v /mnt:/mnt registry.freedesktop.org/mupuf/valve-infra
 
 The project is voluntarily light on configuration options as it
 strives for auto-configuration as much as possible. However, it is
@@ -79,5 +79,10 @@ And then bring up the services
 
 To stop, Ctrl-C, or return to this directory and run `docker compose
 --env-file config/prod.env down`.
+
+You can run docker remotely from your development laptop,
+
+    export DOCKER_HOST=ssh://hostname-of-ci-gateway
+    docker ps
 
 That's all for now!

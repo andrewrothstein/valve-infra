@@ -73,9 +73,8 @@ class GitlabConfig:
         'session_server': {'session_timeout': 1800}
     }
 
-    def __init__(self, config_path, tmp_mount):
+    def __init__(self, config_path):
         self.config_path = config_path
-        self.tmp_mount = tmp_mount
         try:
             self.config = toml.load(config_path)
         except Exception:
@@ -102,11 +101,7 @@ class GitlabConfig:
     def add_runner(self, name, token):
         volumes = [
             '/var/run/docker.sock:/var/run/docker.sock',
-            '/cache',
-            '{}:/nfs'.format(os.path.join(self.tmp_mount,
-                                          'nfs-roots')),
-            '{}:/tftp'.format(os.path.join(self.tmp_mount,
-                                           'tftp'))
+            '/cache'
         ]
         config = {
             'name': name,
@@ -118,7 +113,7 @@ class GitlabConfig:
             'cache': {'s3': {}, 'gcs': {}, 'azure': {}},
             'docker': {
                 'tls_verify': False,
-                'image': 'chturne/farm-runner',
+                'image': 'registry.freedesktop.org/mupuf/valve-infra/gitlab-job-runner',
                 'privileged': True,
                 'disable_entrypoint_overwrite': False,
                 'oom_kill_disable': False,
@@ -200,7 +195,7 @@ def valid_path(path):
 
 
 def main(args):
-    gitlab_config = GitlabConfig(args.gitlab_config, args.tmp_mount)
+    gitlab_config = GitlabConfig(args.gitlab_config)
     runner_api = GitlabRunnerAPI(args.access_token, args.registration_token)
     farm_duts = retrieve_machine_list(args.machine_data)
 
@@ -240,9 +235,6 @@ agreement about activated runners and their metadata.
     parser.add_argument('--gitlab-config', type=valid_dirname,
                         help="File containing the client TOML configuration, which will be updated by this script",
                         required=True)
-    parser.add_argument('--tmp-mount', type=valid_path,
-                        help="Path to root of transient area. Default /mnt/tmp. NFS roots and PXE server files are located here",
-                        default='/mnt/tmp')
 
     args = parser.parse_args()
     main(args)
