@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 # -*- mode: python -*-
 
 from pprint import pprint as pp
@@ -38,6 +38,7 @@ class GitlabRunnerAPI:
             'token': self.registration_token,
             'description': name,
             'tag_list': tags,
+            'run_untagged': 'false',
         }
         return self.gl.runners.create(registration_config)
 
