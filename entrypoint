@@ -1,9 +1,13 @@
 #!/bin/bash
 
-set -eu
+# Set errexit to force an exit on error conditions, and pipefail to
+# force any failures in a pipeline to create an error condition
+set -o errexit
+set -o pipefail
+#set -o xtrace
 
-# Generate a configuration file based on the default values, or the overriding
-# env vars
+# Generate a configuration file based on the default values, or the
+# overriding env vars
 [ -d ./config/ ] || mkdir ./config/
 echo -e "DNS_SERVER=${DNS_SERVER:-10.0.0.6}
 TMP_MOUNT=${TMP_MOUNT:-/mnt/tmp}
@@ -17,15 +21,17 @@ cat ./config/private.env >> ./config/prod.env
 
 D=$(dirname $(readlink -f $0))
 
-if [ ! -d $TMP_MOUNT ]; then
-    echo "TMP_MOUNT path ($TMP_MOUNT) is not a directory"
+log(){
+    echo "valve-infra: $*"
+}
+die(){
+    log "FATAL error: $*"
     exit 1
-fi
+}
 
-if [ ! -e /sys/class/net/$PRIVATE_INTERFACE ]; then
-    echo "PRIVATE_INTERFACE ($PRIVATE_INTERFACE) does not exist"
-    exit 1
-fi
+[ -d $TMP_MOUNT ] || die "TMP_MOUNT path ($TMP_MOUNT) is not a directory"
+[ -e /sys/class/net/$PRIVATE_INTERFACE ] || die "PRIVATE_INTERFACE ($PRIVATE_INTERFACE) does not exist"
+
 
 BOOTS_TOP_LEVEL=${TMP_MOUNT}/boots
 [ -d $BOOTS_TOP_LEVEL ] || mkdir -pv $BOOTS_TOP_LEVEL
@@ -33,13 +39,14 @@ BOOTS_TOP_LEVEL=${TMP_MOUNT}/boots
 # Setup the boots service with a prerequisite "default" image.
 # This is not done in boots, because that component has no
 # responsibilities for image generation.
+# It's not good that the NFS root filesystem path is hard-coded here.
 NFS_ROOTS=$BOOTS_TOP_LEVEL/nfs-roots
 [ -d $NFS_ROOTS ] || mkdir -pv $NFS_ROOTS
 genroot(){
     ROOTFS=$1
     [ ! -d "$ROOTFS" ] && mkdir -pv "$ROOTFS"
 
-    echo "exporting rootfs..."
+    log "exporting rootfs..."
     cat <<EOF | docker build -t radv-infra-default-image -
 FROM debian:testing
 RUN apt-get -qy update && apt-get -qy install --no-install-recommends linux-image-amd64 systemd-sysv
@@ -71,7 +78,7 @@ EOF
 [ -d $BOOTS_TOP_LEVEL/tftp ] || mkdir -v $BOOTS_TOP_LEVEL/tftp
 if [ ! -e $BOOTS_TOP_LEVEL/tftp/pxelinux.0 ] || [ ! -e $BOOTS_TOP_LEVEL/tftp/ldlinux.c32 ]; then
     tmp_dir=$(mktemp -d -t ci-XXXXXXXXXX)
-    echo "pxelinux does not exist, recreating..."
+    log "pxelinux does not exist, recreating..."
     wget -O- 'https://mirrors.edge.kernel.org/pub/linux/utils/boot/syslinux/syslinux-6.03.tar.gz' | tar x -z -f - -C $tmp_dir
     cp -v $tmp_dir/syslinux-6.03/bios/core/pxelinux.0 $BOOTS_TOP_LEVEL/tftp/
     cp -v $tmp_dir/syslinux-6.03/bios/com32/elflink/ldlinux/ldlinux.c32 $BOOTS_TOP_LEVEL/tftp/
@@ -79,7 +86,7 @@ if [ ! -e $BOOTS_TOP_LEVEL/tftp/pxelinux.0 ] || [ ! -e $BOOTS_TOP_LEVEL/tftp/ldl
 fi
 
 if [ ! -e $BOOTS_TOP_LEVEL/tftp/ci-bzImage ]; then
-    echo "WARNING: No existing kernel, going to populate one I made earlier..."
+    log "copying default kernel..."
     cp -v $D/component-farm/tftp/ci-bzImage $BOOTS_TOP_LEVEL/tftp/ci-bzImage
 fi
 
