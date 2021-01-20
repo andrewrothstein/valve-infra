@@ -7,13 +7,11 @@
 
 version: "3.3"
 services:
-  pwr-cutter:
-    build:
-      context: ./component-farm
-      dockerfile: power-cutter.dockerfile
-    image: registry.freedesktop.org/mupuf/valve-infra/pwr-cutter
+  pdugateway:
+    image: registry.freedesktop.org/mupuf/pdu-gateway
     environment:
-      - PWR_CUTTER_HTTP_PORT=8089
+      PDUGATEWAY_PORT: 8089
+      PDUGATEWAY_STATIC_PDUS: '[{"pdu_name": "farm-pdu-1", "model": "cyberpower_pdu41004", "config": {"hostname": "10.42.0.2"}}]'
     network_mode: host
   boots:
     network_mode: host
