@@ -25,3 +25,5 @@ infra:
     - docker push $CI_REGISTRY_IMAGE/valve-infra
     - docker-compose build
     - docker-compose push
+    - docker build -t $CI_REGISTRY_IMAGE/machine_registration:latest -f containers/Dockerfile.machine_registration .
+    - docker push $CI_REGISTRY_IMAGE/machine_registration:latest

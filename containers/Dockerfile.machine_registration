@@ -1,0 +1,11 @@
+FROM alpine:3
+
+RUN set -ex \
+        && apk add --no-cache py3-netifaces py3-psutil py3-requests
+
+WORKDIR /app
+COPY machine_registration.py /app/machine_registration
+RUN python3 /app/machine_registration -a /app/amdgpu_drv.c cache_dbs
+
+ENTRYPOINT ["/app/machine_registration", "-a", "/app/amdgpu_drv.c"]
+CMD ["register"]
