@@ -1,0 +1,17 @@
+#!/usr/bin/env bash
+
+set -o errexit
+set -o pipefail
+#set -o xtrace
+
+OUTLET=$1
+declare -u ACTION=$2
+
+API="http://localhost:8089/v1/pdus/farm-pdu-1"
+
+http --ignore-stdin \
+     --check-status \
+     --json         \
+     --timeout=2.5  \
+     POST \
+     ${API}/ports/$OUTLET/state state=$ACTION

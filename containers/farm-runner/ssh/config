@@ -1,0 +1,11 @@
+Host igalia-amd-gfx8-1
+     User root
+     StrictHostKeyChecking no
+     IdentityFile ~/.ssh/id_ed25519_farmer
+     UserKnownHostsFile /dev/null
+
+Host igalia-amd-gfx8-2
+     User root
+     StrictHostKeyChecking no
+     IdentityFile ~/.ssh/id_ed25519_farmer
+     UserKnownHostsFile /dev/null

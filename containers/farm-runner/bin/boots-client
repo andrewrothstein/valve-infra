@@ -1,0 +1,104 @@
+#!/usr/bin/env python3
+# -*- mode: python -*-
+
+import requests
+import argparse
+import time
+import sys
+from pprint import pprint as pp
+
+
+# TODO: Use coroutine to allow issuing and monitoring of multiple tasks...
+
+def name_path_spec(s):
+    uri, name = s.split(",")
+    r = requests.head(uri)
+    r.raise_for_status()
+    return s
+
+
+def monitor_task(resp):
+    link = resp["link"]
+    while True:
+        r = requests.get(link)
+        r.raise_for_status()
+        resp = r.json()
+        if r.status_code == 303:
+            print(f'task has finished: {resp["message"]}')
+            return True
+        elif r.status_code == 200:
+            if resp["state"] == "failed":
+                print(resp["message"])
+                print("download failed")
+                return False
+            elif resp["state"] == "pending":
+                if "content-downloaded" in resp:
+                    downloaded = int(resp["content-downloaded"])
+                    total = int(resp["content-length"])
+                    completed_pc = downloaded / total * 100.0
+                    print("{:.2f}% complete".format(completed_pc))
+            else:
+                print("warming up...")
+        else:
+            print("unexpected response: {resp}")
+            return False
+        time.sleep(10)
+
+
+def fetch_filesystem(args):
+    path, name = args.filesystem.split(",")
+    data = {
+        "path": path,
+        "name": name,
+        "cache-key": args.cache_key,
+    }
+    if args.overwrite:
+        data["overwrite"] = True
+    try:
+        print(data)
+        r = requests.post(args.endpoint + '/filesystems/download',
+                          json=data)
+    except requests.exceptions.ConnectionError:
+        print(f"failed to connect to {args.endpoint}")
+        return False
+    resp = r.json()
+    if r.status_code // 400 == 1:
+        pp(resp)
+        return False
+    assert r.status_code == 202
+    return monitor_task(resp)
+
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser(
+        description="""
+HTTP client for the BOOTS service
+""")
+
+    parser.add_argument(
+        '--endpoint',
+        help="The URI of the listening boots service",
+        required=True)
+    parser.add_argument(
+        '--filesystem',
+        help="Retrieve and install a new filesystem for the BOOTS service",
+        type=name_path_spec)
+    parser.add_argument(
+        '--kernel',
+        help="Retrieve and install a new kernel for the BOOTS service",
+        type=name_path_spec)
+    parser.add_argument(
+        '--overwrite',
+        help="Ignore existing build artefacts",
+        action='store_true')
+    parser.add_argument(
+        '--cache-key',
+        help="""Name of a file in the unpackged filesystem archive
+that serves as a caching key. If this file exists, the filesystem will
+not be refetched""")
+
+    args = parser.parse_args()
+    if args.filesystem:
+        if fetch_filesystem(args):
+            sys.exit(0)
+        sys.exit(1)

@@ -29,7 +29,7 @@ jq -r '.[].name' < machines.db | while read hostname ; do
     if ssh -q -n \
            -o UserKnownHostsFile=/dev/null \
            -o StrictHostKeyChecking=no \
-           -i $D/component-farm/farm-runner/ssh/id_ed25519_farmer \
+           -i $D/containers/farm-runner/ssh/id_ed25519_farmer \
            root@$hostname &>/dev/null ; then
         echo -n " SSHOK"
     else

@@ -64,17 +64,6 @@ if [ ! -d  $NFS_ROOTS/default ]; then
     genroot "${NFS_ROOTS}/default"
 fi
 
-# This would ideally be in the boots service, but the NFS service will
-# fail to start without it, and there's not easy way to depend on
-# service setup in docker-compose. (move NFS to boots eventually)
-[ -d $BOOTS_TOP_LEVEL/nfs ] || mkdir $BOOTS_TOP_LEVEL/nfs
-# NFS needs at least one export to start
-# Note that /mnt/tmp/boots/nfs-roots is bind mounted /nfs in the NFS
-# server container. This should be less confusing
-cat <<EOF >$BOOTS_TOP_LEVEL/nfs/exports
-/nfs *(rw,no_all_squash,no_root_squash,no_subtree_check,insecure)
-EOF
-
 [ -d $BOOTS_TOP_LEVEL/tftp ] || mkdir -v $BOOTS_TOP_LEVEL/tftp
 if [ ! -e $BOOTS_TOP_LEVEL/tftp/pxelinux.0 ] || [ ! -e $BOOTS_TOP_LEVEL/tftp/ldlinux.c32 ]; then
     tmp_dir=$(mktemp -d -t ci-XXXXXXXXXX)
@@ -87,7 +76,7 @@ fi
 
 if [ ! -e $BOOTS_TOP_LEVEL/tftp/ci-bzImage ]; then
     log "copying default kernel..."
-    cp -v $D/component-farm/tftp/ci-bzImage $BOOTS_TOP_LEVEL/tftp/ci-bzImage
+    cp -v $D/containers/ci-bzImage $BOOTS_TOP_LEVEL/tftp/ci-bzImage
 fi
 
 [ -d $BOOTS_TOP_LEVEL/tftp/pxelinux.cfg ] || mkdir -v $BOOTS_TOP_LEVEL/tftp/pxelinux.cfg

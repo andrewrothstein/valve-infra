@@ -4,7 +4,6 @@
 # paths on the *host*, not inside this container.
 # However, the build context is inside this container, so paths are
 # resolved local to the container we're running in.
-
 version: "3.3"
 services:
   pdugateway:
@@ -14,6 +13,7 @@ services:
       PDUGATEWAY_STATIC_PDUS: '[{"pdu_name": "farm-pdu-1", "model": "cyberpower_pdu41004", "config": {"hostname": "10.42.0.2"}}]'
     network_mode: host
   boots:
+    privileged: true
     network_mode: host
     image: registry.freedesktop.org/chturne/boots
     environment:
@@ -22,32 +22,8 @@ services:
       - PRIVATE_INTERFACE=$PRIVATE_INTERFACE
     volumes:
       - ${TMP_MOUNT}/boots:/boots
-    privileged: true
-  nfs:
-    build:
-      context: ./component-farm/docker-nfs-server
-    # FIXME: Raise a bug upstream about this image, the entrypoint is
-    # not +x, which for some reason is fine outside of QEMU, but when
-    # run inside the VM, I get a permission denied error,
-    # ERROR: for app_nfs_1  Cannot start service nfs: OCI runtime create failed: container_linux.go:370: starting container process caused: exec: "/usr/local/bin/entrypoint.sh": permission denied: unknown
-    entrypoint: ["bash", "/usr/local/bin/entrypoint.sh"]
-    privileged: true
-    volumes:
-      - ${TMP_MOUNT}/boots/nfs/exports:/etc/exports
       - ${TMP_MOUNT}/boots/nfs-roots:/nfs
       - /lib/modules:/lib/modules
-    # FIXME: Switching to NFSv4 would reduce the number of ports this
-    # service needs.
-    ports:
-      - "2049:2049"
-      - "2049:2049/udp"
-      - "111:111"
-      - "111:111/udp"
-      - "32765:32765"
-      - "32765:32765/udp"
-      - "32767:32767"
-      - "32767:32767/udp"
-    image: registry.freedesktop.org/mupuf/valve-infra/nfs
   gitlab-runner:
     image: gitlab/gitlab-runner:alpine-v13.5.0
     volumes:

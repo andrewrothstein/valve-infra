@@ -114,7 +114,7 @@ class GitlabConfig:
             'cache': {'s3': {}, 'gcs': {}, 'azure': {}},
             'docker': {
                 'tls_verify': False,
-                'image': 'registry.freedesktop.org/chturne/component-farm/gitlab-job-runner',
+                'image': 'registry.freedesktop.org/mupuf/valve-infra/gitlab-job-runner',
                 'privileged': True,
                 'disable_entrypoint_overwrite': False,
                 'oom_kill_disable': False,
