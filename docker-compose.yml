@@ -23,6 +23,7 @@ services:
     volumes:
       - ${TMP_MOUNT}/boots:/boots
       - ${TMP_MOUNT}/boots/nfs-roots:/nfs
+      - ${TMP_MOUNT}/boots/nfs-roots:/boots/tftp/nfs
       - /lib/modules:/lib/modules
   gitlab-runner:
     image: gitlab/gitlab-runner:alpine-v13.5.0
