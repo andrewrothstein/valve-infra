@@ -6,6 +6,17 @@
 # resolved local to the container we're running in.
 version: "3.3"
 services:
+  mars:
+    image: registry.freedesktop.org/mupuf/mars
+    environment:
+      - MARS_HOST=10.42.0.1
+      - MARS_DEBUG=True
+      - MARS_SECRET_KEY=$MARS_SECRET_KEY
+      - MARS_SQLITE_PATH=/mnt/permanent/mars.sqlite3
+    ports:
+      - "80:80/tcp"
+    volumes:
+      - /mnt:/mnt
   pdugateway:
     image: registry.freedesktop.org/mupuf/pdu-gateway
     environment:

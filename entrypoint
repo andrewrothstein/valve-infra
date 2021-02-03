@@ -15,12 +15,16 @@ PERMANENT_MOUNT=${PERMANENT_MOUNT:-/mnt/permanent}
 PRIVATE_INTERFACE=${PRIVATE_INTERFACE:-private}
 BOOT2CONTAINER_RELEASE=v0.5
 " > ./config/prod.env
-
 cat ./config/private.env >> ./config/prod.env
 
 . ./config/prod.env
 
 D=$(dirname $(readlink -f $0))
+MARS_SECRET_KEYFILE=$PERMANENT_MOUNT/mars_secret_key
+if [ ! -e $MARS_SECRET_KEYFILE ]; then
+    python3 -c "import secrets ; print(secrets.token_urlsafe())" > $MARS_SECRET_KEYFILE
+fi
+export MARS_SECRET_KEY=$(<$MARS_SECRET_KEYFILE)
 
 log(){
     echo "valve-infra: $*"
