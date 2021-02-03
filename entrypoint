@@ -13,6 +13,7 @@ echo -e "DNS_SERVER=${DNS_SERVER:-10.0.0.6}
 TMP_MOUNT=${TMP_MOUNT:-/mnt/tmp}
 PERMANENT_MOUNT=${PERMANENT_MOUNT:-/mnt/permanent}
 PRIVATE_INTERFACE=${PRIVATE_INTERFACE:-private}
+BOOT2CONTAINER_RELEASE=v0.5
 " > ./config/prod.env
 
 cat ./config/private.env >> ./config/prod.env
@@ -42,27 +43,6 @@ BOOTS_TOP_LEVEL=${TMP_MOUNT}/boots
 # It's not good that the NFS root filesystem path is hard-coded here.
 NFS_ROOTS=$BOOTS_TOP_LEVEL/nfs-roots
 [ -d $NFS_ROOTS ] || mkdir -pv $NFS_ROOTS
-genroot(){
-    ROOTFS=$1
-    [ ! -d "$ROOTFS" ] && mkdir -pv "$ROOTFS"
-
-    log "exporting rootfs..."
-    cat <<EOF | docker build -t radv-infra-default-image -
-FROM debian:testing
-RUN apt-get -qy update && apt-get -qy install --no-install-recommends linux-image-amd64 systemd-sysv
-RUN passwd root -d
-EOF
-    CID=$(docker run -d radv-infra-default-image /bin/true)
-    docker export $CID | tar x -C $ROOTFS
-    docker stop $CID
-}
-if [ ! -d  $NFS_ROOTS/default ]; then
-    mkdir -v ${NFS_ROOTS}/igalia-amd-gfx8-1
-    mkdir -v ${NFS_ROOTS}/igalia-amd-gfx8-2
-    # Create something hopefully bootable for stuff not otherwise
-    # configured.
-    genroot "${NFS_ROOTS}/default"
-fi
 
 [ -d $BOOTS_TOP_LEVEL/tftp ] || mkdir -v $BOOTS_TOP_LEVEL/tftp
 if [ ! -e $BOOTS_TOP_LEVEL/tftp/pxelinux.0 ] || [ ! -e $BOOTS_TOP_LEVEL/tftp/ldlinux.c32 ]; then
@@ -74,35 +54,26 @@ if [ ! -e $BOOTS_TOP_LEVEL/tftp/pxelinux.0 ] || [ ! -e $BOOTS_TOP_LEVEL/tftp/ldl
     rm -rf $tmp_dir
 fi
 
-if [ ! -e $BOOTS_TOP_LEVEL/tftp/ci-bzImage ]; then
-    log "copying default kernel..."
-    cp -v $D/containers/ci-bzImage $BOOTS_TOP_LEVEL/tftp/ci-bzImage
+CI_KERNEL="$BOOTS_TOP_LEVEL/tftp/${BOOT2CONTAINER_RELEASE}-ci-kernel"
+CI_INITRAMFS="$BOOTS_TOP_LEVEL/tftp/${BOOT2CONTAINER_RELEASE}-initramfs.linux_amd64.cpio.xz"
+
+if [ ! -e $CI_KERNEL ]; then
+    log "fetch default CI kernel..."
+    wget -O$CI_KERNEL "https://gitlab.freedesktop.org/mupuf/boot2container/-/releases/${BOOT2CONTAINER_RELEASE}/downloads/bzImage"
+fi
+if [ ! -e $CI_INITRAMFS ]; then
+    log "fetch default CI initramfs..."
+    wget -O$CI_INITRAMFS "https://gitlab.freedesktop.org/mupuf/boot2container/-/releases/${BOOT2CONTAINER_RELEASE}/downloads/initramfs.linux_amd64.cpio.xz"
 fi
 
 [ -d $BOOTS_TOP_LEVEL/tftp/pxelinux.cfg ] || mkdir -v $BOOTS_TOP_LEVEL/tftp/pxelinux.cfg
-if true ; then
-    # FIXME: Note the 01- tacked onto the MAC addrs!
-    # FIXME: This should be all handled by boots soon
-    cat <<EOF > $BOOTS_TOP_LEVEL/tftp/pxelinux.cfg/01-10-62-e5-04-39-89
-DEFAULT cikernel
-label cikernel
-         KERNEL ci-bzImage
-         APPEND root=/dev/nfs rw rootfstype=nfs ip=dhcp nfsroot=10.42.0.1:/nfs/igalia-amd-gfx8-1,vers=3 init=/init
-EOF
-    cat <<EOF > $BOOTS_TOP_LEVEL/tftp/pxelinux.cfg/01-10-62-e5-0e-0a-54
-DEFAULT cikernel
-label cikernel
-         KERNEL ci-bzImage
-         APPEND root=/dev/nfs rw rootfstype=nfs ip=dhcp nfsroot=10.42.0.1:/nfs/igalia-amd-gfx8-2,vers=3 init=/init
-EOF
     cat <<EOF > $BOOTS_TOP_LEVEL/tftp/pxelinux.cfg/default
 DEFAULT def
 label def
-         KERNEL /nfs/default/vmlinuz
-         INITRD /nfs/default/initrd.img
-         APPEND root=/dev/nfs rw rootfstype=nfs ip=dhcp nfsroot=10.42.0.1:/nfs/default,vers=3
+         KERNEL ${BOOT2CONTAINER_RELEASE}-ci-kernel
+         INITRD ${BOOT2CONTAINER_RELEASE}-initramfs.linux_amd64.cpio.xz
+         APPEND b2c.container=docker://registry.freedesktop.org/mupuf/valve-infra/machine_registration:latest b2c.cache_device=auto b2c.ntp_peer=auto nomodeset
 EOF
-fi
 
 # Setup first-time gitlab configuration
 if [ -n "$GITLAB_REGISTRATION_TOKEN" ] && [ -n "$GITLAB_ACCESS_TOKEN" ]; then
