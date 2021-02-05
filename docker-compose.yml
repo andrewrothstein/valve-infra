@@ -49,3 +49,11 @@ services:
     volumes:
       - ${TMP_MOUNT}/gitlab-runner:/etc/gitlab-runner
       - /var/run/docker.sock:/var/run/docker.sock
+  gitlab-sync:
+    image: registry.freedesktop.org/mupuf/valve-infra/gitlab-sync
+    environment:
+      - GITLAB_REGISTRATION_TOKEN=$GITLAB_REGISTRATION_TOKEN
+      - GITLAB_ACCESS_TOKEN=$GITLAB_ACCESS_TOKEN
+      - MARS_HOST=http://10.42.0.1:80
+    volumes:
+      - ${TMP_MOUNT}/gitlab-runner:/etc/gitlab-runner

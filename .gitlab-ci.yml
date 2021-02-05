@@ -5,18 +5,39 @@ stages:
 variables:
   GIT_SUBMODULE_STRATEGY: recursive
 
-infra:
+.container base:
   image: docker/compose:alpine-1.27.4
   stage: containers
-  rules:
-    - changes:
-      - docker-compose.yml
-      - .gitlab-ci.yml
   services:
     - docker:dind
   variables:
     DOCKER_HOST: tcp://docker:2375
     DOCKER_DRIVER: overlay2
+
+gitlab sync:
+  extends:
+    - .container base
+  rules:
+    - changes:
+      - containers/gitlab-sync/**
+      - .gitlab-ci.yml
+  script:
+    - docker build -t $CI_REGISTRY_IMAGE/gitlab-sync:latest ./containers/gitlab-sync
+    - |
+       docker run --rm \
+           -v $(pwd)/htmlcov:/app/htmlcov \
+           --entrypoint=sh \
+           $CI_REGISTRY_IMAGE/gitlab-sync:latest \
+           -c 'pip install tox && tox'
+    - docker push $CI_REGISTRY_IMAGE/gitlab-sync:latest
+
+infra:
+  extends:
+    - .container base
+  rules:
+    - changes:
+      - docker-compose.yml
+      - .gitlab-ci.yml
   script:
     - docker login -u gitlab-ci-token -p $CI_JOB_TOKEN $CI_REGISTRY
     - docker build -t $CI_REGISTRY_IMAGE/gitlab-job-runner containers/farm-runner
