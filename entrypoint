@@ -13,7 +13,6 @@ echo -e "DNS_SERVER=${DNS_SERVER:-10.0.0.6}
 TMP_MOUNT=${TMP_MOUNT:-/mnt/tmp}
 PERMANENT_MOUNT=${PERMANENT_MOUNT:-/mnt/permanent}
 PRIVATE_INTERFACE=${PRIVATE_INTERFACE:-private}
-BOOT2CONTAINER_RELEASE=v0.5
 " > ./config/prod.env
 cat ./config/private.env >> ./config/prod.env
 
@@ -36,48 +35,6 @@ die(){
 
 [ -d $TMP_MOUNT ] || die "TMP_MOUNT path ($TMP_MOUNT) is not a directory"
 [ -e /sys/class/net/$PRIVATE_INTERFACE ] || die "PRIVATE_INTERFACE ($PRIVATE_INTERFACE) does not exist"
-
-
-BOOTS_TOP_LEVEL=${TMP_MOUNT}/boots
-[ -d $BOOTS_TOP_LEVEL ] || mkdir -pv $BOOTS_TOP_LEVEL
-
-# Setup the boots service with a prerequisite "default" image.
-# This is not done in boots, because that component has no
-# responsibilities for image generation.
-# It's not good that the NFS root filesystem path is hard-coded here.
-NFS_ROOTS=$BOOTS_TOP_LEVEL/nfs-roots
-[ -d $NFS_ROOTS ] || mkdir -pv $NFS_ROOTS
-
-[ -d $BOOTS_TOP_LEVEL/tftp ] || mkdir -v $BOOTS_TOP_LEVEL/tftp
-if [ ! -e $BOOTS_TOP_LEVEL/tftp/pxelinux.0 ] || [ ! -e $BOOTS_TOP_LEVEL/tftp/ldlinux.c32 ]; then
-    tmp_dir=$(mktemp -d -t ci-XXXXXXXXXX)
-    log "pxelinux does not exist, recreating..."
-    wget -O- 'https://mirrors.edge.kernel.org/pub/linux/utils/boot/syslinux/syslinux-6.03.tar.gz' | tar x -z -f - -C $tmp_dir
-    cp -v $tmp_dir/syslinux-6.03/bios/core/pxelinux.0 $BOOTS_TOP_LEVEL/tftp/
-    cp -v $tmp_dir/syslinux-6.03/bios/com32/elflink/ldlinux/ldlinux.c32 $BOOTS_TOP_LEVEL/tftp/
-    rm -rf $tmp_dir
-fi
-
-CI_KERNEL="$BOOTS_TOP_LEVEL/tftp/${BOOT2CONTAINER_RELEASE}-ci-kernel"
-CI_INITRAMFS="$BOOTS_TOP_LEVEL/tftp/${BOOT2CONTAINER_RELEASE}-initramfs.linux_amd64.cpio.xz"
-
-if [ ! -e $CI_KERNEL ]; then
-    log "fetch default CI kernel..."
-    wget -O$CI_KERNEL "https://gitlab.freedesktop.org/mupuf/boot2container/-/releases/${BOOT2CONTAINER_RELEASE}/downloads/bzImage"
-fi
-if [ ! -e $CI_INITRAMFS ]; then
-    log "fetch default CI initramfs..."
-    wget -O$CI_INITRAMFS "https://gitlab.freedesktop.org/mupuf/boot2container/-/releases/${BOOT2CONTAINER_RELEASE}/downloads/initramfs.linux_amd64.cpio.xz"
-fi
-
-[ -d $BOOTS_TOP_LEVEL/tftp/pxelinux.cfg ] || mkdir -v $BOOTS_TOP_LEVEL/tftp/pxelinux.cfg
-    cat <<EOF > $BOOTS_TOP_LEVEL/tftp/pxelinux.cfg/default
-DEFAULT def
-label def
-         KERNEL ${BOOT2CONTAINER_RELEASE}-ci-kernel
-         INITRD ${BOOT2CONTAINER_RELEASE}-initramfs.linux_amd64.cpio.xz
-         APPEND b2c.container=docker://registry.freedesktop.org/mupuf/valve-infra/machine_registration:latest b2c.cache_device=auto b2c.ntp_peer=auto nomodeset
-EOF
 
 # Setup first-time gitlab configuration
 if [ -n "$GITLAB_REGISTRATION_TOKEN" ] && [ -n "$GITLAB_ACCESS_TOKEN" ]; then
