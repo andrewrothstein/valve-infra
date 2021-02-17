@@ -29,7 +29,7 @@ If you intend to hack on the project, run the following commands:
 
     git clone --recurse-submodules git@gitlab.freedesktop.org:mupuf/valve-infra.git
     cd valve-infra
-    docker build -t registry.freedesktop.org/mupuf/valve-infra/infra .
+    docker build -t registry.freedesktop.org/mupuf/valve-infra .
 
 ## Deploying the infrastructure
 
