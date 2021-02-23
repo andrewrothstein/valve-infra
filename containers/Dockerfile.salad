@@ -1,0 +1,13 @@
+FROM python:3.8-alpine
+
+COPY salad/ /app
+WORKDIR /app
+
+RUN set -ex \
+    && apk add --no-cache --virtual .build-deps gcc libc-dev linux-headers \
+    && pip install --no-cache-dir uwsgi \
+    && pip install --no-cache-dir -r requirements.txt \
+    && apk del --no-network .build-deps
+
+ENV SALAD_PORT=8080
+CMD uwsgi --socket 0.0.0.0:${SALAD_PORT} --protocol=http -w app:app

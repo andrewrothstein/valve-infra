@@ -27,3 +27,5 @@ infra:
     - docker-compose push
     - docker build -t $CI_REGISTRY_IMAGE/machine_registration:latest -f containers/Dockerfile.machine_registration .
     - docker push $CI_REGISTRY_IMAGE/machine_registration:latest
+    - docker build -t $CI_REGISTRY_IMAGE/salad:latest -f containers/Dockerfile.salad .
+    - docker push $CI_REGISTRY_IMAGE/salad:latest
