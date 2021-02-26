@@ -18,6 +18,9 @@ cat ./config/private.env >> ./config/prod.env
 
 . ./config/prod.env
 
+[ -d "$TMP_MOUNT" ] || mkdir "$TMP_MOUNT"
+[ -d "$PERMANENT_MOUNT" ] || mkdir "$PERMANENT_MOUNT"
+
 D=$(dirname $(readlink -f $0))
 MARS_SECRET_KEYFILE=$PERMANENT_MOUNT/mars_secret_key
 if [ ! -e $MARS_SECRET_KEYFILE ]; then
