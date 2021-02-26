@@ -124,7 +124,7 @@ class ConsoleStream(Thread):
         self.new_session_re = \
             re.compile(b"^\r\\[    0.000000\\] Linux version")
 
-        self.ping_re = re.compile(b"^SALAD.ping$")
+        self.ping_re = re.compile(b"^SALAD.ping\r?\n$")
 
         self.end_session_re = \
             re.compile(b"^SALAD.close_current_session$")  # reboot: Restarting system
