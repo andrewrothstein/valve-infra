@@ -343,4 +343,4 @@ elif args.action == "check":
     if not has_differences:
         print("No differences found!")
 
-    sys.exit(0 if has_differences else 1)
+    sys.exit(0 if not has_differences else 1)
