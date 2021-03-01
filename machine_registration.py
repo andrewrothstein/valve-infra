@@ -330,10 +330,14 @@ elif args.action == "check":
     expected_conf = r.json()
 
     # Generate the configuration
+    local_config = info.to_machine_registration_request(ignore_local_tty_device=True)
     has_differences = False
-    for key, value in info.to_machine_registration_request().items():
-        expected_value = expected_conf[key]
-        if set(expected_value) != set(value):
+    for key, value in local_config.items():
+        expected_value = expected_conf.get(key)
+        if (type(expected_value) != type(value) or \
+            (type(value) is list and set(expected_value) != set(value)) or \
+            (type(value) is not list and expected_value != value)):
+            has_differences = True
             print(f"Mismatch for '{key}': {value} vs the expected {expected_value}")
 
     if not has_differences:
