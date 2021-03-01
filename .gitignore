@@ -3,3 +3,6 @@ config/
 **/htmlcov/
 .coverage
 *.pyc
+**/_trial_*/**
+**/*.egg-info/**
+*.cache

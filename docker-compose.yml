@@ -1,10 +1,5 @@
-# A note about the paths in this file
-# The docker compose running inside *this* container it actually
-# running again the host docker, which means any volumes are resolving
-# paths on the *host*, not inside this container.
-# However, the build context is inside this container, so paths are
-# resolved local to the container we're running in.
 version: "3.3"
+
 services:
   mars:
     image: registry.freedesktop.org/mupuf/mars
@@ -57,3 +52,13 @@ services:
       - MARS_HOST=http://10.42.0.1:80
     volumes:
       - ${TMP_MOUNT}/gitlab-runner:/etc/gitlab-runner
+  sergant-hartman:
+    image: registry.freedesktop.org/mupuf/valve-infra/sergant-hartman
+    # FIXME: Can we rely on the service names in this file rather than
+    # hardcoding the port numbers?
+    environment:
+      - BOOTS_HOST=http://10.42.0.1:8087
+      - PDU_GATEWAY_HOST=http://10.42.0.1:8089
+      - MARS_HOST=http://10.42.0.1:80
+    ports:
+      - "8001:80/tcp"
