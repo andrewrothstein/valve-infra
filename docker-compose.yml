@@ -38,6 +38,7 @@ services:
       - BOOTS_HTTP_SERVICE_PORT=8088
       - PRIVATE_INTERFACE=$PRIVATE_INTERFACE
       - MARS_HOST=http://10.42.0.1:80
+      - BOOT2CONTAINER_RELEASE=v0.5
     volumes:
       - ${TMP_MOUNT}/boots:/boots
       - ${TMP_MOUNT}/boots/nfs-roots:/nfs
