@@ -86,16 +86,14 @@ farm-runner:
     - docker build -t $CI_REGISTRY_IMAGE/gitlab-job-runner containers/farm-runner
     - docker push $CI_REGISTRY_IMAGE/gitlab-job-runner
 
-infra:
+valve-infra-base:
   extends:
     - .container base
   rules:
     - changes:
-      - docker-compose.yml
+      - Dockerfile
       - .gitlab-ci.yml
   script:
     - docker login -u gitlab-ci-token -p $CI_JOB_TOKEN $CI_REGISTRY
     - docker build -t $CI_REGISTRY_IMAGE/valve-infra .
     - docker push $CI_REGISTRY_IMAGE/valve-infra
-    - docker-compose build
-    - docker-compose push
