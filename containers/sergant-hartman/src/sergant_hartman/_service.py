@@ -52,12 +52,12 @@ class BootsAPI(object):
             },
             # FIXME: MaRS should be taught about specifying the current
             # default kernel, somehow.
-            'kernel_path': 'v0.5-ci-kernel',
+            'kernel_path': 'v0.6-ci-kernel',
             # Ditto, if there are defaults we need to keep, should merge
             # here rather than overwrite.
             'kernel_cmdline_extras': None,
             # Ditto
-            'initrd_path': 'v0.5-initramfs.linux_amd64.cpio.xz',
+            'initrd_path': 'v0.6-initramfs.linux_amd64.cpio.xz',
             'ip': machine['ip_address'],
             'hostname': machine['full_name'],
         }
