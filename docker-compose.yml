@@ -62,3 +62,11 @@ services:
       - MARS_HOST=http://10.42.0.1:80
     ports:
       - "8001:80/tcp"
+  ntpd:
+    image: ermaker/chrony
+    cap_add:
+      - SYS_TIME
+    environment:
+      - CHRONY_SERVERS=0.pool.ntp.org,1.pool.ntp.org,2.pool.ntp.org
+    ports:
+      - 123:123/udp
