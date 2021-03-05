@@ -61,7 +61,7 @@ class BootsAPI(object):
             'ip': machine['ip_address'],
             'hostname': machine['full_name'],
         }
-        r = await treq.post(
+        r = await self._treq.post(
             f'{self._api}/duts/{machine["mac_address"]}',
             json=boots_payload)
         if r.code != 200:
@@ -76,7 +76,7 @@ class MarsAPI(object):
     _api = attr.ib(default=os.getenv('MARS_HOST', 'http://10.42.0.1:80'))
 
     async def fetch_machine(self, mac_address):
-        r = await treq.get(f'{self._api}/api/v1/machine/{mac_address}')
+        r = await self._treq.get(f'{self._api}/api/v1/machine/{mac_address}')
         return await r.json()
 
     async def fetch_nonready_machines(self, callback):
@@ -88,7 +88,7 @@ class MarsAPI(object):
 
     async def set_ready_for_service(self, machine):
         machine['ready_for_service'] = True
-        r = await treq.patch(
+        r = await self._treq.patch(
             f'{self._api}/api/v1/machine/{machine["mac_address"]}/',
             json=machine)
         if r.code != 200:
@@ -100,7 +100,7 @@ class MarsAPI(object):
         last_checked = datetime.now()
         while True:
             try:
-                r = await treq.get(
+                r = await self._treq.get(
                     f'{self._api}/api/v1/events/?since={last_checked.isoformat()}')
                 events = await r.json()
                 if not events:
