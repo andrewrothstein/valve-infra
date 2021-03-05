@@ -70,3 +70,7 @@ services:
       - CHRONY_SERVERS=0.pool.ntp.org,1.pool.ntp.org,2.pool.ntp.org
     ports:
       - 123:123/udp
+  registryd:
+    image: registry
+    ports:
+      - 8002:5000/tcp
