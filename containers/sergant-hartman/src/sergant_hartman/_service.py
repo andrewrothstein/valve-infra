@@ -40,7 +40,7 @@ def machine_has_pdu_assigned(machine):
 @attr.s
 class BootsAPI(object):
     _treq = attr.ib()
-    _api = attr.ib(default='http://10.42.0.1:8087')
+    _api = attr.ib(default=os.getenv('BOOTS_HOST', 'http://10.42.0.1:8087'))
 
     async def set_boot_containers(self, machine, containers):
         logger.debug(f'resetting boots configuration for\n{pformat(machine)}')
@@ -73,7 +73,7 @@ class BootsAPI(object):
 @attr.s
 class MarsAPI(object):
     _treq = attr.ib()
-    _api = attr.ib(default='http://10.42.0.1:80')
+    _api = attr.ib(default=os.getenv('MARS_HOST', 'http://10.42.0.1:80'))
 
     async def fetch_machine(self, mac_address):
         r = await treq.get(f'{self._api}/api/v1/machine/{mac_address}')
@@ -124,7 +124,7 @@ class MarsAPI(object):
 @attr.s
 class PDUGatewayAPI(object):
     _treq = attr.ib()
-    _api = attr.ib(default='http://10.42.0.1:8089')
+    _api = attr.ib(default=os.getenv('PDU_GATEWAY_HOST', 'http://10.42.0.1:8089'))
 
     async def poweron(self, machine):
         return await self._action(machine, "ON")
