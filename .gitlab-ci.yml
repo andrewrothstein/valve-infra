@@ -74,6 +74,18 @@ salad:
     - docker build -t $CI_REGISTRY_IMAGE/salad:latest -f containers/Dockerfile.salad .
     - docker push $CI_REGISTRY_IMAGE/salad:latest
 
+farm-runner:
+  extends:
+    - .container base
+  rules:
+    - changes:
+      - containers/farm-runner/**
+      - .gitlab-ci.yml
+  script:
+    - docker login -u gitlab-ci-token -p $CI_JOB_TOKEN $CI_REGISTRY
+    - docker build -t $CI_REGISTRY_IMAGE/gitlab-job-runner containers/farm-runner
+    - docker push $CI_REGISTRY_IMAGE/gitlab-job-runner
+
 infra:
   extends:
     - .container base
@@ -83,8 +95,6 @@ infra:
       - .gitlab-ci.yml
   script:
     - docker login -u gitlab-ci-token -p $CI_JOB_TOKEN $CI_REGISTRY
-    - docker build -t $CI_REGISTRY_IMAGE/gitlab-job-runner containers/farm-runner
-    - docker push $CI_REGISTRY_IMAGE/gitlab-job-runner
     - docker build -t $CI_REGISTRY_IMAGE/valve-infra .
     - docker push $CI_REGISTRY_IMAGE/valve-infra
     - docker-compose build
