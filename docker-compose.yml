@@ -12,12 +12,6 @@ services:
       - "80:80/tcp"
     volumes:
       - /mnt:/mnt
-  pdugateway:
-    image: registry.freedesktop.org/mupuf/pdu-gateway
-    environment:
-      PDUGATEWAY_PORT: 8089
-      PDUGATEWAY_STATIC_PDUS: '[{"pdu_name": "farm-pdu-1", "model": "cyberpower_pdu41004", "config": {"hostname": "10.42.0.2"}}]'
-    network_mode: host
   boots:
     privileged: true
     network_mode: host
