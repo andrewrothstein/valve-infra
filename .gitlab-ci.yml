@@ -60,17 +60,6 @@ machine_registration:
   script:
     - docker build -t $IMAGE_NAME -f containers/Dockerfile.machine_registration .
 
-salad:
-  extends:
-    - .container base
-  rules:
-    - changes:
-      - containers/Dockerfile.salad
-      - salad/**
-      - .gitlab-ci.yml
-  script:
-    - docker build -t $IMAGE_NAME -f containers/Dockerfile.salad .
-
 farm-runner:
   extends:
     - .container base

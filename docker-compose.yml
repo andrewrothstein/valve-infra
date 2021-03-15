@@ -18,12 +18,6 @@ services:
       PDUGATEWAY_PORT: 8089
       PDUGATEWAY_STATIC_PDUS: '[{"pdu_name": "farm-pdu-1", "model": "cyberpower_pdu41004", "config": {"hostname": "10.42.0.2"}}]'
     network_mode: host
-  salad:
-    privileged: true
-    image: registry.freedesktop.org/mupuf/valve-infra/salad:latest
-    environment:
-      SALAD_PORT: 8090
-    network_mode: host
   boots:
     privileged: true
     network_mode: host

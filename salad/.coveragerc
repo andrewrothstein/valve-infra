@@ -1,5 +1,0 @@
-[run]
-concurrency=multiprocessing
-; branch=True
-source=.
-omit=*.tox*,wsgi.py
