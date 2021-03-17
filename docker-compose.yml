@@ -27,6 +27,14 @@ services:
       - ${TMP_MOUNT}/boots/nfs-roots:/nfs
       - ${TMP_MOUNT}/boots/nfs-roots:/boots/tftp/nfs
       - /lib/modules:/lib/modules
+  executor:
+    privileged: true
+    network_mode: host
+    image: registry.freedesktop.org/mupuf/valve-infra/executor
+    environment:
+      - EXECUTOR_PORT=8003
+      - MARS_URL=http://10.42.0.1:80
+      - BOOTS_URL=http://10.42.0.1:8087
   gitlab-runner:
     image: gitlab/gitlab-runner:alpine-v13.5.0
     volumes:

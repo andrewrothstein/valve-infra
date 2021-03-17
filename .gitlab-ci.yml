@@ -19,6 +19,16 @@ variables:
   after_script:
     - if [[ "$CI_COMMIT_BRANCH" == "master" ]]; then docker push $IMAGE_NAME; fi
 
+executor:
+  extends:
+    - .container base
+  rules:
+    - changes:
+      - containers/executor/**
+      - .gitlab-ci.yml
+  script:
+    - docker build -t $IMAGE_NAME -f executor/Dockerfile .
+
 gitlab-sync:
   extends:
     - .container base
