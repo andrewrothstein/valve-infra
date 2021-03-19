@@ -229,7 +229,9 @@ class Job:
         j = yaml.safe_load(job_yml)
 
         self.version = j.get("version", 1)
-        self.deadline = datetime.fromisoformat(j.get("deadline", ""))
+
+        deadline_str = j.get("deadline")
+        self.deadline = datetime.fromisoformat(deadline_str) if deadline_str else datetime.max
 
         self.target = Target.from_job(j.get('target', {}))
 
