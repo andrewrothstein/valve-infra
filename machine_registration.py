@@ -337,8 +337,9 @@ class MachineInfo:
 
         # Complete the association on the other side
         if first_port_found is not None:
-            mac_addr = info.default_gateway_nif_addrs.mac
-            print(f"SALAD.machine_id={mac_addr}")
+            with serial.Serial(first_port_found, baudrate=115200, timeout=1) as ser:
+                mac_addr = info.default_gateway_nif_addrs.mac
+                ser.write(f"SALAD.machine_id={mac_addr}\n".encode())
 
         return first_port_found
 
