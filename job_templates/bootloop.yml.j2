@@ -1,0 +1,40 @@
+version: 1
+
+# Rules to match for a machine to qualify
+target:
+  id: "{{ machine_id }}"
+
+timeouts:
+  first_console_activity:  # This limits the time it can take to receive the first console log
+    minutes: 2
+    retries: 0
+  console_activity:  # Reset every time we receive a message from the logs
+    seconds: 15
+    retries: 0
+  overall:           # Maximum time the job can take, not overrideable by the "continue" deployment
+    minutes: 3
+    retries: 0
+    # no retries possible here
+
+console_patterns:
+    session_end:
+        regex: "^(\\[[\\d \\.]{12}\\] reboot: .*|\\+ poweroff -f\r)$"
+    job_success:
+        regex: "^JOB_RESULT=0\r$"
+    job_warn:
+        regex: "^The configured console is not connected to SALAD$"
+
+# Environment to deploy
+deployment:
+  # Initial boot
+  start:
+    kernel:
+      url: "https://private.mupuf.org/ci-kernel"
+      cmdline:
+        - b2c.container="-ti docker://registry.freedesktop.org/mupuf/valve-infra/machine_registration:latest check"
+        - b2c.ntp_peer="10.42.0.1" b2c.pipefail b2c.cache_device=auto
+        - b2c.shutdown_cmd="echo JOB_RESULT=$B2C_PIPELINE_PREV_CONTAINER_EXIT_CODE; poweroff -f"
+        - console={{ local_tty_device }},115200 earlyprintk=vga,keep SALAD.machine_id={{ machine_id }}
+        - loglevel=6
+    initramfs:
+      url: "https://gitlab.freedesktop.org/mupuf/boot2container/-/releases/v0.6/downloads/initramfs.linux_amd64.cpio.xz"

@@ -2,16 +2,24 @@
 
 from datetime import datetime, timedelta
 from threading import Thread, Event
+from multiprocessing import Process
+from collections import defaultdict
+from jinja2 import Template
 from enum import Enum
+
 from salad import salad, JobSession
 from pdu import PDU, PDUState
 from bootsclient import BootsClient
+from client import JobStatus
 
+import subprocess
 import traceback
 import requests
+import tempfile
 import socket
 import time
 import yaml
+import sys
 import os
 
 
@@ -101,8 +109,102 @@ class JobConsole(JobSession):
         super().close()
 
 
+def str_to_int(string, default):
+    try:
+        return int(string)
+    except Exception:
+        return default
+
+
+class SergentHartman(Process):
+    def __init__(self, machine_id, mars_base_url, template_params,
+                 boot_loop_counts=100, qualifying_rate=100):
+        super().__init__()
+
+        self.machine_id = machine_id
+        self.mars_base_url = mars_base_url
+        self.template_params = template_params
+
+        self.boot_loop_counts = boot_loop_counts
+        self.qualifying_rate = qualifying_rate
+
+        self.statuses = defaultdict(int)
+
+    @property
+    def mars_machine_url(self):
+        return f"{self.mars_base_url}/api/v1/machine/{self.machine_id}/"
+
+    def run_job(self, job_template):
+        try:
+            with tempfile.NamedTemporaryFile("w") as f_job, open(job_template, "r") as f_template:
+                template_str = f_template.read()
+
+                # Instanciate the template, and write in the temporary file
+                template = Template(template_str).render(machine_id=self.machine_id,
+                                                         **self.template_params)
+                f_job.write(template)
+                f_job.flush()
+
+                # Execute the job
+                return subprocess.run(["python3", "-m", "executor.client", "-w", "run", f_job.name],
+                                    stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, stdin=subprocess.DEVNULL,
+                                    timeout=600).returncode
+        except Exception as e:
+            traceback.print_exc()
+            return JobStatus.SETUP_FAIL.value
+
+    def run(self):
+        mid = self.machine_id
+
+        register_template = os.getenv('EXECUTOR_REGISTRATION_JOB', None)
+        bootloop_template = os.getenv('EXECUTOR_BOOTLOOP_JOB', None)
+
+        if register_template is None or bootloop_template is None:
+            return
+
+        # Start by forcing the machine to register itself to make sure the
+        # its configuration is up to date (especially the serial console
+        # port). Loop until it succeeds!
+        while True:
+            print(f"SergentHartman/{mid} - Perform the first registration")
+
+            status = JobStatus(self.run_job(register_template))
+            if status != JobStatus.PASS:
+                delay = str_to_int(os.getenv("SERGENT_HARTMAN_REGISTRATION_RETRIAL_DELAY", None), 120)
+                print(f"SergentHartman/{mid} - First registration failed with status {status.name}. Retrying in {delay} second(s)")
+                time.sleep(delay)
+            else:
+                print(f"SergentHartman/{mid} - Registration succeeded, moving on to the boot loop")
+                break
+
+        # Start the qualifying loop
+        self.statuses = defaultdict(int)
+        for i in range(self.boot_loop_counts):
+            status = JobStatus(self.run_job(bootloop_template))
+            self.statuses[status] += 1
+
+            statuses_str = [f"{status.name}: {values}" for status, values in self.statuses.items()]
+            print(f"SergentHartman/{mid} - loop {i+1}/{self.boot_loop_counts} - statuses {statuses_str}: Execute one more round!")
+
+        # Update MaRS
+        ready_for_service = self.statuses[JobStatus.PASS] >= self.qualifying_rate
+        params = {
+            "ready_for_service": ready_for_service
+        }
+        r = requests.patch(self.mars_machine_url, json=params)
+        r.raise_for_status()
+
+        print(f"SergentHartman/{mid}: Reported to MaRS that the machine is {'' if ready_for_service else 'NOT '}ready for service")
+
+        sys.exit(0 if ready_for_service else 1)
+
+
 class Machine(Thread):
     _machines = dict()
+
+    @classmethod
+    def mars_base_url(cls):
+        return os.getenv('MARS_URL', "http://127.0.0.1")
 
     def __init__(self, machine_id, ready_for_service=False, tags=[], pdu_port=None,
                  local_tty_device=None):
@@ -115,6 +217,9 @@ class Machine(Thread):
         self.ready_for_service = ready_for_service
         self.tags = set(tags)
         self.local_tty_device = local_tty_device
+
+        # Training / Qualifying process
+        self.sergent_hartman = None
 
         # Outside -> Inside communication
         self.job_ready = Event()
@@ -137,10 +242,6 @@ class Machine(Thread):
             del self._machines[self.machine_id]
         except Exception as e:
             print(e)
-
-    @property
-    def ready_for_jobs(self):
-        return self.pdu_port is not None
 
     def start_job(self, job, console_endpoint):
         if self.state != MachineState.IDLE:
@@ -194,6 +295,34 @@ class Machine(Thread):
                 if task.is_finished:
                     pending_tasks.remove(task)
                     self._prepare_report_progress(task_count, pending_tasks)
+
+    def summon_sergent_hartman(self):
+        if self.sergent_hartman is not None:
+            if self.sergent_hartman.is_alive():
+                # Nothing to do!
+                return
+            elif self.sergent_hartman.exitcode is not None:
+                self.ready_for_service = self.sergent_hartman.exitcode == 0
+            else:
+                self.sergent_hartman.kill()
+            self.sergent_hartman = None
+
+        if self.ready_for_service:
+            return
+
+        template_params = {
+            "ready_for_service": self.ready_for_service,
+            "tags": set(self.tags),
+            "local_tty_device": self.local_tty_device,
+        }
+        boot_loop_counts = str_to_int(os.getenv("SERGENT_HARTMAN_BOOT_COUNT", None), 5)
+        qualifying_rate = str_to_int(os.getenv("SERGENT_HARTMAN_QUALIFYING_BOOT_COUNT", None), 5)
+        self.sergent_hartman = SergentHartman(machine_id=self.machine_id,
+                                                mars_base_url=self.mars_base_url(),
+                                                template_params=template_params,
+                                                boot_loop_counts=boot_loop_counts,
+                                                qualifying_rate=qualifying_rate)
+        self.sergent_hartman.start()
 
     def run(self):
         def session_init():
@@ -316,10 +445,15 @@ class Machine(Thread):
                 deployment = self.job_config.deployment_continue
 
         while not self.stop_event.is_set():
-            # Wait until the machine is ready for jobs
-            if not self.ready_for_jobs:
+            # Wait for the machine to have an assigned PDU port
+            if self.pdu_port is None:
                 time.sleep(1)
                 continue
+
+            # If the machine is not ready for service, start a background task
+            # that will queue jobs until it gets qualified
+            if not self.ready_for_service:
+                self.summon_sergent_hartman()
 
             try:
                 if not session_init():
@@ -381,8 +515,7 @@ class Machine(Thread):
 
         pdus = dict()
 
-        mars_base_url = os.getenv('MARS_URL', "http://127.0.0.1")
-        r = requests.get(f"{mars_base_url}/api/v1/machine/")
+        r = requests.get(f"{cls.mars_base_url()}/api/v1/machine/")
         r.raise_for_status()
 
         local_only_machines = set(cls.known_machines())
@@ -446,6 +579,10 @@ class Machine(Thread):
         # Signal all the workers we want to stop
         for machine in machines:
             machine.stop_event.set()
+            try:
+                machine.sergent_hartman.kill()
+            except AttributeError:
+                pass
 
         # Wait for all the workers to stop
         for machine in machines:

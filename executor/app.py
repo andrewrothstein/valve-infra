@@ -20,7 +20,7 @@ import time
 app = flask.Flask(__name__)
 
 
-class MaRSPoller(Thread):
+class MaRS(Thread):
     def __init__(self):
         super().__init__()
         self.stop_event = Event()
@@ -109,7 +109,7 @@ if __name__ == '__main__':  # pragma: nocover
     salad.start()
 
     # Create all the workers based on the machines found in MaRS
-    mars_poller = MaRSPoller()
+    mars_poller = MaRS()
     mars_poller.start()
 
     # Start flask

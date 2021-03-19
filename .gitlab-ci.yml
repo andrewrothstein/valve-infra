@@ -44,21 +44,6 @@ gitlab-sync:
            --entrypoint=sh $IMAGE_NAME \
            -c 'pip install tox && tox'
 
-sergant-hartman:
-  extends:
-    - .container base
-  rules:
-    - changes:
-      - containers/sergant-hartman/**
-      - .gitlab-ci.yml
-  script:
-    - docker build -t $IMAGE_NAME ./containers/sergant-hartman
-    - |
-       docker run --rm \
-           -v $(pwd)/htmlcov:/app/htmlcov \
-           --entrypoint=sh $IMAGE_NAME \
-           -c 'trial sergant_hartman'
-
 machine_registration:
   extends:
     - .container base

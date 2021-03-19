@@ -33,6 +33,11 @@ services:
     image: registry.freedesktop.org/mupuf/valve-infra/executor
     environment:
       - EXECUTOR_PORT=8003
+      - EXECUTOR_REGISTRATION_JOB="/app/job_templates/register.yml.j2"
+      - EXECUTOR_BOOTLOOP_JOB="/app/job_templates/bootloop.yml.j2"
+      - SERGENT_HARTMAN_BOOT_COUNT=100
+      - SERGENT_HARTMAN_QUALIFYING_BOOT_COUNT=100
+      - SERGENT_HARTMAN_REGISTRATION_RETRIAL_DELAY=120
       - MARS_URL=http://10.42.0.1:80
       - BOOTS_URL=http://10.42.0.1:8087
   gitlab-runner:
@@ -48,16 +53,6 @@ services:
       - MARS_HOST=http://10.42.0.1:80
     volumes:
       - ${TMP_MOUNT}/gitlab-runner:/etc/gitlab-runner
-  sergant-hartman:
-    image: registry.freedesktop.org/mupuf/valve-infra/sergant-hartman
-    # FIXME: Can we rely on the service names in this file rather than
-    # hardcoding the port numbers?
-    environment:
-      - BOOTS_HOST=http://10.42.0.1:8087
-      - PDU_GATEWAY_HOST=http://10.42.0.1:8089
-      - MARS_HOST=http://10.42.0.1:80
-    ports:
-      - "8001:80/tcp"
   ntpd:
     image: ermaker/chrony
     cap_add:
