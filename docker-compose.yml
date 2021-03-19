@@ -7,7 +7,7 @@ services:
       - MARS_HOST=10.42.0.1
       - MARS_DEBUG=True
       - MARS_SECRET_KEY=$MARS_SECRET_KEY
-      - MARS_SQLITE_PATH=/mnt/permanent/mars.sqlite3
+      - MARS_SQLITE_PATH=${PERMANENT_MOUNT}/mars.sqlite3
     ports:
       - "80:80/tcp"
     volumes:
