@@ -39,6 +39,7 @@ def get_machine_list():
             "state": machine.state.name,
             "ready_for_service": machine.ready_for_service,
             "console": machine.console.stream_name if machine.console is not None else None,
+            "local_tty_device": machine.local_tty_device,
             "tags": list(machine.tags)
         }
 

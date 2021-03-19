@@ -104,7 +104,8 @@ class JobConsole(JobSession):
 class Machine(Thread):
     _machines = dict()
 
-    def __init__(self, machine_id, ready_for_service=False, tags=[], pdu_port=None):
+    def __init__(self, machine_id, ready_for_service=False, tags=[], pdu_port=None,
+                 local_tty_device=None):
         super().__init__()
 
         # Machine
@@ -113,6 +114,7 @@ class Machine(Thread):
         self.state = MachineState.WAIT_FOR_CONFIG
         self.ready_for_service = ready_for_service
         self.tags = set(tags)
+        self.local_tty_device = local_tty_device
 
         # Outside -> Inside communication
         self.job_ready = Event()
@@ -325,15 +327,17 @@ class Machine(Thread):
             # TODO: Keep the state of the job in memory for later querying
 
     @classmethod
-    def update_or_create(cls, machine_id, ready_for_service=False, tags=[], pdu_port=None):
+    def update_or_create(cls, machine_id, ready_for_service=False, tags=[], pdu_port=None,
+                         local_tty_device=None):
         machine = cls._machines.get(machine_id)
         if machine is None:
             machine = cls(machine_id, ready_for_service=ready_for_service,
-                          tags=tags, pdu_port=pdu_port)
+                          tags=tags, pdu_port=pdu_port, local_tty_device=local_tty_device)
         else:
             machine.ready_for_service = ready_for_service
             machine.tags = tags
             machine.pdu_port = pdu_port
+            machine.local_tty_device = local_tty_device
 
         return machine
 
@@ -378,7 +382,8 @@ class Machine(Thread):
             machine = cls.update_or_create(m.get("mac_address"),
                                            ready_for_service=m.get('ready_for_service', False),
                                            tags=set(m.get('tags', [])),
-                                           pdu_port=pdu_port)
+                                           pdu_port=pdu_port,
+                                           local_tty_device=m.get("local_tty_device"))
 
             # Remove the machine from the list of local-only machines
             local_only_machines.discard(machine)
