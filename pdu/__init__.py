@@ -20,27 +20,30 @@ class PDUState(IntEnum):
 
 
 class PDUPort:
-    def __init__(self, pdu, port_id, label=None, delay=5):
+    def __init__(self, pdu, port_id, label=None, min_off_time=5):
         self.pdu = pdu
         self.port_id = port_id
         self.label = label
-        self.delay = delay
+        self.min_off_time = min_off_time
 
-        self.last_state_change = datetime.now()
+        self.last_shutdown = datetime.now()
 
     def set(self, state):
         # Check the current state before writing it
+        cur_state = self.state
         if self.state == state:
             return
 
-        # Enforce a minimum amount of time between state changes
-        time_since_last_change = (datetime.now() - self.last_state_change).total_seconds()
-        if time_since_last_change < self.delay:
-            time.sleep(self.delay - time_since_last_change)
+        if cur_state == PDUState.OFF and state == PDUState.ON:
+            # Enforce a minimum amount of time between state changes
+            time_spent_off = (datetime.now() - self.last_shutdown).total_seconds()
+            if time_spent_off < self.min_off_time:
+                time.sleep(self.min_off_time - time_spent_off)
 
         self.pdu.set_port_state(self.port_id, state)
 
-        self.last_state_change = datetime.now()
+        if state == PDUState.OFF:
+            self.last_shutdown = datetime.now()
 
     @property
     def state(self):

@@ -264,7 +264,7 @@ class Machine(Thread):
                 # Set up the deployment
                 self.log(f"Setting up the boot configuration\n")
                 set_boot_config(deployment)
-                self.log(f"Power up the machine, enforcing {self.pdu_port.delay} seconds of down time\n")
+                self.log(f"Power up the machine, enforcing {self.pdu_port.min_off_time} seconds of down time\n")
                 self.pdu_port.set(PDUState.ON)
 
                 # Start the boot, and enable the timeouts!
