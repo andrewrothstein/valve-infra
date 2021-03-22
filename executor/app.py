@@ -5,16 +5,38 @@ import sys
 import os
 sys.path.append(os.path.abspath('{}/../'.format(os.path.dirname(__file__))))
 
+from threading import Thread, Event
 from salad import salad
 from executor import Machine
 from job import Job
 
 import traceback
-import threading
 import flask
+import time
 
 
 app = flask.Flask(__name__)
+
+
+class MaRSPoller(Thread):
+    def __init__(self):
+        super().__init__()
+        self.stop_event = Event()
+
+    def stop(self, wait=True):
+        self.stop_event.set()
+        if wait:
+            self.join()
+
+    def run(self):
+        while True:
+            Machine.sync_machines_with_mars()
+
+            # Wait for 5 seconds, with the ability to exit every second
+            for i in range(5):
+                time.sleep(1)
+                if self.stop_event.is_set():
+                    return
 
 
 def get_machine_or_fail(machine_id):
@@ -76,11 +98,14 @@ if __name__ == '__main__':  # pragma: nocover
     salad.start()
 
     # Create all the workers based on the machines found in MaRS
-    Machine.sync_machines_with_mars()
+    mars_poller = MaRSPoller()
+    mars_poller.start()
 
     # Start flask
     app.run(host='0.0.0.0', port=os.getenv("EXECUTOR_PORT", 8003))
 
     # Shutdown
+    mars_poller.stop(wait=False)
     Machine.shutdown_all_workers()
     salad.stop()
+    mars_poller.join()
