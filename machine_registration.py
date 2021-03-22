@@ -288,6 +288,14 @@ class MachineInfo:
 
         return NetworkConf(mac, ipv4, ipv6)
 
+    def send_through_local_tty_device(self, msg, tty_device=None):
+        if tty_device is None:
+            tty_device = self.local_tty_device
+
+        if tty_device is not None:
+            with serial.Serial(tty_device, baudrate=115200, timeout=1) as ser:
+                ser.write(msg.encode())
+
     @cached_property
     def local_tty_device(self):
         def ping_serial_port(port):
@@ -337,9 +345,9 @@ class MachineInfo:
 
         # Complete the association on the other side
         if first_port_found is not None:
-            with serial.Serial(first_port_found, baudrate=115200, timeout=1) as ser:
-                mac_addr = info.default_gateway_nif_addrs.mac
-                ser.write(f"SALAD.machine_id={mac_addr}\n".encode())
+            mac_addr = info.default_gateway_nif_addrs.mac
+            self.send_through_local_tty_device(f"SALAD.machine_id={mac_addr}\n",
+                                               tty_device=first_port_found)
 
         return first_port_found
 
@@ -411,7 +419,11 @@ if args.action == "register":
     if r.status_code == 400:
         mac_address = params['mac_address']
         r = requests.patch(f"http://{args.mars_host}/api/v1/machine/{mac_address}/", json=params)
-        r.raise_for_status()
+
+    status = "complete" if r.status_code == 200 else "failed"
+    info.send_through_local_tty_device(f"MaRS: Registration {status}\n")
+
+    sys.exit(0 if r.status_code == 200 else 1)
 
 elif args.action == "cache_dbs":
     if args.amdgpu_drv_path is None:
