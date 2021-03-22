@@ -360,6 +360,9 @@ class Machine(Thread):
     @classmethod
     def sync_machines_with_mars(cls):
         def get_PDU_or_create_from_MaRS_URL(mars_pdu_url, pdu_port):
+            if mars_pdu_url is None:
+                return None
+
             pdu = pdus.get(mars_pdu_url)
             if pdu is None:
                 r = requests.get(mars_pdu_url)
@@ -368,9 +371,10 @@ class Machine(Thread):
                 p = r.json()
                 pdu = PDU.create(p.get('pdu_model'), p.get('name'), p.get('config', {}))
 
-            for port in pdu.ports:
-                if str(port.port_id) == str(pdu_port):
-                    return port
+            if pdu is not None:
+                for port in pdu.ports:
+                    if str(port.port_id) == str(pdu_port):
+                        return port
 
             return None
 
