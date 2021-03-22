@@ -359,7 +359,7 @@ class Machine(Thread):
 
     @classmethod
     def sync_machines_with_mars(cls):
-        def get_PDU_or_create_from_MaRS_URL(mars_pdu_url, pdu_port):
+        def get_PDU_or_create_from_MaRS_URL(mars_pdu_url, pdu_port, pdu_off_delay):
             if mars_pdu_url is None:
                 return None
 
@@ -374,6 +374,7 @@ class Machine(Thread):
             if pdu is not None:
                 for port in pdu.ports:
                     if str(port.port_id) == str(pdu_port):
+                        port.min_off_time = int(pdu_off_delay)
                         return port
 
             return None
@@ -390,7 +391,8 @@ class Machine(Thread):
             if m.get('is_retired', False):
                 continue
 
-            pdu_port = get_PDU_or_create_from_MaRS_URL(m.get('pdu'), m.get('pdu_port_id'))
+            pdu_port = get_PDU_or_create_from_MaRS_URL(m.get('pdu'), m.get('pdu_port_id'),
+                                                       m.get('min_off_time', 5))
             machine = cls.update_or_create(m.get("mac_address"),
                                            ready_for_service=m.get('ready_for_service', False),
                                            tags=set(m.get('tags', [])),
