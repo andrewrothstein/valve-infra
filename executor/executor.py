@@ -220,6 +220,18 @@ class Machine(Thread):
 
             return True
 
+        def set_boot_config(deployment):
+            # Allow the kernel cmdline to reference some machine attributes
+            template = Template(deployment.kernel_cmdline)
+            kernel_cmdline = template.render(machine_id=self.machine_id,
+                                             tags=self.tags,
+                                             local_tty_device=self.local_tty_device)
+
+            self.boots.set_config(mac_addr=self.machine_id,
+                              kernel_path=self._boots_url_to_name.get(deployment.kernel_url),
+                              initramfs_path=self._boots_url_to_name.get(deployment.initramfs_url),
+                              kernel_cmdline=kernel_cmdline)
+
         def session_end():
             self.job_config = None
 
@@ -251,11 +263,7 @@ class Machine(Thread):
 
                 # Set up the deployment
                 self.log(f"Setting up the boot configuration\n")
-                self.boots.set_config(mac_addr=self.machine_id,
-                              kernel_path=self._boots_url_to_name.get(deployment.kernel_url),
-                              initramfs_path=self._boots_url_to_name.get(deployment.initramfs_url),
-                              kernel_cmdline=deployment.kernel_cmdline)
-
+                set_boot_config(deployment)
                 self.log(f"Power up the machine, enforcing {self.pdu_port.delay} seconds of down time\n")
                 self.pdu_port.set(PDUState.ON)
 
