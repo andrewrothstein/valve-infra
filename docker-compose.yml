@@ -66,6 +66,8 @@ services:
     environment:
       - REGISTRY_PROXY_REMOTEURL="https://registry.freedesktop.org"
     restart: always
+    volumes:
+      - ${REGISTRY_MOUNT}:/var/lib/registry
     ports:
       - 8002:5000/tcp
   local_registry:

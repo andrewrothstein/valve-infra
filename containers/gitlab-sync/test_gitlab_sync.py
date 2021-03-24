@@ -159,7 +159,7 @@ class GitlabConfigTests(unittest.TestCase):
             assert added_runner is not None
             assert added_runner['token'] == f'token-{i}'
             assert added_runner['docker']['image'].find('gitlab-job-runner')
-            assert len(added_runner['docker']['volumes']) == 2
+            assert len(added_runner['docker']['volumes']) == 3
 
     def test_testRemoveRunner(self):
         self.config = GitlabConfig(self.tmp_file.name)

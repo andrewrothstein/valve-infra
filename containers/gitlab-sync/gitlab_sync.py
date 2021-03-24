@@ -113,6 +113,7 @@ class GitlabConfig:
 
     def add_runner(self, name, token):
         volumes = [
+            'local-container-volume:/var/lib/containers',
             '/var/run/docker.sock:/var/run/docker.sock',
             '/cache'
         ]
