@@ -38,7 +38,7 @@ def get_machine_list():
         return {
             "state": machine.state.name,
             "ready_for_service": machine.ready_for_service,
-            "console": machine.console.stream_name if machine.console is not None else None,
+            "has_pdu_assigned": machine.pdu_port is not None,
             "local_tty_device": machine.local_tty_device,
             "tags": list(machine.tags)
         }
