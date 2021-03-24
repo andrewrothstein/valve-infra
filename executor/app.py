@@ -84,17 +84,13 @@ def get_machine_list():
 
 @app.route('/api/v1/jobs', methods=['POST'])
 def post_job():
-    error_code = 200
-
     job_params = flask.request.json
 
     metadata = job_params["metadata"]
     job = Job(job_params["job"])
 
-    machine, reason = Machine.find_suitable_machine(job.target)
-    if machine is None:
-        error_code = 400
-    else:
+    machine, error_code, reason = Machine.find_suitable_machine(job.target)
+    if machine is not None:
         endpoint = (flask.request.remote_addr, metadata.get("callback_port"))
         machine.start_job(job, endpoint)
 

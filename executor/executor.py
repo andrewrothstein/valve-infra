@@ -418,21 +418,26 @@ class Machine(Thread):
         if target.target_id is not None:
             machine = cls.get_by_id(target.target_id)
             if machine is None:
-               return None, f"Unknown machine with ID {target.target_id}"
+               return None, 404, f"Unknown machine with ID {target.target_id}"
             elif not wanted_tags.issubset(machine.tags):
-                return None, f"The machine {target.target_id} does not matching tags (asked: {wanted_tags}, actual: {machine.tags})"
+                return None, 406, f"The machine {target.target_id} does not matching tags (asked: {wanted_tags}, actual: {machine.tags})"
             elif machine.state != MachineState.IDLE:
-                return None, f"The machine {target.target_id} is unavailable: Current state is {machine.state.name}"
-            return machine, None
+                return None, 409, f"The machine {target.target_id} is unavailable: Current state is {machine.state.name}"
+            return machine, 200, None
         else:
+            found_a_candidate_machine = False
             for machine in cls.known_machines():
                 if not wanted_tags.issubset(machine.tags):
                     continue
 
+                found_a_candidate_machine = True
                 if machine.state == MachineState.IDLE:
-                    return machine, "success"
+                    return machine, 200, "success"
 
-        return None, f"No available machines found matching the tags {wanted_tags}"
+            if found_a_candidate_machine:
+                return None, 409, f"All machines matching the tags {wanted_tags} are busy"
+            else:
+                return None, 406, f"No machines found matching the tags {wanted_tags}"
 
     @classmethod
     def shutdown_all_workers(cls):
