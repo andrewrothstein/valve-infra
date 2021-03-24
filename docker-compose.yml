@@ -70,3 +70,10 @@ services:
     image: registry
     ports:
       - 8002:5000/tcp
+  minio:
+    image: minio/minio
+    volumes:
+      - ${TMP_MOUNT}/minio:/data
+    command: server /data
+    ports:
+      - 9000:9000/tcp
