@@ -7,6 +7,7 @@ import argparse
 import requests
 import select
 import socket
+import time
 import sys
 import re
 import os
@@ -31,9 +32,10 @@ class JobStatus(Enum):
 
 
 class Job:
-    def __init__(self, executor_url, job_desc):
+    def __init__(self, executor_url, job_desc, wait_if_busy=False):
         self.executor_url = executor_url
         self.job_desc = job_desc
+        self.wait_if_busy = wait_if_busy
 
     def _setup_conection(self):
         # Set up a TCP server
@@ -49,12 +51,27 @@ class Job:
                 },
                 "job": self.job_desc
             }
-            r = requests.post(f"{self.executor_url}/api/v1/jobs", json=data)
-            if r.status_code != 200:
-                ret = r.json()
-                reason_msg = ret.get("reason")
-                print(f"ERROR: Could not queue the work: \"{reason_msg}\"", file=sys.stderr)
-                return None
+
+            first_wait = True
+            while True:
+                r = requests.post(f"{self.executor_url}/api/v1/jobs", json=data)
+                if r.status_code == 200:
+                    break
+                elif r.status_code == 409 and self.wait_if_busy:
+                    if first_wait:
+                        print("No machines available for the job, waiting: ", end="", flush=True)
+                        first_wait = False
+                    else:
+                        print(".", end="", flush=True)
+                    time.sleep(1)
+                else:
+                    ret = r.json()
+                    reason_msg = ret.get("reason")
+                    print(f"ERROR: Could not queue the work: \"{reason_msg}\"", file=sys.stderr)
+                    return None
+
+            if not first_wait:
+                print("")
 
             # We should not have a connection queued, accept it with a timeout
             print(f"Waiting for the executor to connect to our local port {local_port}")
@@ -136,22 +153,24 @@ class Job:
         return status
 
     @classmethod
-    def from_file(cls, executor_url, path):
+    def from_file(cls, executor_url, path, wait_if_busy=False):
         with open(path) as f:
             job_desc = f.read()
 
-        return cls(executor_url, job_desc)
+        return cls(executor_url, job_desc, wait_if_busy=wait_if_busy)
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument("-e", '--executor', dest='executor_url',
                         default="http://localhost:8003",
                         help='URL to the executor service')
+    parser.add_argument("-w", "--wait", action="store_true",
+                        help="Wait for a machine to become available if all are busy")
     parser.add_argument('action', help='Action this script should do',
                         choices=['run'])
     parser.add_argument("job", help='Job that should be run')
     args = parser.parse_args()
 
-    job = Job.from_file(args.executor_url, args.job)
+    job = Job.from_file(args.executor_url, args.job, args.wait)
     status = job.start()
     sys.exit(status.status_code)
