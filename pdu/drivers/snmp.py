@@ -92,6 +92,12 @@ class BaseSnmpPDU(PDU):
             raise ValueError(f"The snmp_get() call failed with the following error: {e}")
         return self.raw_value_to_state(int(vs.value))
 
+    def __eq__(self, other):
+        for attr in ["name", "hostname", "oid_outlets_label_base", "community"]:
+            if getattr(self, attr, None) != getattr(other, attr, None):
+                return False
+        return True
+
 
 class SnmpPDU(BaseSnmpPDU):
     def __init__(self, name, config):

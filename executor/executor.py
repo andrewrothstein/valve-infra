@@ -478,7 +478,8 @@ class Machine(Thread):
         else:
             machine.ready_for_service = ready_for_service
             machine.tags = tags
-            machine.pdu_port = pdu_port
+            if machine.pdu_port != pdu_port:
+                machine.pdu_port = pdu_port
             machine.local_tty_device = local_tty_device
 
         return machine
