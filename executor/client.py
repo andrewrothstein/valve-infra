@@ -100,9 +100,9 @@ class Job:
     def _forward_inputs_and_outputs(self, job_socket):
         print(f"Connection established: Switch to proxy mode")
 
-        try:
-            final_lines = b""
-            while True:
+        final_lines = b""
+        while True:
+            try:
                 r_fds, w_fds, x_fds = select.select([sys.stdin, job_socket], [], [])
 
                 for fd in r_fds:
@@ -124,8 +124,9 @@ class Job:
                     else:
                         raise ValueError("Received an unexpected fd ")
                         print(f"Ooopsie! we don't know the fd {fd}")
-        except KeyboardInterrupt:
-            return JobStatus.INCOMPLETE
+            except KeyboardInterrupt:
+                # Forward the CTRL+C
+                job_socket.send(chr(3).encode())
 
     def close(self, sock):
         try:
