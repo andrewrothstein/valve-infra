@@ -61,10 +61,16 @@ services:
       - CHRONY_SERVERS=0.pool.ntp.org,1.pool.ntp.org,2.pool.ntp.org
     ports:
       - 123:123/udp
-  registryd:
+  fdo_proxy_registry:
     image: registry
+    environment:
+      - REGISTRY_PROXY_REMOTEURL="https://registry.freedesktop.org"
     ports:
       - 8002:5000/tcp
+  local_registry:
+    image: registry
+    ports:
+      - 8004:5000/tcp
   minio:
     image: minio/minio
     environment:

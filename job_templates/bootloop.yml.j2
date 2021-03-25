@@ -31,7 +31,7 @@ deployment:
     kernel:
       url: "http://10.42.0.1:9000/boot/default_kernel"
       cmdline:
-        - b2c.container="-ti docker://registry.freedesktop.org/mupuf/valve-infra/machine_registration:latest check"
+        - b2c.container="-ti --tls-verify=false docker://10.42.0.1:8002/mupuf/valve-infra/machine_registration:latest check"
         - b2c.ntp_peer="10.42.0.1" b2c.pipefail b2c.cache_device=auto
         - b2c.shutdown_cmd="echo JOB_RESULT=$B2C_PIPELINE_PREV_CONTAINER_EXIT_CODE; poweroff -f"
         - console={{ local_tty_device }},115200 earlyprintk=vga,keep SALAD.machine_id={{ machine_id }}
