@@ -5,9 +5,11 @@ from enum import Enum
 import traceback
 import argparse
 import requests
+import termios
 import select
 import socket
 import time
+import tty
 import sys
 import re
 import os
@@ -100,33 +102,40 @@ class Job:
     def _forward_inputs_and_outputs(self, job_socket):
         print(f"Connection established: Switch to proxy mode")
 
-        final_lines = b""
-        while True:
-            try:
-                r_fds, w_fds, x_fds = select.select([sys.stdin, job_socket], [], [])
+        # Set stdin to the raw input mode
+        old_tty_attrs = termios.tcgetattr(sys.stdin)
+        tty.setcbreak(sys.stdin)
 
-                for fd in r_fds:
-                    if fd is sys.stdin:
-                        buf = os.read(sys.stdin.fileno(), 4096)
-                        job_socket.send(buf)
-                    elif fd is job_socket:
-                        buf = job_socket.recv(4096)
-                        if len(buf) == 0:
-                            # The job is over, check the job status!
-                            return self._parse_job_status(final_lines)
+        try:
+            final_lines = b""
+            while True:
+                try:
+                    r_fds, w_fds, x_fds = select.select([sys.stdin, job_socket], [], [])
 
-                        sys.stdout.buffer.write(buf)
-                        sys.stdout.buffer.flush()
+                    for fd in r_fds:
+                        if fd is sys.stdin:
+                            buf = os.read(sys.stdin.fileno(), 4096)
+                            job_socket.send(buf)
+                        elif fd is job_socket:
+                            buf = job_socket.recv(4096)
+                            if len(buf) == 0:
+                                # The job is over, check the job status!
+                                return self._parse_job_status(final_lines)
 
-                        # Keep in memory the final lines, for later parsing
-                        final_lines += buf
-                        final_lines = final_lines[-100:]
-                    else:
-                        raise ValueError("Received an unexpected fd ")
-                        print(f"Ooopsie! we don't know the fd {fd}")
-            except KeyboardInterrupt:
-                # Forward the CTRL+C
-                job_socket.send(chr(3).encode())
+                            sys.stdout.buffer.write(buf)
+                            sys.stdout.buffer.flush()
+
+                            # Keep in memory the final lines, for later parsing
+                            final_lines += buf
+                            final_lines = final_lines[-100:]
+                        else:
+                            raise ValueError("Received an unexpected fd ")
+                            print(f"Ooopsie! we don't know the fd {fd}")
+                except KeyboardInterrupt:
+                    # Forward the CTRL+C
+                    job_socket.send(chr(3).encode())
+        finally:
+            termios.tcsetattr(sys.stdin, termios.TCSADRAIN, old_tty_attrs)
 
     def close(self, sock):
         try:
