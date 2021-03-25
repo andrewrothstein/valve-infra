@@ -29,7 +29,7 @@ deployment:
   # Initial boot
   start:
     kernel:
-      url: "https://private.mupuf.org/ci-kernel"
+      url: "http://10.42.0.1:9000/boot/default_kernel"
       cmdline:
         - b2c.container="-ti docker://registry.freedesktop.org/mupuf/valve-infra/machine_registration:latest check"
         - b2c.ntp_peer="10.42.0.1" b2c.pipefail b2c.cache_device=auto
@@ -37,4 +37,4 @@ deployment:
         - console={{ local_tty_device }},115200 earlyprintk=vga,keep SALAD.machine_id={{ machine_id }}
         - loglevel=6
     initramfs:
-      url: "https://gitlab.freedesktop.org/mupuf/boot2container/-/releases/v0.6/downloads/initramfs.linux_amd64.cpio.xz"
+      url: "http://10.42.0.1:9000/boot/default_boot2container.cpio.xz"
