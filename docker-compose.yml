@@ -65,10 +65,12 @@ services:
     image: registry
     environment:
       - REGISTRY_PROXY_REMOTEURL="https://registry.freedesktop.org"
+    restart: always
     ports:
       - 8002:5000/tcp
   local_registry:
     image: registry
+    restart: always
     ports:
       - 8004:5000/tcp
   minio:
