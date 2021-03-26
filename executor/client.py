@@ -110,7 +110,10 @@ class Job:
             final_lines = b""
             while True:
                 try:
-                    r_fds, w_fds, x_fds = select.select([sys.stdin, job_socket], [], [])
+                    readables = [job_socket]
+                    if sys.stdin.isatty():
+                        readables.append(sys.stdin)
+                    r_fds, w_fds, x_fds = select.select(readables, [], [])
 
                     for fd in r_fds:
                         if fd is sys.stdin:
