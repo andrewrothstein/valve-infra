@@ -54,6 +54,7 @@ upload_to_minio_if_missing() {
 
 docker-compose --env-file ./config/prod.env pull
 docker-compose --env-file ./config/prod.env up -d
+docker-compose --env-file ./config/prod.env up --remove-orphans -d
 
 # Set up our minio instance
 while ! mcli alias set minio http://10.42.0.1:9000 minioadmin $MINIO_ROOT_PASSWORD; do
