@@ -53,13 +53,19 @@ upload_to_minio_if_missing() {
 [ -e /sys/class/net/$PRIVATE_INTERFACE ] || die "PRIVATE_INTERFACE ($PRIVATE_INTERFACE) does not exist"
 
 docker-compose --env-file ./config/prod.env pull
-docker-compose --env-file ./config/prod.env up -d
 docker-compose --env-file ./config/prod.env up --remove-orphans -d
+
+stop_infra(){
+    log "stopping the infra in response to an error condition..."
+    docker-compose stop
+}
+trap stop_infra SIGTERM SIGINT ERR
 
 # Set up our minio instance
 while ! mcli alias set minio http://10.42.0.1:9000 minioadmin $MINIO_ROOT_PASSWORD; do
     sleep 0.1
 done
+
 mcli mb --ignore-existing minio/jobs minio/boot/
 mcli policy set public minio/boot
 mcli policy set public minio/jobs
@@ -71,6 +77,4 @@ mcli cp minio/boot/boot2container_2021_03_25.cpio.xz minio/boot/default_boot2con
 upload_to_minio_if_missing https://gitlab.freedesktop.org/mupuf/valve-infra/-/wikis/uploads/0c40a562ec083f1bf00efcdafd486ada/bzImage /boot/default_kernel_2021_03_25
 mcli cp minio/boot/default_kernel_2021_03_25 minio/boot/default_kernel
 
-# Check out the logs
 docker-compose logs --tail=0 -f || /bin/true
-docker-compose stop
