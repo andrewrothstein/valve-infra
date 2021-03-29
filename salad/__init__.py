@@ -92,6 +92,9 @@ class SerialConsoleStream(ConsoleStream):
                 self.process_input_line(self.line_buffer)
                 self.line_buffer = b""
 
+    def close(self):
+        self.device.close()
+
 
 # Inherit from this class to hook on the send/read
 class JobSession:
@@ -190,7 +193,12 @@ class Salad(Thread):
                     if fd in fd_to_ser_console:
                         # DUT's stdout/err: Serial -> Socket
                         ser = fd_to_ser_console[fd]
-                        buf = ser.recv()
+                        try:
+                            buf = ser.recv()
+                        except serial.SerialException:
+                            buf = b""
+                        if len(buf) == 0:
+                            ser.close()
 
                         session = self._sessions.get(ser.machine_id)
                         if session is not None:
@@ -201,6 +209,8 @@ class Salad(Thread):
 
                         # Drop the input if we do not have a serial port associated
                         buf = session.recv(8192)
+                        if len(buf) == 0:
+                            session.close()
 
                         ser_dev = self.find_serial_dev_for(session.machine_id)
                         if ser_dev is not None:
