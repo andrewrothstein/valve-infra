@@ -1,9 +1,32 @@
 stages:
+- pip
 - containers
 - tests
 
 variables:
   GIT_SUBMODULE_STRATEGY: recursive
+
+.pip_package base:
+  image: python:3.9
+  stage: pip
+  before_script:
+    - pip install build twine
+  after_script:
+    - if [[ "$CI_COMMIT_BRANCH" == "master" ]] && [[ -n "$TWINE_PASSWORD" ]]; then twine upload -u "__token__" dist/; fi
+
+gfxinfo:
+  extends:
+    - .pip_package base
+  rules:
+    - changes:
+      - gfxinfo/setup.cfg
+      - .gitlab-ci.yml
+  variables:
+    TWINE_PASSWORD: $PIP_GFXINFO_TOKEN
+  script:
+    - cd gfxinfo
+    - python3 -m build
+
 
 .container base:
   image: docker/compose:alpine-1.27.4
@@ -74,3 +97,4 @@ valve-infra:
       - .gitlab-ci.yml
   script:
     - docker build -t $IMAGE_NAME .
+

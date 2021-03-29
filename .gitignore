@@ -6,3 +6,5 @@ config/
 **/_trial_*/**
 **/*.egg-info/**
 *.cache
+**/build/
+**/dist/
