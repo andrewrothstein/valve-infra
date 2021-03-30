@@ -103,8 +103,9 @@ class Job:
         print(f"Connection established: Switch to proxy mode")
 
         # Set stdin to the raw input mode
-        old_tty_attrs = termios.tcgetattr(sys.stdin)
-        tty.setcbreak(sys.stdin)
+        if sys.stdin.isatty():
+            old_tty_attrs = termios.tcgetattr(sys.stdin)
+            tty.setcbreak(sys.stdin)
 
         try:
             final_lines = b""
@@ -138,7 +139,8 @@ class Job:
                     # Forward the CTRL+C
                     job_socket.send(chr(3).encode())
         finally:
-            termios.tcsetattr(sys.stdin, termios.TCSADRAIN, old_tty_attrs)
+            if sys.stdin.isatty():
+                termios.tcsetattr(sys.stdin, termios.TCSADRAIN, old_tty_attrs)
 
     def close(self, sock):
         try:
