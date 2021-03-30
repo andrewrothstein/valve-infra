@@ -72,11 +72,10 @@ machine_registration:
     - .container base
   rules:
     - changes:
-      - containers/Dockerfile.machine_registration
-      - machine_registration.py
+      - machine_registration/**
       - .gitlab-ci.yml
   script:
-    - docker build -t $IMAGE_NAME -f containers/Dockerfile.machine_registration .
+    - docker build -t $IMAGE_NAME machine_registration
 
 farm-runner:
   extends:
