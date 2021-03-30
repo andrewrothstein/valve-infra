@@ -328,9 +328,9 @@ This ensure we start in a sane state."""
         local_runner = config.find_by_name(name)
 
         if not local_runner:
-            logger.warn(f"{runner.description} is registered on the "
-                        "coordinatorbut is not locally, removing from "
-                        "coordinator")
+            logger.warning(f"{runner.description} is registered on the "
+                           "coordinator but is not locally, removing from "
+                           "coordinator...")
             rapi.unregister(runner)
 
     for runner in local_runners:
