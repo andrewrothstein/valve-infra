@@ -309,6 +309,11 @@ def mars_poller(mars_host, gitlab_config, runner_api):  # pragma: nocover
             time.sleep(5)
 
 
+def runner_is_managed_by_our_farm(runner):
+    farm_name = os.environ.get('FARM_NAME', 'unknown')
+    return runner.description.startswith(farm_name)
+
+
 def initial_sync(config, rapi):  # pragma: nocover
     """Anything registered remotely that is not known locally, remove it.
 Anything known locally that is not registered remotely, register it.
@@ -321,7 +326,11 @@ This ensure we start in a sane state."""
 
     for runner in remote_runners:
         logger.debug(f"{runner.description} is registered on the server, "
-                     "tagged with:")
+                     f"tagged with: {rapi.tags(runner.id)}")
+
+        if not runner_is_managed_by_our_farm(runner):
+            logger.info(f"ignoring {runner.description} since it is not managed by our farm")
+            continue
 
         # Convention used by us
         name = runner.description

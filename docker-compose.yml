@@ -8,6 +8,7 @@ services:
       - MARS_DEBUG=True
       - MARS_SECRET_KEY=$MARS_SECRET_KEY
       - MARS_SQLITE_PATH=${PERMANENT_MOUNT}/mars.sqlite3
+      - FARM_NAME=$FARM_NAME
     ports:
       - "80:80/tcp"
     volumes:
@@ -53,6 +54,7 @@ services:
       - GITLAB_REGISTRATION_TOKEN=$GITLAB_REGISTRATION_TOKEN
       - GITLAB_ACCESS_TOKEN=$GITLAB_ACCESS_TOKEN
       - MARS_HOST=http://10.42.0.1:80
+      - FARM_NAME=$FARM_NAME
     volumes:
       - ${TMP_MOUNT}/gitlab-runner:/etc/gitlab-runner
   ntpd:

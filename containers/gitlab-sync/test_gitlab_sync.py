@@ -1,5 +1,6 @@
 from datetime import datetime
 import gitlab_sync
+import attr
 from gitlab_sync import (
     GitlabRunnerAPI,
     GitlabConfig,
@@ -7,6 +8,7 @@ from gitlab_sync import (
     process_mars_events,
     parse_iso8601_date,
     relevant_event_diff,
+    runner_is_managed_by_our_farm,
 )
 import copy
 import tempfile
@@ -304,3 +306,20 @@ def test_parse_iso8601_date():
 )
 def test_relevant_event_diff(diff, expectation):
     assert relevant_event_diff(diff) is expectation
+
+
+@attr.s
+class MockRunner:
+    description: str = attr.ib()
+
+
+@pytest.mark.parametrize(
+    "runner,farm_name,expectation",
+    [
+        (MockRunner("gfx8-1"), 'gfx8', True),
+        (MockRunner("random-gfx10-3"), 'gfx8', False),
+    ],
+)
+def test_runner_is_managed_by_our_farm(monkeypatch, runner, farm_name, expectation):
+    monkeypatch.setenv('FARM_NAME', farm_name)
+    assert runner_is_managed_by_our_farm(runner) is expectation
