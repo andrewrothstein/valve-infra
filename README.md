@@ -60,29 +60,12 @@ Additionally, you may add secrets to the environment file in `./config/private.e
 
 ## Working on the project
 
-Update the submodules if external dependencies have changes
-    git submodule update --remote --init --recursive
+To build the gitlab-sync container individually,
 
-If the submodules get completely messed up (a bit too easy if you're
-new to submodules!), follow the steps outlined in https://stackoverflow.com/questions/19508849/how-to-fix-broken-submodule-config-in-git
+docker buildx build -t registry.freedesktop.org/mupuf/valve-infra/gitlab-sync containers/gitlab-sync  --load
 
-The follow settings make one persons use of submodules less
-error-prone, YMMV,
+To run from a shell:
 
-    git config --global submodule.recurse true
-    git config --global push.recurseSubmodules on-demand
-
-And then bring up the services
-
-    docker compose --env-file config/prod.env pull
-    docker compose --env-file config/prod.env up
-
-To stop, Ctrl-C, or return to this directory and run `docker compose
---env-file config/prod.env down`.
-
-You can run docker remotely from your development laptop,
-
-    export DOCKER_HOST=ssh://hostname-of-ci-gateway
-    docker ps
-
-That's all for now!
+    docker run --env-file ./config/prod.env --rm -it -v $(pwd)/containers/gitlab-sync:/app -v /mnt/tmp/gitlab-runner:/etc/gitlab-runner --entrypoint=bash registry.freedesktop.org/mupuf/valve-infra/gitlab-sync containers/gitlab-sync
+	
+The same pattern can be used for other containers in the project. See the `.gitlab-ci.yml` for the details.
