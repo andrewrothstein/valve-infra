@@ -9,23 +9,20 @@ variables:
 .pip_package base:
   image: python:3.9
   stage: pip
-  before_script:
+  rules:
+    - changes:
+      - $CI_JOB_NAME/setup.cfg
+      - .gitlab-ci.yml
+  script:
     - pip install build twine
-  after_script:
-    - if [[ "$CI_COMMIT_BRANCH" == "master" ]] && [[ -n "$TWINE_PASSWORD" ]]; then twine upload -u "__token__" dist/; fi
+    - python3 -m build $CI_JOB_NAME
+    - if [[ "$CI_COMMIT_BRANCH" == "master" ]] && [[ -n "$TWINE_PASSWORD" ]]; then twine upload -u "__token__" $CI_JOB_NAME/dist/; fi
 
 gfxinfo:
   extends:
     - .pip_package base
-  rules:
-    - changes:
-      - gfxinfo/setup.cfg
-      - .gitlab-ci.yml
   variables:
     TWINE_PASSWORD: $PIP_GFXINFO_TOKEN
-  script:
-    - cd gfxinfo
-    - python3 -m build
 
 
 .container base:
