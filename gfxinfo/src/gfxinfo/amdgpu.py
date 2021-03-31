@@ -180,7 +180,7 @@ class AMDGPU:
         return f"<PCIID {self.pciid} - {self.codename} - {self.family} - {self.architecture} - {self.gfx_version.lower()}>"
 
     def __repr__(self):
-        return str(self)
+        return f"{self.__class__}({self.__dict__})"
 
     @classmethod
     def download_pciid_db(self):

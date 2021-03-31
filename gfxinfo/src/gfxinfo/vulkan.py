@@ -15,7 +15,7 @@ class VulkanExtension:
         return f"<VK extension {self.name} version {self.version}>"
 
     def __repr__(self):
-        return str(self)
+        return f"{self.__class__}({self.__dict__})"
 
 
 class VulkanHeap:
