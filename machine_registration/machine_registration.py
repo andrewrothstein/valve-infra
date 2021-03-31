@@ -163,12 +163,8 @@ parser.add_argument('-m', '--mars_host', dest='mars_host', default="10.42.0.1",
                     help='URL to the machine registration service MaRS')
 parser.add_argument('--no-tty', dest="no_tty", action="store_true",
                     help="Do not discover/check the existence of a serial connection to SALAD")
-# FIXME: Port hardcoding isn't great.
-parser.add_argument('--sgt_hartman', dest='sgt_hartman_host',
-                    default="10.42.0.1:8001",
-                    help='URL to the machine registration service MaRS')
 parser.add_argument('action', help='Action this script should do',
-                    choices=['register', 'cache_dbs', 'check', 'sgt_hartman'])
+                    choices=['register', 'cache_dbs', 'check'])
 args = parser.parse_args()
 
 info = MachineInfo(amdgpu_drv_path=args.amdgpu_drv_path)
@@ -224,11 +220,3 @@ elif args.action == "check":
         print("No differences found!")
 
     sys.exit(0 if not has_differences else 1)
-
-elif args.action == "sgt_hartman":
-    mac_addr = info.default_gateway_nif_addrs.mac
-
-    r = requests.get(f"http://{args.sgt_hartman_host}/rollcall/{mac_addr}")
-    r.raise_for_status()
-    print(r.content)
-    sys.exit(0)
