@@ -24,6 +24,12 @@ gfxinfo:
   variables:
     TWINE_PASSWORD: $PIP_GFXINFO_TOKEN
 
+valvetraces:
+  extends:
+    - .pip_package base
+  variables:
+    TWINE_PASSWORD: $PIP_VALVETRACES_TOKEN
+
 .container base:
   image: docker/compose:alpine-1.27.4
   stage: containers
