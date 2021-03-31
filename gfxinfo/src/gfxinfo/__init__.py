@@ -9,8 +9,8 @@ class GFXInfo:
         self.amdgpu_drv_path = amdgpu_drv_path
 
     def print_topology(self):
-        print(f"# {len(plugged_amd_gpus)} amdgpu-compatible GPUs:")
-        for amd_gpu in plugged_amd_gpus:
+        print(f"# {len(self.plugged_amd_gpus)} amdgpu-compatible GPUs:")
+        for amd_gpu in self.plugged_amd_gpus:
             print(amdgpu_pciids[amd_gpu])
         print()
 
