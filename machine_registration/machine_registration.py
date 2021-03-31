@@ -3,7 +3,7 @@
 from serial.tools import list_ports as serial_list_port
 from functools import cached_property
 from collections import namedtuple
-from gfxinfo import GFXInfo
+from gfxinfo import GFXInfo, AMDGPU
 import multiprocessing
 import netifaces
 import argparse
@@ -191,7 +191,7 @@ elif args.action == "cache_dbs":
         sys.exit(1)
 
     with open(args.amdgpu_drv_path, 'w') as f:
-        f.write(AMDPciId.download_pciid_db())
+        f.write(AMDGPU.download_pciid_db())
 
 elif args.action == "check":
     mac_addr = info.default_gateway_nif_addrs.mac
