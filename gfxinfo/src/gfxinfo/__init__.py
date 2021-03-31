@@ -36,11 +36,11 @@ class GFXInfo:
     def machine_tags(self):
         tags = set()
 
-        tags.add(f"amdgpu:pciid::{self.amdgpu.pciid}")
-        tags.add(f"amdgpu:family::{self.amdgpu.family}")
-        tags.add(f"amdgpu:codename::{self.amdgpu.codename}")
-        tags.add(f"amdgpu:architecture::{self.amdgpu.architecture}")
-        tags.add(f"amdgpu:gfxversion::{self.amdgpu.gfx_version}")
+        tags.add(f"amdgpu:pciid:{self.amdgpu.pciid}")
+        tags.add(f"amdgpu:family:{self.amdgpu.family}")
+        tags.add(f"amdgpu:codename:{self.amdgpu.codename}")
+        tags.add(f"amdgpu:architecture:{self.amdgpu.architecture}")
+        tags.add(f"amdgpu:gfxversion:{self.amdgpu.gfx_version}")
 
         if self.amdgpu.is_APU:
             tags.add("amdgpu:APU")
@@ -48,27 +48,27 @@ class GFXInfo:
         try:
             info = VulkanInfo()
 
-            tags.add(f"amdgpu:vram_size::{info.VRAM_heap.GiB_size}_GiB")
-            tags.add(f"amdgpu:gtt_size::{info.GTT_heap.GiB_size}_GiB")
+            tags.add(f"amdgpu:vram_size:{info.VRAM_heap.GiB_size}_GiB")
+            tags.add(f"amdgpu:gtt_size:{info.GTT_heap.GiB_size}_GiB")
 
             if info.mesa_version is not None:
-                tags.add(f"mesa:version::{info.mesa_version}")
+                tags.add(f"mesa:version:{info.mesa_version}")
 
             if info.mesa_git_version is not None:
-                tags.add(f"mesa:git:version::{info.mesa_git_version}")
+                tags.add(f"mesa:git:version:{info.mesa_git_version}")
 
             if info.device_name is not None:
-                tags.add(f"vk:device:name::{info.device_name}")
+                tags.add(f"vk:device:name:{info.device_name}")
 
             if info.device_type is not None:
-                tags.add(f"vk:device:type::{info.device_type.name}")
+                tags.add(f"vk:device:type:{info.device_type.name}")
 
             if info.api_version is not None:
-                tags.add(f"vk:api:version::{info.driver_name}")
+                tags.add(f"vk:api:version:{info.driver_name}")
 
 
             if info.driver_name is not None:
-                tags.add(f"vk:driver:name::{info.driver_name}")
+                tags.add(f"vk:driver:name:{info.driver_name}")
         except Exception as e:
             print(e)
 

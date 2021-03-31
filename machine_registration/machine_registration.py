@@ -28,9 +28,9 @@ class MachineInfo(GFXInfo):
     def machine_tags(self):
         tags = set()
 
-        tags.add(f"amdgpu:family::{self.amdgpu.family}")
-        tags.add(f"amdgpu:codename::{self.amdgpu.codename}")
-        tags.add(f"amdgpu:gfxversion::{self.amdgpu.gfx_version}")
+        tags.add(f"amdgpu:family:{self.amdgpu.family}")
+        tags.add(f"amdgpu:codename:{self.amdgpu.codename}")
+        tags.add(f"amdgpu:gfxversion:{self.amdgpu.gfx_version}")
 
         if self.amdgpu.is_APU:
             tags.add("amdgpu:APU")
