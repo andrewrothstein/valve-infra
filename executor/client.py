@@ -13,6 +13,16 @@ import tty
 import sys
 import re
 import os
+from logging import getLogger, getLevelName, Formatter, StreamHandler
+
+logger = getLogger(__name__)
+logger.setLevel(getLevelName('DEBUG'))
+log_formatter = \
+    Formatter("%(asctime)s [%(levelname)s] %(name)s: "
+              "%(message)s [%(threadName)s] ")
+console_handler = StreamHandler()
+console_handler.setFormatter(log_formatter)
+logger.addHandler(console_handler)
 
 
 class JobStatus(Enum):
@@ -107,6 +117,9 @@ class Job:
             old_tty_attrs = termios.tcgetattr(sys.stdin)
             tty.setcbreak(sys.stdin)
 
+        control_char = b'\x01'  # CTRL+A
+        control_char_pressed = False
+
         try:
             final_lines = b""
             while True:
@@ -119,7 +132,15 @@ class Job:
                     for fd in r_fds:
                         if fd is sys.stdin:
                             buf = os.read(sys.stdin.fileno(), 4096)
-                            job_socket.send(buf)
+                            if buf == control_char:
+                                if control_char_pressed:
+                                    # Repeating the control char sends it through
+                                    job_socket.send(buf)
+                                else:
+                                    control_char_pressed = True
+                            else:
+                                control_char_pressed = False
+                                job_socket.send(buf)
                         elif fd is job_socket:
                             buf = job_socket.recv(4096)
                             if len(buf) == 0:
@@ -133,9 +154,12 @@ class Job:
                             final_lines += buf
                             final_lines = final_lines[-100:]
                         else:
-                            raise ValueError("Received an unexpected fd ")
-                            print(f"Ooopsie! we don't know the fd {fd}")
+                            raise ValueError(f"Received an unexpected fd: {fd}")
                 except KeyboardInterrupt:
+                    if control_char_pressed:
+                        logger.info("Exiting the client in response to CTRL+C...")
+                        return JobStatus.INCOMPLETE
+                    logger.info("forwarding CTRL+C to job, type CTRL+A followed by CTRL+C to quit the client")                    
                     # Forward the CTRL+C
                     job_socket.send(chr(3).encode())
         finally:
