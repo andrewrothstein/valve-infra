@@ -265,10 +265,10 @@ class Job:
         first_console_activity: {self.timeouts.first_console_activity}
 
     console patterns:
-        session_end:    "{self.console_patterns.session_end}"
-        session_reboot: "{self.console_patterns.session_reboot}"
-        job_success:    "{self.console_patterns.job_success}"
-        job_warn:       "{self.console_patterns.job_warn}"
+        session_end:    {self.console_patterns.session_end}
+        session_reboot: {self.console_patterns.session_reboot}
+        job_success:    {self.console_patterns.job_success}
+        job_warn:       {self.console_patterns.job_warn}
 
     start deployment:
         kernel_url:     {self.deployment_start.kernel_url}
