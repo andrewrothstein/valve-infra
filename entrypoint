@@ -54,7 +54,9 @@ upload_to_minio_if_missing() {
 [ -d $TMP_MOUNT ] || die "TMP_MOUNT path ($TMP_MOUNT) is not a directory"
 [ -e /sys/class/net/$PRIVATE_INTERFACE ] || die "PRIVATE_INTERFACE ($PRIVATE_INTERFACE) does not exist"
 
-docker-compose --env-file ./config/prod.env pull
+if [ ! -n "$VALVE_INFRA_NO_PULL" ]; then
+    docker-compose --env-file ./config/prod.env pull
+fi
 docker-compose --env-file ./config/prod.env up --remove-orphans -d
 
 stop_infra(){
