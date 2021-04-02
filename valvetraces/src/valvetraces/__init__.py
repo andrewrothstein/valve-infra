@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 
-from gfxinfo import GFXInfo
 from getpass import getpass
 
 import argparse
@@ -225,6 +224,8 @@ class Client:
             return blob
 
     def upload_trace(self, app_id, filepath, frame_ids):
+        from gfxinfo import GFXInfo
+
         app = self._find_app(app_id)
         machine_tags = list(GFXInfo().machine_tags())
         trace_name = os.path.basename(filepath)
