@@ -1,4 +1,7 @@
-from functools import cached_property
+try:
+    from functools import cached_property
+except:
+    from backports.cached-property import cached_property
 from enum import Enum
 
 import subprocess
