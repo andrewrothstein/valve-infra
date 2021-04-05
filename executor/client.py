@@ -182,6 +182,9 @@ class Job:
                 return JobStatus.SETUP_FAIL
 
             status = self._forward_inputs_and_outputs(sock)
+        except requests.exceptions.ConnectionError:
+            logger.error("Failed to connect to the executor, is it running?")
+            status = JobStatus.SETUP_FAIL
         except Exception as e:
             traceback.print_exc()
             status = JobStatus.UNKNOWN
