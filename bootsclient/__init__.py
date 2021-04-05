@@ -74,4 +74,6 @@ class BootsClient:
         }
 
         r = requests.post(self.url(f"/duts/{mac_addr}/boot"), json=params)
-        return r.status_code == 200
+        if r.status_code != 200:
+            print("BOOTS ERROR: ", r.json())
+        return r.status_code
