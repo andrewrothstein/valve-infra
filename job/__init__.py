@@ -184,17 +184,13 @@ class ConsoleState:
                    job_success=job_success, job_warn=job_warn)
 
 
-class MultiLineString:
-    def __init__(self, lines):
-        if isinstance(lines, str):
-            self.__str = linescontinue
-        elif isinstance(lines, list):
-            self.__str = " ".join(lines)
-        else:
-            raise ValueError(f"Unsupported input type '{type(lines)}'")
-
-    def __str__(self):
-        return self.__str
+def _multiline_string(lines):
+    if isinstance(lines, str):
+        return lines
+    elif isinstance(lines, list):
+        return " ".join(lines)
+    else:
+        assert False
 
 
 class Deployment:
@@ -210,7 +206,7 @@ class Deployment:
 
         kernel_cmdline = data.get("kernel", {}).get('cmdline')
         if kernel_cmdline is not None:
-            self.kernel_cmdline = str(MultiLineString(kernel_cmdline))
+            self.kernel_cmdline = _multiline_string(kernel_cmdline)
 
         initramfs_url = data.get("initramfs", {}).get("url")
         if initramfs_url is not None:
