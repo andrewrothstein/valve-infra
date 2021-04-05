@@ -357,9 +357,9 @@ class Machine(Thread):
                                              local_tty_device=self.local_tty_device)
 
             self.boots.set_config(mac_addr=self.machine_id,
-                              kernel_path=self._boots_url_to_name.get(deployment.kernel_url),
-                              initramfs_path=self._boots_url_to_name.get(deployment.initramfs_url),
-                              kernel_cmdline=kernel_cmdline)
+                                  kernel_path=self._boots_url_to_name.get(deployment.kernel_url),
+                                  initramfs_path=self._boots_url_to_name.get(deployment.initramfs_url),
+                                  kernel_cmdline=kernel_cmdline)
 
         def session_end():
             self.job_config = None
