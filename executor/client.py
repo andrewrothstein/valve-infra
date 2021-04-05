@@ -13,6 +13,7 @@ import tty
 import sys
 import re
 import os
+import json
 from logging import getLogger, getLevelName, Formatter, StreamHandler
 
 logger = getLogger(__name__)
@@ -182,6 +183,9 @@ class Job:
                 return JobStatus.SETUP_FAIL
 
             status = self._forward_inputs_and_outputs(sock)
+        except json.decoder.JSONDecodeError:
+            logger.error("Invalid response from executor server")
+            status = JobStatus.SETUP_FAIL
         except requests.exceptions.ConnectionError:
             logger.error("Failed to connect to the executor, is it running?")
             status = JobStatus.SETUP_FAIL
