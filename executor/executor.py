@@ -230,7 +230,6 @@ class Machine(Thread):
         self.boots = BootsClient(boots_url=os.getenv('BOOTS_URL', "http://localhost:8087"))
         self._boots_url_to_name = {}
 
-        # Add the machine to the list of machines
         self._machines[self.machine_id] = self
 
         # Start the background thread that will manage the machine
