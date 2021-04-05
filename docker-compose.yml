@@ -41,6 +41,7 @@ services:
       - SERGENT_HARTMAN_REGISTRATION_RETRIAL_DELAY=120
       - MARS_URL=http://10.42.0.1:80
       - BOOTS_URL=http://10.42.0.1:8087
+      - MINIO_ROOT_PASSWORD=$MINIO_ROOT_PASSWORD
   gitlab-runner:
     image: gitlab/gitlab-runner:alpine-v13.5.0
     volumes:

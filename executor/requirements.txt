@@ -12,3 +12,4 @@ PyYAML==5.4.1
 requests==2.25.1
 urllib3==1.26.4
 Werkzeug==1.0.1
+minio==7.0.2

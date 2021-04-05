@@ -21,6 +21,17 @@ import time
 import yaml
 import sys
 import os
+from minio import Minio
+from logging import getLogger, getLevelName, Formatter, StreamHandler
+
+logger = getLogger(__name__)
+logger.setLevel(getLevelName('DEBUG'))
+log_formatter = \
+    Formatter("%(asctime)s [%(levelname)s] %(name)s: "
+              "%(message)s [%(threadName)s] ")
+console_handler = StreamHandler()
+console_handler.setFormatter(log_formatter)
+logger.addHandler(console_handler)
 
 
 class MachineState(Enum):
@@ -199,6 +210,29 @@ class SergentHartman(Process):
         sys.exit(0 if ready_for_service else 1)
 
 
+class MinioCache():
+    def __init__(self, endpoint="10.42.0.1:9000"):
+        self._endpoint = endpoint
+        self._client = Minio(
+            endpoint=self._endpoint,
+            access_key="minioadmin",
+            secret_key=os.environ['MINIO_ROOT_PASSWORD'],
+            secure=False,
+        )
+
+    def save_boot_artifact(self, remote_artifact_url, minio_object_name):
+        minio_bucket_name = 'boot'
+        with tempfile.NamedTemporaryFile("wb") as temp_download_area, \
+             requests.get(remote_artifact_url, stream=True) as r:
+            r.raise_for_status()
+            # Read all the available data, then write to disk
+            for chunk in r.iter_content(None):
+                temp_download_area.write(chunk)
+            temp_download_area.flush()
+            self._client.fput_object(minio_bucket_name, minio_object_name, temp_download_area.name)
+
+
+
 class Machine(Thread):
     _machines = dict()
 
@@ -212,6 +246,7 @@ class Machine(Thread):
 
         # Machine
         self.machine_id = machine_id
+        self.minio_cache = MinioCache()
         self.pdu_port = pdu_port
         self.state = MachineState.WAIT_FOR_CONFIG
         self.ready_for_service = ready_for_service
@@ -226,9 +261,15 @@ class Machine(Thread):
         self.job_config = None
         self.job_console = None
 
-        # Boots
         self.boots = BootsClient(boots_url=os.getenv('BOOTS_URL', "http://localhost:8087"))
-        self._boots_url_to_name = {}
+
+        # Remote artifacts (typically over HTTPS) are stored in our
+        # local minio instance which is exposed over HTTP to the
+        # private LAN. This makes such artifacts amenable to PXE
+        # booting, for which HTTPS clients are not available.  Less
+        # critically, it makes access easier for the boards in our
+        # private LAN, for which HTTPS offers no advantage.
+        self.remote_url_to_local_cache_mapping = {}
 
         self._machines[self.machine_id] = self
 
@@ -255,45 +296,29 @@ class Machine(Thread):
         if self.job_console is not None:
             self.job_console.log(msg)
 
-    def _boots_download_target(self, f_type, start_url, continue_url):
+    def _cache_remote_artifact(self, f_type, start_url, continue_url):
         f_name_base = f"{f_type}-{self.machine_id}"
 
         if start_url == continue_url:
-            self._boots_url_to_name[start_url] = f_name_base
-            return [self.boots.download_kernel(name=f_name_base, url=start_url)]
+            self.remote_url_to_local_cache_mapping[start_url] = f"http://10.42.0.1:9000/boot/{f_name_base}"
+            self.log(f'Caching {start_url} into minio...\n')
+            self.minio_cache.save_boot_artifact(start_url, f_name_base)
         else:
-            self._boots_url_to_name[start_url] = f"{f_name_base}-start"
-            self._boots_url_to_name[continue_url] = f"{f_name_base}-continue"
+            self.remote_url_to_local_cache_mapping[start_url] = f"http://10.42.0.1:9000/boot/{f_name_base}-start"
+            self.remote_url_to_local_cache_mapping[continue_url] = f"http://10.42.0.1:9000/boot/{f_name_base}-continue"
+            self.log(f'Caching {start_url} into minio...\n')
+            self.minio_cache.save_boot_artifact(start_url, f"{f_name_base}-start")
+            self.log(f'Caching {continue_url} into minio...\n')
+            self.minio_cache.save_boot_artifact(continue_url, f"{f_name_base}-continue")
 
-            return [self.boots.download_kernel(name=self._boots_url_to_name[start_url], url=start_url),
-                    self.boots.download_kernel(name=self._boots_url_to_name[continue_url], url=continue_url)]
-
-    def _prepare_report_progress(self, task_count, pending_tasks):
-        task_completed = task_count - len(pending_tasks)
-        tasks_str = ", ".join([str(t) for t in pending_tasks])
-        remaining_str = "" if task_completed == task_count else f" Remaining tasks: {tasks_str}"
-        self.log(f"[{task_completed}/{task_count}] downloads completed.{remaining_str}\n")
-
-    def _boots_prepare(self):
-        pending_tasks = []
-
+    def _cache_remote_artifacts(self):
         deploy_strt = self.job_config.deployment_start
         deploy_cnt = self.job_config.deployment_start
-        pending_tasks.extend(self._boots_download_target("kernel", deploy_strt.kernel_url,
-                                                         deploy_cnt.kernel_url))
-        pending_tasks.extend(self._boots_download_target("initramfs", deploy_strt.initramfs_url,
-                                                         deploy_cnt.initramfs_url))
 
-        task_count = len(pending_tasks)
-        self._prepare_report_progress(task_count, pending_tasks)
-        while len(pending_tasks) > 0:
-            time.sleep(0.1)
-
-            for task in list(pending_tasks):
-                task.update()
-                if task.is_finished:
-                    pending_tasks.remove(task)
-                    self._prepare_report_progress(task_count, pending_tasks)
+        self._cache_remote_artifact("kernel", deploy_strt.kernel_url,
+                                    deploy_cnt.kernel_url)
+        self._cache_remote_artifact("initramfs", deploy_strt.initramfs_url,
+                                    deploy_cnt.initramfs_url)
 
     def summon_sergent_hartman(self):
         if self.sergent_hartman is not None:
@@ -356,8 +381,8 @@ class Machine(Thread):
                                              local_tty_device=self.local_tty_device)
 
             self.boots.set_config(mac_addr=self.machine_id,
-                                  kernel_path=self._boots_url_to_name.get(deployment.kernel_url),
-                                  initramfs_path=self._boots_url_to_name.get(deployment.initramfs_url),
+                                  kernel_path=self.remote_url_to_local_cache_mapping.get(deployment.kernel_url),
+                                  initramfs_path=self.remote_url_to_local_cache_mapping.get(deployment.initramfs_url),
                                   kernel_cmdline=kernel_cmdline)
 
         def session_end():
@@ -378,7 +403,7 @@ class Machine(Thread):
 
             # Download the kernel/initramfs
             timeouts.infra_setup.start()
-            self._boots_prepare()
+            self._cache_remote_artifacts()
             timeouts.infra_setup.stop()
 
             # Keep on resuming until success, timeouts' retry limits is hit, or the entire executor is going down
