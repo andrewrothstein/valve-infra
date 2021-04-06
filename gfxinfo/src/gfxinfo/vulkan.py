@@ -80,9 +80,12 @@ class VulkanInfo:
 
     @cached_property
     def api_version(self):
-        m = re.search(r"apiVersion += \d+ \((?P<version>[\d\.]+)\)", self.summary)
-        if m:
-            return m.groupdict({}).get('version')
+        properties = self.json.get('VkPhysicalDeviceProperties', {})
+        version = int(properties.get("apiVersion"))
+        major = version >> 22
+        minor = (version >> 12) & 0x3ff
+        patch = version & 0xfff
+        return '{}.{}.{}'.format(major, minor, patch)
 
     @cached_property
     def driver_info(self):
