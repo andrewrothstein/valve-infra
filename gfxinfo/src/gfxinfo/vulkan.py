@@ -51,11 +51,11 @@ class VulkanHeap:
 
 
 class VulkanDeviceType(Enum):
-    CPU = "PHYSICAL_DEVICE_CPU"
-    OTHER = "PHYSICAL_DEVICE_TYPE_OTHER_GPU"
-    VIRTUAL = "PHYSICAL_DEVICE_TYPE_VIRTUAL_GPU"
-    DISCRETE = "PHYSICAL_DEVICE_TYPE_DISCRETE_GPU"
-    INTEGRATED = "PHYSICAL_DEVICE_TYPE_INTEGRATED_GPU"
+    OTHER = 0
+    INTEGRATED = 1
+    DISCRETE = 2
+    VIRTUAL = 3
+    CPU = 4
 
 
 class VulkanInfo:
@@ -75,12 +75,8 @@ class VulkanInfo:
 
     @cached_property
     def device_type(self):
-        m = re.search(r"deviceType += (?P<type>[A-Z_]+)", self.summary)
-        if m:
-            try:
-                return VulkanDeviceType(m.groupdict({}).get('type'))
-            except Exception as e:
-                print(e)
+        properties = self.json.get('VkPhysicalDeviceProperties', {})
+        return (VulkanDeviceType(properties.get("deviceType")))
 
     @cached_property
     def api_version(self):
