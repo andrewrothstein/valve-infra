@@ -131,7 +131,7 @@ class Job:
 
                     for fd in r_fds:
                         if fd is sys.stdin:
-                            buf = os.read(sys.stdin.fileno(), 4096)
+                            buf = os.read(sys.stdin.fileno(), 1)
                             if buf == control_char:
                                 if control_char_pressed:
                                     # Repeating the control char sends it through
