@@ -1,7 +1,7 @@
 try:
     from functools import cached_property
 except:
-    from backports.cached-property import cached_property
+    from backports.cached_property import cached_property
 from enum import Enum
 
 import subprocess
