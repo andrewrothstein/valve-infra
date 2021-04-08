@@ -37,7 +37,8 @@ class GitlabRunnerAPITests(unittest.TestCase):
                 'token': 'test-registration-token',
                 'description': 'name-1',
                 'tag_list': 'tags-1',
-                'run_untagged': 'false'
+                'run_untagged': 'false',
+                'locked': 'true'
             })
 
 

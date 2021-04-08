@@ -33,7 +33,9 @@ class GitlabRunnerAPI:
             'token': self.registration_token,
             'description': name,
             'tag_list': tags,
-            'run_untagged': 'false',
+            'run_untagged': 'false',  # Whether the runner should handle untagged jobs
+            # Don't want randoms using our CI resources outside of our mirror project
+            'locked': 'true',  # Whether the runner should be locked for current project
         }
         return self.gl.runners.create(registration_config)
 
