@@ -66,6 +66,6 @@ docker buildx build -t registry.freedesktop.org/mupuf/valve-infra/gitlab-sync co
 
 To run from a shell:
 
-    docker run --env-file ./config/prod.env --rm -it -v $(pwd)/containers/gitlab-sync:/app -v /mnt/tmp/gitlab-runner:/etc/gitlab-runner --entrypoint=bash registry.freedesktop.org/mupuf/valve-infra/gitlab-sync containers/gitlab-sync
+    docker run --env-file ./config/prod.env --rm -it -v $(pwd)/containers/gitlab-sync:/app -v /mnt/tmp/gitlab-runner:/etc/gitlab-runner --entrypoint=bash registry.freedesktop.org/mupuf/valve-infra/gitlab-sync
 	
 The same pattern can be used for other containers in the project. See the `.gitlab-ci.yml` for the details.
