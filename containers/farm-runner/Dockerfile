@@ -1,10 +1,5 @@
-FROM python:3.8-alpine
+FROM alpine:edge
 RUN set -ex \
-        && apk add --no-cache bash openssh wget \
-        && pip3 install --no-cache-dir httpie
-COPY ssh/ /root/.ssh
+        && apk add --no-cache bash wget curl skopeo python3 py3-requests \
+	&& apk add buildah --repository=http://dl-cdn.alpinelinux.org/alpine/edge/testing
 COPY bin/ /usr/local/bin
-# Permissions are not always preserved in the host environment The
-# config file must not be group or world readable, or else SSH will
-# fail
-RUN chmod 600 /root/.ssh/*
