@@ -5,10 +5,13 @@ set -o pipefail
 set -o nounset
 set -o xtrace
 
-export BUILDAH_RUN="buildah run --isolation chroot"
+# runtime panics have happened within buildah, very rarely, try and catch one for a bit,
+# https://github.com/containers/buildah/issues/3130
+export BUILDAH="buildah --debug"
+export BUILDAH_RUN="$BUILDAH run --isolation chroot"
 # No https, since this is an internal service
-export BUILDAH_COMMIT="buildah commit --format docker --tls-verify=false"
-export BUILDAH_PUSH="buildah push --tls-verify=false"
+export BUILDAH_COMMIT="$BUILDAH commit --format docker --tls-verify=false"
+export BUILDAH_PUSH="$BUILDAH push --tls-verify=false"
 export BUILDAH_FORMAT=docker
 
 export MESA_IMAGE_NAME=${MESA_IMAGE#registry.freedesktop.org/}
@@ -36,8 +39,8 @@ if skopeo inspect --tls-verify=false docker://$LOCAL_CONTAINER ; then
      # this could have changed run to run, regardless of the SHAs.
 fi
 
-test_container=$(buildah from "docker://$MESA_IMAGE")
-test_container_mount=$(buildah mount $test_container)
+test_container=$($BUILDAH from "docker://$MESA_IMAGE")
+test_container_mount=$($BUILDAH mount $test_container)
 
 set +o xtrace
 CONTAINER_ENV_PARAMS=""
@@ -117,7 +120,7 @@ INSTALL=$CI_PROJECT_DIR/install
 # Make the environment friendly to testing
 eval $(
     set +o xtrace
-    echo buildah config \
+    echo $BUILDAH config \
 	 --workingdir $CI_PROJECT_DIR \
 	 $CONTAINER_ENV_PARAMS \
 	 --env HOME=$CI_PROJECT_DIR \
@@ -127,7 +130,7 @@ eval $(
     set -o xtrace)
 
 # Setup the entrypoint based on the job variables
-buildah config \
+$BUILDAH config \
 	--cmd '['\"$TEST_ENTRYPOINT\"']' \
 	$test_container
 
@@ -151,5 +154,5 @@ $BUILDAH_PUSH $LOCAL_CONTAINER || true
 sleep 2
 $BUILDAH_PUSH $LOCAL_CONTAINER
 
-buildah unmount $test_container
+$BUILDAH unmount $test_container
 
