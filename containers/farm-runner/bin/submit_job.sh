@@ -50,7 +50,7 @@ deployment:
       cmdline:
         - b2c.container="-ti --tls-verify=false docker://${PULL_THRU_REGISTRY}/mupuf/valve-infra/machine_registration:latest check"
         - b2c.ntp_peer="10.42.0.1" b2c.pipefail b2c.cache_device=auto
-        - b2c.container="-v ${CI_JOB_ID}-results:${CI_PROJECT_DIR}/results --tls-verify=false -e DEQP_FRACTION=50 docker://$TEST_CONTAINER"
+        - b2c.container="-v ${CI_JOB_ID}-results:${CI_PROJECT_DIR}/results --tls-verify=false docker://$TEST_CONTAINER"
         - b2c.post_container="-v ${CI_JOB_ID}-results:/results -e CI_JOB_ID=${CI_JOB_ID} --tls-verify=false docker://${PULL_THRU_REGISTRY}/mupuf/valve-infra/artifact-reaper:latest"
         - console={{ local_tty_device }},115200 earlyprintk=vga,keep SALAD.machine_id={{ machine_id }}
         - loglevel=6
