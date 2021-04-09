@@ -223,11 +223,20 @@ class Client:
 
             return blob
 
-    def upload_trace(self, app_id, filepath, frame_ids):
-        from gfxinfo import GFXInfo
+    def upload_trace(self, app_id, filepath, frame_ids, machine_tags=None):
+        if machine_tags is None:
+            confirmation_message = ('I confirm the trace is uploaded from '
+                                    'the same computer that produced the trace')
+
+            from gfxinfo import GFXInfo
+
+            machine_tags = list(GFXInfo().machine_tags())
+        else:
+            confirmation_message = ('I confirm the machine tags provided are '
+                                    'the ones produced at the same computer '
+                                    'that produced the trace to be uploaded')
 
         app = self._find_app(app_id)
-        machine_tags = list(GFXInfo().machine_tags())
         trace_name = os.path.basename(filepath)
 
         print(f"""\nWARNING: You are about to upload a trace, please check that the following values are valid:
@@ -237,7 +246,7 @@ class Client:
     IDs of frames to capture: {frame_ids}
     Machine tags: {machine_tags}
 """)
-        if input("I confirm the trace is uploaded from the same computer that produced the trace (y/N) ").lower() != 'y':
+        if input(f'{confirmation_message} (y/N)'.format()).lower() != 'y':
             return
 
         # Upload the blob
@@ -278,6 +287,17 @@ def entrypoint():
     upload_trace_parser = subparsers.add_parser('upload_trace', help='Upload a trace')
     upload_trace_parser.add_argument('-f', '--frame', action='append', required=True, dest="frames", type=int,
                                      help='ID of the frame that should be captured from this trace (can be repeated)')
+    upload_trace_parser.add_argument('-t',
+                                     '--tag',
+                                     dest="machine_tags",
+                                     action='append',
+                                     help=('If none provided, the machine tags '
+                                           'attached to the trace to be '
+                                           'uploaded will be generated in the '
+                                           'machine running this command. '
+                                           'If provided, just attach the '
+                                           'specified machine tag to the trace '
+                                           'to be uploaded (can be repeated).'))
     upload_trace_parser.add_argument('app_id',
                                      help='Name/steam app ID of the application/game/benchmark you want to upload a trace for')
     upload_trace_parser.add_argument('trace', help='Path to the trace you want to upload')
@@ -301,7 +321,7 @@ def entrypoint():
         path = client.download_trace(args.trace, args.output_folder)
         print(f"The trace got saved at '{path}'")
     elif args.cmd == "upload_trace":
-        client.upload_trace(args.app_id, args.trace, args.frames)
+        client.upload_trace(args.app_id, args.trace, args.frames, args.machine_tags)
     else:
         parser.print_help(sys.stderr)
 
