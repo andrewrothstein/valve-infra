@@ -40,18 +40,18 @@ Running the infrastructure with the following command:
 The project is voluntarily light on configuration options as it
 strives for auto-configuration as much as possible. However, it is
 possible to override the following parameters by setting the following
-environment variables (which all have good defaults),
+environment variables,
 
-* DNS_SERVER: Needed by the power cutter to resolve the PDUs' IP address. This
-  requirement will soon disapear. Defaults to `10.0.0.6`;
-* TMP_MOUNT: The place where large, transient files can be stored. NFS roots
-  use this area. General scratch space. Defaults to `/mnt/tmp`. If you change
+* TMP_MOUNT: The place where large, transient files can be
+  stored. General scratch space. Defaults to `/mnt/tmp`. If you change
   this, make sure you pass the right mount point into the container.
 * PERMANENT_MOUNT: The place to store files that should persist across reboots
   (configuration files, tiny databases, ...). Defaults to `/mnt/persistent`.
   If you change this, make sure you pass the right mount point into the container.
 * PRIVATE_INTERFACE: The name of the network interface connected to private
   network. Defaults to `private`.
+* FARM_NAME: A name unique to your farm installation. I recommend your IRC nick for now if you are running a local farm. Charlie's farm is `tchar`, Martin's is `mupuf`, and so on. The production farms will be named after the company hosting them, e.g. `igalia` or `valve`.
+* VALVE_INFRA_NO_PULL: When this variable is set, the infra will not pull containers from the Gitlab CI, recommended for development. See the notes below on the development process. The default is to pull new changes automatically.
 
 Additionally, you may add secrets to the environment file in `./config/private.env`, which will override those specified above,
 
@@ -60,12 +60,18 @@ Additionally, you may add secrets to the environment file in `./config/private.e
 
 ## Working on the project
 
+The infra is organised into separate components, expressed as containers. If you need to work on one component, it's the familiar workflow you'd use for any container-based project. Here's a crib sheet to help out.
+
 To build the gitlab-sync container individually,
 
-docker buildx build -t registry.freedesktop.org/mupuf/valve-infra/gitlab-sync containers/gitlab-sync  --load
+    docker buildx build -t registry.freedesktop.org/mupuf/valve-infra/gitlab-sync containers/gitlab-sync  --load
 
 To run from a shell:
 
     docker run --env-file ./config/prod.env --rm -it -v $(pwd)/containers/gitlab-sync:/app -v /mnt/tmp/gitlab-runner:/etc/gitlab-runner --entrypoint=bash registry.freedesktop.org/mupuf/valve-infra/gitlab-sync
 	
-The same pattern can be used for other containers in the project. See the `.gitlab-ci.yml` for the details.
+Now that you are inside the container, you can run the test suite for this component, make changes, iterate, etc.
+
+If you wish to integration test the changes, start the whole infra, and then do `docker stop app_gitlab_sync_1`, for example. You may then bring up your in-development component to test it within the infra. Use `VALVE_INFRA_NO_PULL=1` to stop the default behaviour to pulling upstream containers from the CI.
+
+The same pattern can be used for other containers in the project. See the `.gitlab-ci.yml` and `docker-compose.yml` for the per-component details.

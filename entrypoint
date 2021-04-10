@@ -9,8 +9,7 @@ set -o pipefail
 # Generate a configuration file based on the default values, or the
 # overriding env vars
 [ -d ./config/ ] || mkdir ./config/
-echo -e "DNS_SERVER=${DNS_SERVER:-10.0.0.6}
-TMP_MOUNT=${TMP_MOUNT:-/mnt/tmp}
+echo -e "TMP_MOUNT=${TMP_MOUNT:-/mnt/tmp}
 PERMANENT_MOUNT=${PERMANENT_MOUNT:-/mnt/permanent}
 REGISTRY_MOUNT=${REGISTRY_MOUNT:-${TMP_MOUNT}/registry}
 PRIVATE_INTERFACE=${PRIVATE_INTERFACE:-private}
