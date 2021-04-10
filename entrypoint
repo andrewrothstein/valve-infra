@@ -11,7 +11,7 @@ set -o pipefail
 [ -d ./config/ ] || mkdir ./config/
 echo -e "TMP_MOUNT=${TMP_MOUNT:-/mnt/tmp}
 PERMANENT_MOUNT=${PERMANENT_MOUNT:-/mnt/permanent}
-REGISTRY_MOUNT=${REGISTRY_MOUNT:-${TMP_MOUNT}/registry}
+REGISTRY_MOUNT=${REGISTRY_MOUNT:-/mnt/tmp/registry}
 PRIVATE_INTERFACE=${PRIVATE_INTERFACE:-private}
 MINIO_ROOT_PASSWORD=`tr -dc _A-Z-a-z-0-9 < /dev/urandom | head -c 32`
 FARM_NAME=${FARM_NAME:?Must be defined as an environment variable - think of something unique to your farm!}
