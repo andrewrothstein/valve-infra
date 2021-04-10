@@ -44,7 +44,7 @@ executor:
     - .container base
   rules:
     - changes:
-      - containers/executor/**
+      - executor/**
       - .gitlab-ci.yml
   script:
     - docker build -t $IMAGE_NAME -f executor/Dockerfile .
