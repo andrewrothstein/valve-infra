@@ -24,7 +24,6 @@ gfxinfo:
   variables:
     TWINE_PASSWORD: $PIP_GFXINFO_TOKEN
 
-
 .container base:
   image: docker/compose:alpine-1.27.4
   stage: containers
