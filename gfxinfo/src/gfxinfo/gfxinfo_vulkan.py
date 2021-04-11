@@ -3,10 +3,10 @@ try:
 except:
     from backports.cached_property import cached_property
 from enum import Enum
+from cffi import FFI
 
-import subprocess
-import json
 import re
+import vulkan as vk
 
 
 class VulkanExtension:
@@ -22,11 +22,11 @@ class VulkanExtension:
 
 
 class VulkanHeap:
-    DEVICE_LOCAL_BIT = 0x00000001
-    VISIBLE_BIT = 0x00000002
-    COHERENT_BIT = 0x00000004
-    HOST_CACHED_BIT = 0x00000008
-    LAZILY_ALLOCATED_BIT = 0x00000010
+    DEVICE_LOCAL_BIT = vk.VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT
+    VISIBLE_BIT = vk.VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT
+    COHERENT_BIT = vk.VK_MEMORY_PROPERTY_HOST_COHERENT_BIT
+    HOST_CACHED_BIT = vk.VK_MEMORY_PROPERTY_HOST_CACHED_BIT
+    LAZILY_ALLOCATED_BIT = vk.VK_MEMORY_PROPERTY_LAZILY_ALLOCATED_BIT
     PROTECTED_BIT = 0x00000020
     COHERENT_BIT_AMD = 0x00000040
     UNCACHED_BIT_AMD = 0x00000080
@@ -51,37 +51,129 @@ class VulkanHeap:
 
 
 class VulkanDeviceType(Enum):
-    OTHER = 0
-    INTEGRATED = 1
-    DISCRETE = 2
-    VIRTUAL = 3
-    CPU = 4
+    OTHER = vk.VK_PHYSICAL_DEVICE_TYPE_OTHER
+    INTEGRATED = vk.VK_PHYSICAL_DEVICE_TYPE_INTEGRATED_GPU
+    DISCRETE = vk.VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU
+    VIRTUAL =  vk.VK_PHYSICAL_DEVICE_TYPE_VIRTUAL_GPU
+    CPU =  vk.VK_PHYSICAL_DEVICE_TYPE_CPU
 
 
 class VulkanInfo:
-    def __init__(self):
-        self.json = json.loads(subprocess.check_output(["vulkaninfo", "--json"]))
-        self.summary = subprocess.check_output(["vulkaninfo", "--summary"]).decode()
+    def __init__(self, device_index=0):
+        self._physical_device_properties = None
+        self._physical_device_memory_properties = None
+        self._enumerate_device_extension_properties = None
+        self._physical_device_driver_properties = None
+
+        def get_vk_instance(app_info, enabled_extensions=None):
+            if enabled_extensions is None:
+                enabled_extensions = []
+            create_info = vk.VkInstanceCreateInfo(
+                sType=vk.VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO,
+                flags=0,
+                pApplicationInfo=app_info,
+                enabledExtensionCount=len(enabled_extensions),
+                ppEnabledExtensionNames=enabled_extensions,
+                enabledLayerCount=0,
+                ppEnabledLayerNames=[])
+            return vk.vkCreateInstance(create_info, None)
+
+
+        app_info = vk.VkApplicationInfo(
+            sType=vk.VK_STRUCTURE_TYPE_APPLICATION_INFO,
+            pApplicationName='gfxinfo',
+            applicationVersion=vk.VK_MAKE_VERSION(0, 0, 3),
+            pEngineName='No Engine',
+            engineVersion=vk.VK_MAKE_VERSION(0, 0, 3),
+            apiVersion=vk.VK_API_VERSION_1_0)
+
+        try:
+            instance = get_vk_instance(
+                app_info,
+                [vk.VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME])
+            physical_device_properties_2_supported = True
+        except vk.VkErrorIncompatibleDriver:
+            print('Exception finding a compatible Vulkan diver (ICD).')
+            return
+        except vk.VkErrorExtensionNotPresent:
+            physical_device_properties_2_supported = False
+            print('The {} extension is not supported. '
+                  'Some information is not available.'.format(
+                vk.VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME))
+            try:
+                instance = get_vk_instance(app_info)
+            except:
+                print('Exception creating Vulkan instance.')
+                return
+        except:
+            print('Exception creating Vulkan instance.')
+            return
+
+        try:
+            physical_devices = vk.vkEnumeratePhysicalDevices(instance)
+        except vk.VkErrorInitializationFailed:
+            print('No physical Vulkan capables devices found.')
+            vk.vkDestroyInstance(instance, None)
+            return
+        except:
+            print('Exception getting the physical Vulkan devices.')
+            vk.vkDestroyInstance(instance, None)
+            return
+
+        if not physical_devices or (device_index + 1) > len(physical_devices):
+            vk.vkDestroyInstance(instance, None)
+            return
+
+        physical_device = physical_devices[device_index]
+
+        self._physical_device_properties = vk.vkGetPhysicalDeviceProperties(
+            physical_device)
+
+        self._physical_device_memory_properties = vk.vkGetPhysicalDeviceMemoryProperties(
+            physical_device)
+
+        self._enumerate_device_extension_properties = vk.vkEnumerateDeviceExtensionProperties(
+            physicalDevice=physical_device, pLayerName=None)
+
+        if physical_device_properties_2_supported:
+            vkGetPhysicalDeviceProperties2KHR = vk.vkGetInstanceProcAddr(
+                instance, 'vkGetPhysicalDeviceProperties2KHR')
+            self._physical_device_driver_properties = vk.VkPhysicalDeviceDriverPropertiesKHR()
+            physical_device_properties2 = vk.VkPhysicalDeviceProperties2(
+                pNext=self._physical_device_driver_properties)
+            physical_device_properties2 = vkGetPhysicalDeviceProperties2KHR(
+                physical_device, physical_device_properties2)
+
+        vk.vkDestroyInstance(instance, None)
 
     @property
     def device(self):
-        properties = self.json.get('VkPhysicalDeviceProperties', {})
-        return (properties.get("vendorID"), properties.get("deviceID"))
+        if self._physical_device_properties is None:
+            return (None, None)
+
+        return (self._physical_device_properties.vendorID,
+                self._physical_device_properties.deviceID)
 
     @property
     def device_name(self):
-        properties = self.json.get('VkPhysicalDeviceProperties', {})
-        return properties.get("deviceName")
+        if self._physical_device_properties is None:
+            return None
+
+        return self._physical_device_properties.deviceName
 
     @cached_property
     def device_type(self):
-        properties = self.json.get('VkPhysicalDeviceProperties', {})
-        return (VulkanDeviceType(properties.get("deviceType")))
+        if self._physical_device_properties is None:
+            return None
+
+        return VulkanDeviceType(self._physical_device_properties.deviceType)
 
     @cached_property
     def api_version(self):
-        properties = self.json.get('VkPhysicalDeviceProperties', {})
-        version = int(properties.get("apiVersion"))
+        if self._physical_device_properties is None:
+            return None
+
+        version = self._physical_device_properties.apiVersion
         major = version >> 22
         minor = (version >> 12) & 0x3ff
         patch = version & 0xfff
@@ -89,53 +181,72 @@ class VulkanInfo:
 
     @cached_property
     def driver_info(self):
-        m = re.search(r"driverInfo += (?P<info>.*)\n", self.summary)
-        if m:
-            return m.groupdict({}).get('info')
+        if self._physical_device_driver_properties is None:
+            return None
+
+        ffi = FFI()
+        return ffi.string(
+            self._physical_device_driver_properties.driverInfo).decode()
 
     @cached_property
     def driver_name(self):
-        m = re.search(r"driverName += (?P<name>.*)\n", self.summary)
-        if m:
-            return m.groupdict({}).get('name')
+        if self._physical_device_driver_properties is None:
+            return None
+
+        ffi = FFI()
+        return ffi.string(
+            self._physical_device_driver_properties.driverName).decode()
 
     @cached_property
     def mesa_version(self):
+        if self.driver_info is None:
+            return None
+
         m = re.search(r"Mesa (?P<version>[\w\.\d -]+)", self.driver_info)
         if m:
             return m.groupdict({}).get('version')
 
     @cached_property
     def mesa_git_version(self):
+        if self.driver_info is None:
+            return None
+
         m = re.search(r"Mesa [\w\.\d -]+ \(git-(?P<hash>[\da-z]+)\)", self.driver_info)
         if m:
             return m.groupdict({}).get('hash')
 
     @cached_property
     def conformance_version(self):
-        m = re.search(r"conformanceVersion += (?P<version>[\d\.]+)", self.summary)
-        if m:
-            return m.groupdict({}).get('version')
+        if self._physical_device_driver_properties is None:
+            return None
+
+        version = self._physical_device_driver_properties.conformanceVersion
+
+        return '{}.{}.{}.{}'.format(version.major, version.minor,
+                                    version.subminor, version.patch)
 
     @property
     def extensions(self):
         extensions = dict()
-        for e in self.json.get('ArrayOfVkExtensionProperties', {}):
-            extension = VulkanExtension(name=e['extensionName'], version=e['specVersion'])
+        for e in self._enumerate_device_extension_properties or []:
+            extension = VulkanExtension(name=e.extensionName,
+                                        version=e.specVersion)
             extensions[extension.name] = extension
         return extensions
 
     @cached_property
     def heaps(self):
+        if self._physical_device_memory_properties is None:
+            return []
+
         heaps = []
 
-        mem_props = self.json.get("VkPhysicalDeviceMemoryProperties", {})
-        for heap in mem_props.get('memoryHeaps', []):
-            heaps.append(VulkanHeap(size=heap['size'], flags=heap['flags']))
+        for heap in self._physical_device_memory_properties.memoryHeaps:
+            heaps.append(VulkanHeap(size=heap.size, flags=heap.flags))
 
-        for mem_type in mem_props.get('memoryTypes', []):
-            heap = heaps[mem_type["heapIndex"]]
-            heap.add_type(mem_type["propertyFlags"])
+        for mem_type in self._physical_device_memory_properties.memoryTypes:
+            heap = heaps[mem_type.heapIndex]
+            heap.add_type(mem_type.propertyFlags)
 
         return heaps
 
