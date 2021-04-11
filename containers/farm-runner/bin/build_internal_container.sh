@@ -5,6 +5,8 @@ set -o pipefail
 set -o nounset
 set -o xtrace
 
+shopt -s extglob
+
 # runtime panics have happened within buildah, very rarely, try and catch one for a bit,
 # https://github.com/containers/buildah/issues/3130
 export BUILDAH="buildah --debug"
@@ -14,19 +16,33 @@ export BUILDAH_COMMIT="$BUILDAH commit --format docker --tls-verify=false"
 export BUILDAH_PUSH="$BUILDAH push --tls-verify=false"
 export BUILDAH_FORMAT=docker
 
+# The location of the extra Mesa build artifact
+INSTALL=$CI_PROJECT_DIR/install
+
 export MESA_IMAGE_NAME=${MESA_IMAGE#registry.freedesktop.org/}
-export LOCAL_CONTAINER="10.42.0.1:8004/$MESA_IMAGE_NAME"
+# It's a bit opaque how image tagging happens in the Mesa CI, but
+# basically the format of MESA_IMAGE is one of,
+#
+#  MESA_IMAGE: "$CI_REGISTRY_IMAGE/${MESA_IMAGE_PATH}:${MESA_IMAGE_TAG}--${MESA_TEMPLATES_COMMIT}"
+#  MESA_IMAGE: "$CI_REGISTRY_IMAGE/${MESA_IMAGE_PATH}:${MESA_IMAGE_TAG}--${MESA_BASE_TAG}--${MESA_TEMPLATES_COMMIT}"
+#
+# The length of these tags can creep up to the spec limits of 128
+# characters quite easily if extra cache tags are appeneded. In this
+# use-case, it is needed to add a further level of cache tagging,
+# namely the Mesa commit being internally bundled in the local
+# container. For internal registry caching, MESA_TEMPLATES_COMMIT is
+# not useful since it doesn't change as often as the Mesa commit,
+# replace it with CI_COMMIT_SHA, to cache on the built Mesa instead.
+export LOCAL_CONTAINER_NAME=${MESA_IMAGE_NAME/%${MESA_TEMPLATES_COMMIT}/${CI_COMMIT_SHA}}
+export LOCAL_CONTAINER="10.42.0.1:8004/${LOCAL_CONTAINER_NAME}"
+
+# The built Mesa artifact is uploaded to the upstream Minio instance,
+# since it's in a previous stage and wasn't carried as an artifact to
+# us, it must be fetched over the network rather than being in our
+# build context.
 export MESA_URL="https://${MINIO_HOST}/artifacts/${CI_PROJECT_PATH}/${CI_PIPELINE_ID}/mesa-${ARCH}.tar.gz"
 
 env
-
-# TODO: Caching.
-# We'll always need to at least change the container environment to
-# match the job environment. For instance, changing DEQP_FRACTION
-# after the container is built
-# The fetch of Mesa and such can probably be saved by skopeo
-# inspecting the local container, as below, and bailing early if it
-# has already been built
 
 CONTAINER_EXISTS=
 if skopeo inspect --tls-verify=false docker://$LOCAL_CONTAINER ; then
@@ -35,13 +51,17 @@ if skopeo inspect --tls-verify=false docker://$LOCAL_CONTAINER ; then
      #   skopeo inspect docker://$LOCAL_CONTAINER | jq '[.Digest, .Layers]' > local_sha
      echo "LOCAL_CONTAINER ($LOCAL_CONTAINER) has already been built and stored into the local registry"
      CONTAINER_EXISTS=yes
-     # Despite this, we still should fetch the job environment, since
-     # this could have changed run to run, regardless of the SHAs.
 fi
 
 test_container=$($BUILDAH from "docker://$MESA_IMAGE")
 test_container_mount=$($BUILDAH mount $test_container)
 
+# Collect up the environment from the job that is of use to the test
+# payload. This would ideally be an environment file, sourced by the
+# entrypoint before the test runs, instead it's attached somewhat
+# oddly to the OCI environment, since the buildah tools don't support
+# (at the time of writing) sourcing the environment from a file, only
+# via command line arguments.
 set +o xtrace
 CONTAINER_ENV_PARAMS=""
 # Pass through relevant env vars from the gitlab job to the test container
@@ -113,11 +133,6 @@ for var in \
     CONTAINER_ENV_PARAMS="$CONTAINER_ENV_PARAMS --env $var=${!var@Q}"
   fi
 done
-set -o xtrace
-
-INSTALL=$CI_PROJECT_DIR/install
-
-# Make the environment friendly to testing
 eval $(
     set +o xtrace
     echo $BUILDAH config \
@@ -134,9 +149,10 @@ $BUILDAH config \
 	--cmd '['\"$TEST_ENTRYPOINT\"']' \
 	$test_container
 
-if [ -n "$CONTAINER_EXISTS" ]; then
-    # Fetch the Mesa artifact and place it into the container so that
-    # it becomes a self-contained test-workload.
+if [ -z "$CONTAINER_EXISTS" ]; then
+    # If this is first time building the internal container, fetch the
+    # Mesa artifact and place it into the container so that it becomes
+    # a self-contained test-workload.
     $BUILDAH_RUN $test_container env DEBIAN_FRONTEND=noninteractive apt-get update
     $BUILDAH_RUN $test_container env DEBIAN_FRONTEND=noninteractive apt-get install -y curl
     $BUILDAH_RUN $test_container bash -c "curl $MESA_URL | tar xzf -"
