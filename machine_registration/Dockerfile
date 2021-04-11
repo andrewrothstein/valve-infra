@@ -1,4 +1,4 @@
-FROM alpine:3
+FROM alpine:edge
 
 RUN set -ex \
         && apk add --no-cache py3-netifaces py3-psutil py3-requests py3-pip \
