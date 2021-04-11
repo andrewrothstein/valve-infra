@@ -27,9 +27,6 @@ class VulkanHeap:
     COHERENT_BIT = vk.VK_MEMORY_PROPERTY_HOST_COHERENT_BIT
     HOST_CACHED_BIT = vk.VK_MEMORY_PROPERTY_HOST_CACHED_BIT
     LAZILY_ALLOCATED_BIT = vk.VK_MEMORY_PROPERTY_LAZILY_ALLOCATED_BIT
-    PROTECTED_BIT = 0x00000020
-    COHERENT_BIT_AMD = 0x00000040
-    UNCACHED_BIT_AMD = 0x00000080
 
     def __init__(self, size, flags):
         self.size = size
@@ -40,10 +37,7 @@ class VulkanHeap:
         self.types.append(flags)
 
     def has_type(self, flags):
-        for t in self.types:
-            if flags == t:
-                return True
-        return False
+        return any([flags == t for t in self.types])
 
     @property
     def GiB_size(self):
