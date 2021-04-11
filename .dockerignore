@@ -1,0 +1,3 @@
+**/.tox/**
+containers/
+**/__pycache__/**
