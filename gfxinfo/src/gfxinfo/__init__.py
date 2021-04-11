@@ -4,7 +4,7 @@ except:
     from backports.cached_property import cached_property
 
 from .amdgpu import AMDGPU
-from .vulkan import VulkanInfo
+from .gfxinfo_vulkan import VulkanInfo
 
 
 class GFXInfo:
