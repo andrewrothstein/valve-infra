@@ -22,8 +22,8 @@ services:
       - BOOTS_HTTP_SERVICE_PORT=8088
       - PRIVATE_INTERFACE=$PRIVATE_INTERFACE
       - MARS_HOST=http://10.42.0.1:80
-      - DEFAULT_KERNEL="http://10.42.0.1:9000/boot/default_kernel"
-      - DEFAULT_INITRD="http://10.42.0.1:9000/boot/default_boot2container.cpio.xz"
+      - DEFAULT_KERNEL=http://10.42.0.1:9000/boot/default_kernel
+      - DEFAULT_INITRD=http://10.42.0.1:9000/boot/default_boot2container.cpio.xz
     volumes:
       - ${TMP_MOUNT}/boots:/boots
       - ${TMP_MOUNT}/boots/nfs-roots:/nfs
@@ -35,8 +35,8 @@ services:
     image: registry.freedesktop.org/mupuf/valve-infra/executor
     environment:
       - EXECUTOR_PORT=8003
-      - EXECUTOR_REGISTRATION_JOB="/app/job_templates/register.yml.j2"
-      - EXECUTOR_BOOTLOOP_JOB="/app/job_templates/bootloop.yml.j2"
+      - EXECUTOR_REGISTRATION_JOB=/app/job_templates/register.yml.j2
+      - EXECUTOR_BOOTLOOP_JOB=/app/job_templates/bootloop.yml.j2
       - SERGENT_HARTMAN_BOOT_COUNT=100
       - SERGENT_HARTMAN_QUALIFYING_BOOT_COUNT=100
       - SERGENT_HARTMAN_REGISTRATION_RETRIAL_DELAY=120
@@ -68,7 +68,7 @@ services:
   fdo_proxy_registry:
     image: registry
     environment:
-      - REGISTRY_PROXY_REMOTEURL="https://registry.freedesktop.org"
+      - REGISTRY_PROXY_REMOTEURL=https://registry.freedesktop.org
     restart: always
     volumes:
       - ${REGISTRY_MOUNT}:/var/lib/registry
