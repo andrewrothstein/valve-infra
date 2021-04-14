@@ -336,7 +336,7 @@ class Machine(Thread):
         self._cache_remote_artifact("initramfs", deploy_strt.initramfs_url,
                                     deploy_cnt.initramfs_url)
 
-    def summon_sergent_hartman(self):
+    def start_sergent_hartman(self):
         if self.sergent_hartman is not None:
             if self.sergent_hartman.is_alive():
                 # Nothing to do!
@@ -493,7 +493,7 @@ class Machine(Thread):
             # If the machine is not ready for service, start a background task
             # that will queue jobs until it gets qualified
             if not self.ready_for_service:
-                self.summon_sergent_hartman()
+                self.start_sergent_hartman()
 
             try:
                 if not session_init():
