@@ -560,11 +560,9 @@ class Machine(Thread):
             # Remove the machine from the list of local-only machines
             local_only_machines.discard(machine)
 
-        # Delete all the machines that are not found in MaRS, nor have a console
-        # associated with them
+        # Delete all the machines that are not found in MaRS
         for machine in local_only_machines:
-            if machine.console is None:
-                del self._machines[machine.machine_id]
+            del self._machines[machine.machine_id]
 
     @classmethod
     def find_suitable_machine(cls, target):
