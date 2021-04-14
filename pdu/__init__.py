@@ -52,7 +52,6 @@ class PDUPort:
     def __eq__(self, other):
         for attr in ["pdu", "port_id", "label", "min_off_time"]:
             if getattr(self, attr, None) != getattr(other, attr, None):
-                print(f"Attribute {attr} is different! {getattr(self, attr, None)} vs {getattr(other, attr, None)}")
                 return False
         return True
 
