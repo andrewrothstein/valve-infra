@@ -69,8 +69,8 @@ class Trace:
         machine_tags = self.machine_tags
 
         for wanted_tag in tags:
+            found = False
             for machine_tag in machine_tags:
-                found = False
                 if wanted_tag.match(machine_tag):
                     if debug:
                         print(f"The wanted tag {wanted_tag} matched the machine tag {machine_tag}")
