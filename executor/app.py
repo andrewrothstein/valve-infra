@@ -1,20 +1,21 @@
 #!/usr/bin/env python3
 
-# Add the parent folder to the python path
-import sys
-import os
-sys.path.append(os.path.abspath('{}/../'.format(os.path.dirname(__file__))))
-
 from threading import Thread, Event
 from urllib3.util.retry import Retry
-from salad import salad
-from executor import Machine
-from job import Job
 
 import traceback
 import requests
 import flask
 import time
+import sys
+import os
+
+# Add the parent folder to the python path
+sys.path.append(os.path.abspath('{}/../'.format(os.path.dirname(__file__))))
+
+from salad import salad
+from executor import Machine
+from job import Job
 
 
 app = flask.Flask(__name__)
@@ -40,12 +41,13 @@ class MaRS(Thread):
                 if self.stop_event.is_set():
                     return
 
+
 def requests_retry_setup():
     s = requests.Session()
 
     retries = Retry(total=5,
                     backoff_factor=0.1,
-                    status_forcelist=[ 500, 502, 503, 504 ])
+                    status_forcelist=[500, 502, 503, 504])
 
     s.mount('http://', requests.adapters.HTTPAdapter(max_retries=retries))
     s.mount('https://', requests.adapters.HTTPAdapter(max_retries=retries))

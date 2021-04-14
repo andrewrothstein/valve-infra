@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-from datetime import datetime, timedelta
+from datetime import datetime
 from threading import Thread, Event
 from multiprocessing import Process
 from collections import defaultdict
@@ -17,7 +17,6 @@ import requests
 import tempfile
 import socket
 import time
-import yaml
 import sys
 import os
 from minio import Minio
@@ -157,9 +156,9 @@ class SergentHartman(Process):
 
                 # Execute the job
                 return subprocess.run(["python3", "-m", "executor.client", "-w", "run", f_job.name],
-                                    stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, stdin=subprocess.DEVNULL,
-                                    timeout=600).returncode
-        except Exception as e:
+                                      stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, stdin=subprocess.DEVNULL,
+                                      timeout=600).returncode
+        except Exception:
             traceback.print_exc()
             return JobStatus.SETUP_FAIL.value
 
@@ -358,10 +357,10 @@ class Machine(Thread):
         boot_loop_counts = str_to_int(os.getenv("SERGENT_HARTMAN_BOOT_COUNT", None), 5)
         qualifying_rate = str_to_int(os.getenv("SERGENT_HARTMAN_QUALIFYING_BOOT_COUNT", None), 5)
         self.sergent_hartman = SergentHartman(machine_id=self.machine_id,
-                                                mars_base_url=self.mars_base_url(),
-                                                template_params=template_params,
-                                                boot_loop_counts=boot_loop_counts,
-                                                qualifying_rate=qualifying_rate)
+                                              mars_base_url=self.mars_base_url(),
+                                              template_params=template_params,
+                                              boot_loop_counts=boot_loop_counts,
+                                              qualifying_rate=qualifying_rate)
         self.sergent_hartman.start()
 
     def run(self):
@@ -404,7 +403,7 @@ class Machine(Thread):
         def session_end():
             self.job_config = None
 
-            ## Signal to the job that we reached the end of the execution
+            # Signal to the job that we reached the end of the execution
             if self.job_console is not None:
                 self.job_console.close()
                 self.job_console = None
@@ -431,13 +430,13 @@ class Machine(Thread):
                 self.pdu_port.set(PDUState.OFF)
 
                 # Set up the deployment
-                self.log(f"Setting up the boot configuration\n")
+                self.log("Setting up the boot configuration\n")
                 set_boot_config(deployment)
                 self.log(f"Power up the machine, enforcing {self.pdu_port.min_off_time} seconds of down time\n")
                 self.pdu_port.set(PDUState.ON)
 
                 # Start the boot, and enable the timeouts!
-                self.log(f"Boot the machine\n")
+                self.log("Boot the machine\n")
                 timeouts.boot_cycle.start()
                 timeouts.first_console_activity.start()
                 timeouts.console_activity.stop()
@@ -590,7 +589,7 @@ class Machine(Thread):
         if target.target_id is not None:
             machine = cls.get_by_id(target.target_id)
             if machine is None:
-               return None, 404, f"Unknown machine with ID {target.target_id}"
+                return None, 404, f"Unknown machine with ID {target.target_id}"
             elif not wanted_tags.issubset(machine.tags):
                 return None, 406, f"The machine {target.target_id} does not matching tags (asked: {wanted_tags}, actual: {machine.tags})"
             elif machine.state != MachineState.IDLE:

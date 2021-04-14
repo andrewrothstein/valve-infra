@@ -100,18 +100,18 @@ class Job:
         return sock
 
     def _parse_job_status(self, final_lines):
-            try:
-                m = re.search(b"<-- End of the session: (?P<status>\\w+) -->", final_lines)
-                if m is not None:
-                    status_str = m.groupdict({}).get("status", b"UNKNOWN").decode()
-                    return JobStatus.from_str(status_str)
-            except Exception as e:
-                traceback.print_exc()
+        try:
+            m = re.search(b"<-- End of the session: (?P<status>\\w+) -->", final_lines)
+            if m is not None:
+                status_str = m.groupdict({}).get("status", b"UNKNOWN").decode()
+                return JobStatus.from_str(status_str)
+        except Exception:
+            traceback.print_exc()
 
-            return JobStatus.INCOMPLETE
+        return JobStatus.INCOMPLETE
 
     def _forward_inputs_and_outputs(self, job_socket):
-        print(f"Connection established: Switch to proxy mode")
+        print("Connection established: Switch to proxy mode")
 
         # Set stdin to the raw input mode
         if sys.stdin.isatty():
@@ -160,8 +160,8 @@ class Job:
                     if control_char_pressed:
                         logger.info("Exiting the client in response to CTRL+C...")
                         return JobStatus.INCOMPLETE
-                    logger.info("forwarding CTRL+C to job, type CTRL+A followed by CTRL+C to quit the client")                    
-                    # Forward the CTRL+C
+
+                    logger.info("forwarding CTRL+C to job, type CTRL+A followed by CTRL+C to quit the client")
                     job_socket.send(chr(3).encode())
         finally:
             if sys.stdin.isatty():
@@ -189,7 +189,7 @@ class Job:
         except requests.exceptions.ConnectionError:
             logger.error("Failed to connect to the executor, is it running?")
             status = JobStatus.SETUP_FAIL
-        except Exception as e:
+        except Exception:
             traceback.print_exc()
             status = JobStatus.UNKNOWN
         finally:
@@ -204,6 +204,7 @@ class Job:
             job_desc = f.read()
 
         return cls(executor_url, job_desc, wait_if_busy=wait_if_busy)
+
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
