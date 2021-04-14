@@ -9,7 +9,6 @@ from enum import Enum
 
 from salad import salad, JobSession
 from pdu import PDU, PDUState
-from bootsclient import BootsClient
 from client import JobStatus
 
 import subprocess
@@ -232,6 +231,25 @@ class MinioCache():
             self._client.fput_object(minio_bucket_name, minio_object_name, temp_download_area.name)
 
 
+class BootsClient:
+    @classmethod
+    def url(cls, path):
+        boots_url = os.getenv('BOOTS_URL', "http://localhost:8087")
+        return f"{boots_url}{path}"
+
+    @classmethod
+    def set_config(cls, mac_addr, kernel_path, initramfs_path, kernel_cmdline):
+        params = {
+            "initrd_path": initramfs_path,
+            "kernel_path": kernel_path,
+            "cmdline": kernel_cmdline,
+        }
+
+        r = requests.post(cls.url(f"/duts/{mac_addr}/boot"), json=params)
+        if r.status_code != 200:
+            print("BOOTS ERROR: ", r.json())
+        return r.status_code
+
 
 class Machine(Thread):
     _machines = dict()
@@ -260,8 +278,6 @@ class Machine(Thread):
         self.job_ready = Event()
         self.job_config = None
         self.job_console = None
-
-        self.boots = BootsClient(boots_url=os.getenv('BOOTS_URL', "http://localhost:8087"))
 
         # Remote artifacts (typically over HTTPS) are stored in our
         # local minio instance which is exposed over HTTP to the
@@ -380,10 +396,10 @@ class Machine(Thread):
                                              tags=self.tags,
                                              local_tty_device=self.local_tty_device)
 
-            self.boots.set_config(mac_addr=self.machine_id,
-                                  kernel_path=self.remote_url_to_local_cache_mapping.get(deployment.kernel_url),
-                                  initramfs_path=self.remote_url_to_local_cache_mapping.get(deployment.initramfs_url),
-                                  kernel_cmdline=kernel_cmdline)
+            BootsClient.set_config(mac_addr=self.machine_id,
+                                   kernel_path=self.remote_url_to_local_cache_mapping.get(deployment.kernel_url),
+                                   initramfs_path=self.remote_url_to_local_cache_mapping.get(deployment.initramfs_url),
+                                   kernel_cmdline=kernel_cmdline)
 
         def session_end():
             self.job_config = None
