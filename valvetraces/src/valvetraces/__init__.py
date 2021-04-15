@@ -63,7 +63,11 @@ class Trace:
 
     @property
     def machine_tags(self):
-        return list(self.metadata.get("machine_tags", []))
+        try:
+            return list(self.metadata.get("machine_tags", []))
+        except Exception as e:
+            print(e)
+            return []
 
     def matches_tags(self, tags, debug=False):
         machine_tags = self.machine_tags
