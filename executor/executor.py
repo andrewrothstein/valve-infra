@@ -584,7 +584,7 @@ class Machine(Thread):
                 continue
 
             pdu_port = get_PDU_or_create_from_MaRS_URL(m.get('pdu'), m.get('pdu_port_id'),
-                                                       m.get('min_off_time', 5))
+                                                       m.get('pdu_off_delay', 5))
             machine = cls.update_or_create(m.get("mac_address"),
                                            ready_for_service=m.get('ready_for_service', False),
                                            tags=set(m.get('tags', [])),
