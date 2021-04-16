@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 
 from threading import Thread, Event
-from urllib3.util.retry import Retry
 
 import traceback
 import requests
@@ -40,17 +39,6 @@ class MaRS(Thread):
                 time.sleep(1)
                 if self.stop_event.is_set():
                     return
-
-
-def requests_retry_setup():
-    s = requests.Session()
-
-    retries = Retry(total=5,
-                    backoff_factor=0.1,
-                    status_forcelist=[500, 502, 503, 504])
-
-    s.mount('http://', requests.adapters.HTTPAdapter(max_retries=retries))
-    s.mount('https://', requests.adapters.HTTPAdapter(max_retries=retries))
 
 
 def get_machine_or_fail(machine_id):
@@ -104,9 +92,6 @@ def post_job():
 
 
 if __name__ == '__main__':  # pragma: nocover
-    # Make sure that any HTTP/HTTPS request done in this process get retried
-    requests_retry_setup()
-
     # Start the monitoring of serial consoles
     salad.start()
 

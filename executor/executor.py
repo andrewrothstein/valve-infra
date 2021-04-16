@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+from urllib3.util.retry import Retry
 from datetime import datetime
 from threading import Thread, Event
 from multiprocessing import Process
@@ -13,7 +14,7 @@ from client import JobStatus
 
 import subprocess
 import traceback
-import requests
+import requests as _requests
 import tempfile
 import socket
 import time
@@ -21,6 +22,7 @@ import sys
 import os
 from minio import Minio
 from logging import getLogger, getLevelName, Formatter, StreamHandler
+
 
 logger = getLogger(__name__)
 logger.setLevel(getLevelName('DEBUG'))
@@ -30,6 +32,23 @@ log_formatter = \
 console_handler = StreamHandler()
 console_handler.setFormatter(log_formatter)
 logger.addHandler(console_handler)
+
+
+# Make sure that any HTTP/HTTPS request done in this process get retried
+def requests_retry_setup():
+    s = _requests.Session()
+
+    retries = Retry(total=10,
+                    backoff_factor=0.1,
+                    status_forcelist=[500, 502, 503, 504],
+                    method_whitelist=["HEAD", "GET", "PUT", "PATCH", "DELETE"])
+
+    s.mount('http://', _requests.adapters.HTTPAdapter(max_retries=retries))
+    s.mount('https://', _requests.adapters.HTTPAdapter(max_retries=retries))
+
+    return s
+
+requests = requests_retry_setup()
 
 
 class MachineState(Enum):
