@@ -3,7 +3,6 @@
 from urllib3.util.retry import Retry
 from datetime import datetime
 from threading import Thread, Event
-from multiprocessing import Process
 from collections import defaultdict
 from jinja2 import Template
 from enum import Enum
@@ -11,14 +10,13 @@ from enum import Enum
 from salad import salad, JobSession
 from pdu import PDU, PDUState
 from client import JobStatus
+from job import Job
 
-import subprocess
 import traceback
 import requests as _requests
 import tempfile
 import socket
 import time
-import sys
 import os
 from minio import Minio
 from logging import getLogger, getLevelName, Formatter, StreamHandler
@@ -54,8 +52,9 @@ requests = requests_retry_setup()
 class MachineState(Enum):
     WAIT_FOR_CONFIG = 0
     IDLE = 1
-    QUEUED = 2
-    RUNNING = 3
+    TRAINING = 2
+    QUEUED = 3
+    RUNNING = 4
 
 
 class JobConsole(JobSession):
@@ -180,87 +179,109 @@ def str_to_int(string, default):
         return default
 
 
-class SergentHartman(Process):
-    def __init__(self, machine_id, mars_base_url, template_params,
-                 boot_loop_counts=100, qualifying_rate=100):
+class SergentHartman:
+    def __init__(self, machine, boot_loop_counts=100, qualifying_rate=100):
         super().__init__()
 
-        self.machine_id = machine_id
-        self.mars_base_url = mars_base_url
-        self.template_params = template_params
-
+        self.machine = machine
         self.boot_loop_counts = boot_loop_counts
         self.qualifying_rate = qualifying_rate
 
-        self.statuses = defaultdict(int)
+        self.reset()
 
     @property
-    def mars_machine_url(self):
-        return f"{self.mars_base_url}/api/v1/machine/{self.machine_id}/"
+    def is_machine_registered(self):
+        return self.cur_loop > 0
 
-    def run_job(self, job_template):
-        try:
-            with tempfile.NamedTemporaryFile("w") as f_job, open(job_template, "r") as f_template:
-                template_str = f_template.read()
-
-                # Instanciate the template, and write in the temporary file
-                template = Template(template_str).render(machine_id=self.machine_id,
-                                                         **self.template_params)
-                f_job.write(template)
-                f_job.flush()
-
-                # Execute the job
-                return subprocess.run(["python3", "-m", "executor.client", "-w", "run", f_job.name],
-                                      stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, stdin=subprocess.DEVNULL,
-                                      timeout=600).returncode
-        except Exception:
-            traceback.print_exc()
-            return JobStatus.SETUP_FAIL.value
-
-    def run(self):
-        mid = self.machine_id
-
-        register_template = os.getenv('EXECUTOR_REGISTRATION_JOB', None)
-        bootloop_template = os.getenv('EXECUTOR_BOOTLOOP_JOB', None)
-
-        if register_template is None or bootloop_template is None:
-            return
-
-        # Start by forcing the machine to register itself to make sure the
-        # its configuration is up to date (especially the serial console
-        # port). Loop until it succeeds!
-        while True:
-            print(f"SergentHartman/{mid} - Perform the first registration")
-
-            status = JobStatus(self.run_job(register_template))
-            if status != JobStatus.PASS:
-                delay = str_to_int(os.getenv("SERGENT_HARTMAN_REGISTRATION_RETRIAL_DELAY", None), 120)
-                print(f"SergentHartman/{mid} - First registration failed with status {status.name}. Retrying in {delay} second(s)")
-                time.sleep(delay)
-            else:
-                print(f"SergentHartman/{mid} - Registration succeeded, moving on to the boot loop")
-                break
-
-        # Start the qualifying loop
+    def reset(self):
+        self.is_active = False
+        self.cur_loop = 0
         self.statuses = defaultdict(int)
-        for i in range(self.boot_loop_counts):
-            status = JobStatus(self.run_job(bootloop_template))
-            self.statuses[status] += 1
+
+    def create_job(self, job_template_path):
+        with open(job_template_path, "r") as f_template:
+            template_str = f_template.read()
+
+            # Instantiate the template, and write in the temporary file
+            template_params = {
+                "ready_for_service": self.machine.ready_for_service,
+                "machine_id": self.machine.machine_id,
+                "machine_tags": set(self.machine.tags),
+                "local_tty_device": self.machine.local_tty_device,
+            }
+            template = Template(template_str).render(**template_params)
+
+            return Job(template)
+
+    def next_task(self):
+        mid = self.machine.machine_id
+
+        if not self.is_active:
+            # Start by forcing the machine to register itself to make sure the
+            # its configuration is up to date (especially the serial console
+            # port). Loop until it succeeds!
+            self.reset()
+
+            print(f"SergentHartman/{mid} - Try registering the machine")
+
+            self.is_active = True
+
+            return self.create_job(self.register_template)
+        else:
+            # Check that we got the expected amount of reports
+            if self.cur_loop != sum(self.statuses.values()):
+                raise ValueError("The previous next_task() call was not followed by a call to report()")
+
+            # The registration went well, let's start the boot loop!
+            self.cur_loop += 1
 
             statuses_str = [f"{status.name}: {values}" for status, values in self.statuses.items()]
-            print(f"SergentHartman/{mid} - loop {i+1}/{self.boot_loop_counts} - statuses {statuses_str}: Execute one more round!")
+            print(f"SergentHartman/{mid} - loop {self.cur_loop}/{self.boot_loop_counts} - statuses {statuses_str}: Execute one more round!")
 
-        # Update MaRS
-        ready_for_service = self.statuses[JobStatus.PASS] >= self.qualifying_rate
-        params = {
-            "ready_for_service": ready_for_service
-        }
-        r = requests.patch(self.mars_machine_url, json=params)
-        r.raise_for_status()
+            return self.create_job(self.bootloop_template)
 
-        print(f"SergentHartman/{mid}: Reported to MaRS that the machine is {'' if ready_for_service else 'NOT '}ready for service")
+    def report(self, job_status):
+        mid = self.machine.machine_id
 
-        sys.exit(0 if ready_for_service else 1)
+        if self.cur_loop == 0:
+            if job_status != JobStatus.PASS:
+                delay = str_to_int(os.getenv("SERGENT_HARTMAN_REGISTRATION_RETRIAL_DELAY", None), 120)
+                print(f"SergentHartman/{mid} - Registration failed with status {job_status.name}. Retrying in {delay} second(s)")
+                self.reset()
+                return delay
+            else:
+                print(f"SergentHartman/{mid} - Registration succeeded, moving on to the boot loop")
+        else:
+            # We are in the boot loop
+            self.statuses[job_status] += 1
+
+            if self.cur_loop == self.boot_loop_counts:
+                self.is_active = False
+
+                # Update MaRS
+                mars_machine_url = f"{self.machine.mars_base_url()}/api/v1/machine/{self.machine.machine_id}/"
+                ready_for_service = self.statuses[JobStatus.PASS] >= self.qualifying_rate
+                params = {
+                    "ready_for_service": ready_for_service
+                }
+                r = requests.patch(mars_machine_url, json=params)
+                r.raise_for_status()
+
+                print(f"SergentHartman/{mid}: Reported to MaRS that the machine is {'' if ready_for_service else 'NOT '}ready for service")
+
+        return 0
+
+    @property
+    def register_template(self):
+        return os.getenv('EXECUTOR_REGISTRATION_JOB', None)
+
+    @property
+    def bootloop_template(self):
+        return os.getenv('EXECUTOR_BOOTLOOP_JOB', None)
+
+    @property
+    def is_available(self):
+        return self.register_template is not None or self.bootloop_template is not None
 
 
 class MinioCache():
@@ -326,7 +347,7 @@ class Machine(Thread):
         self.local_tty_device = local_tty_device
 
         # Training / Qualifying process
-        self.sergent_hartman = None
+        self.sergent_hartman = SergentHartman(self)
 
         # Outside -> Inside communication
         self.job_ready = Event()
@@ -390,34 +411,6 @@ class Machine(Thread):
         self._cache_remote_artifact("initramfs", deploy_strt.initramfs_url,
                                     deploy_cnt.initramfs_url)
 
-    def start_sergent_hartman(self):
-        if self.sergent_hartman is not None:
-            if self.sergent_hartman.is_alive():
-                # Nothing to do!
-                return
-            elif self.sergent_hartman.exitcode is not None:
-                self.ready_for_service = self.sergent_hartman.exitcode == 0
-            else:
-                self.sergent_hartman.kill()
-            self.sergent_hartman = None
-
-        if self.ready_for_service:
-            return
-
-        template_params = {
-            "ready_for_service": self.ready_for_service,
-            "tags": set(self.tags),
-            "local_tty_device": self.local_tty_device,
-        }
-        boot_loop_counts = str_to_int(os.getenv("SERGENT_HARTMAN_BOOT_COUNT", None), 5)
-        qualifying_rate = str_to_int(os.getenv("SERGENT_HARTMAN_QUALIFYING_BOOT_COUNT", None), 5)
-        self.sergent_hartman = SergentHartman(machine_id=self.machine_id,
-                                              mars_base_url=self.mars_base_url(),
-                                              template_params=template_params,
-                                              boot_loop_counts=boot_loop_counts,
-                                              qualifying_rate=qualifying_rate)
-        self.sergent_hartman.start()
-
     def run(self):
         def session_init():
             # Reset the state
@@ -427,19 +420,27 @@ class Machine(Thread):
             # Cut the power to the machine, we do not need it
             self.pdu_port.set(PDUState.OFF)
 
-            # Wait for a job to be set
-            self.state = MachineState.IDLE
-            if not self.job_ready.wait(1):
-                return False
-            self.job_ready.clear()
+            # Pick a job
+            if self.sergent_hartman.is_available and not self.ready_for_service:
+                self.state = MachineState.TRAINING
+
+                self.job_config = self.sergent_hartman.next_task()
+                self.job_console = JobConsole(self.machine_id, endpoint=None, clientless=True,
+                                              console_patterns=self.job_config.console_patterns)
+            else:
+                # Wait for a job to be set
+                self.state = MachineState.IDLE
+                if not self.job_ready.wait(1):
+                    return False
+                self.job_ready.clear()
+
+                self.state = MachineState.RUNNING
 
             # Mark the start time to now()
             self.job_start_time = datetime.now()
 
             # Connect to the client's endpoint, to relay the serial console
             self.job_console.start()
-
-            self.state = MachineState.RUNNING
 
             return True
 
@@ -456,12 +457,24 @@ class Machine(Thread):
                                    kernel_cmdline=kernel_cmdline)
 
         def session_end():
+            cooldown_delay_s = 0
+
+            if self.sergent_hartman.is_active and self.job_config is not None:
+                status = JobStatus.from_str(self.job_config.console_patterns.job_status)
+                cooldown_delay_s = int(self.sergent_hartman.report(status))
+
             self.job_config = None
 
             # Signal to the job that we reached the end of the execution
             if self.job_console is not None:
                 self.job_console.close()
                 self.job_console = None
+
+            # Interruptible sleep
+            for i in range(cooldown_delay_s):
+                if self.stop_event.is_set():
+                    return
+                time.sleep(1)
 
         def execute_job():
             # Ask Salad to relay inputs/outputs to/from the test machine to/from the client
@@ -543,11 +556,6 @@ class Machine(Thread):
             if self.pdu_port is None:
                 time.sleep(1)
                 continue
-
-            # If the machine is not ready for service, start a background task
-            # that will queue jobs until it gets qualified
-            if not self.ready_for_service:
-                self.start_sergent_hartman()
 
             try:
                 if not session_init():
