@@ -59,11 +59,12 @@ class MachineState(Enum):
 
 
 class JobConsole(JobSession):
-    def __init__(self, machine_id, endpoint, console_patterns):
+    def __init__(self, machine_id, endpoint, console_patterns, clientless=False):
         super().__init__(machine_id)
 
         self.endpoint = endpoint
         self.console_patterns = console_patterns
+        self.clientless = clientless
 
         # Job-long state
         self.closing = False
@@ -80,11 +81,15 @@ class JobConsole(JobSession):
         self.needs_reboot = self.console_patterns.needs_reboot
 
     def start(self):
-        self.sock = socket.create_connection(self.endpoint)
+        if not self.clientless:
+            self.sock = socket.create_connection(self.endpoint)
         self.start_time = datetime.now()
 
     def fileno(self):
-        return self.sock.fileno()
+        if self.clientless:
+            return None
+        else:
+            return self.sock.fileno()
 
     def match_console_patterns(self, buf):
         patterns_matched = set()
@@ -111,10 +116,13 @@ class JobConsole(JobSession):
         self.needs_reboot = self.console_patterns.needs_reboot
 
     def _send(self, buf):
-        try:
-            self.sock.send(buf)
-        except (ConnectionResetError, BrokenPipeError, OSError):
-            self.close()
+        if not self.clientless:
+            try:
+                self.sock.send(buf)
+            except (ConnectionResetError, BrokenPipeError, OSError):
+                self.close()
+        else:
+            print(buf.decode(), end="", flush=True)
 
     def send(self, buf):
         self.last_send_activity = datetime.now()
@@ -130,6 +138,10 @@ class JobConsole(JobSession):
         self.last_recv_activity = datetime.now()
 
         buf = b""
+
+        if self.clientless:
+            return buf
+
         try:
             buf = self.sock.recv(size)
             if len(buf) == 0:
@@ -142,7 +154,8 @@ class JobConsole(JobSession):
     def log(self, msg):
         relative_time = (datetime.now() - self.start_time).total_seconds()
 
-        log_msg = f"+{relative_time:.3f}s: {msg}"
+        machine = f"{self.machine_id}: " if self.clientless else ""
+        log_msg = f"{machine}+{relative_time:.3f}s: {msg}"
         self._send(log_msg.encode())
 
     def close(self):
@@ -150,11 +163,12 @@ class JobConsole(JobSession):
             self.closing = True
             self.log(f"<-- End of the session: {self.console_patterns.job_status} -->\n")
 
-        try:
-            self.sock.shutdown(socket.SHUT_RDWR)
-            self.sock.close()
-        except OSError:
-            pass
+        if not self.clientless:
+            try:
+                self.sock.shutdown(socket.SHUT_RDWR)
+                self.sock.close()
+            except OSError:
+                pass
 
         super().close()
 
