@@ -5,7 +5,7 @@ from datetime import datetime
 from threading import Thread, Event
 from collections import defaultdict
 from jinja2 import Template
-from enum import Enum
+from enum import Enum, IntEnum
 
 from salad import salad, JobSession
 from pdu import PDU, PDUState
@@ -57,13 +57,21 @@ class MachineState(Enum):
     RUNNING = 4
 
 
+class LogLevel(IntEnum):
+    DEBUG = 0
+    INFO = 1
+    WARN = 2
+    ERROR = 3
+
+
 class JobConsole(JobSession):
-    def __init__(self, machine_id, endpoint, console_patterns, clientless=False):
+    def __init__(self, machine_id, endpoint, console_patterns, clientless=False, log_level=LogLevel.INFO):
         super().__init__(machine_id)
 
         self.endpoint = endpoint
         self.console_patterns = console_patterns
         self.clientless = clientless
+        self.log_level = log_level
 
         # Job-long state
         self.closing = False
@@ -150,7 +158,11 @@ class JobConsole(JobSession):
 
         return buf
 
-    def log(self, msg):
+    def log(self, msg, log_level=LogLevel.INFO):
+        # Ignore messages with a log level lower than the minimum set
+        if log_level < self.log_level:
+            return
+
         relative_time = (datetime.now() - self.start_time).total_seconds()
 
         machine = f"{self.machine_id}: " if self.clientless else ""
@@ -383,9 +395,9 @@ class Machine(Thread):
         self.job_console = JobConsole(self.machine_id, console_endpoint, self.job_config.console_patterns)
         self.job_ready.set()
 
-    def log(self, msg):
+    def log(self, msg, log_level=LogLevel.INFO):
         if self.job_console is not None:
-            self.job_console.log(msg)
+            self.job_console.log(msg, log_level=log_level)
 
     def _cache_remote_artifact(self, f_type, start_url, continue_url):
         f_name_base = f"{f_type}-{self.machine_id}"
@@ -426,7 +438,8 @@ class Machine(Thread):
 
                 self.job_config = self.sergent_hartman.next_task()
                 self.job_console = JobConsole(self.machine_id, endpoint=None, clientless=True,
-                                              console_patterns=self.job_config.console_patterns)
+                                              console_patterns=self.job_config.console_patterns,
+                                              log_level=LogLevel.WARN)
             else:
                 # Wait for a job to be set
                 self.state = MachineState.IDLE
@@ -529,7 +542,7 @@ class Machine(Thread):
                 for timeout in timeouts.expired_list:
                     retry = timeout.retry()
                     decision = "Try again!" if retry else "Abort!"
-                    self.log(f"Hit the timeout {timeout} --> {decision}\n")
+                    self.log(f"Hit the timeout {timeout} --> {decision}\n", LogLevel.ERROR)
                     abort = abort or not retry
 
                 # Check if the DUT asked us to reboot
@@ -537,7 +550,7 @@ class Machine(Thread):
                     retry = timeouts.boot_cycle.retry()
                     retries_str = f"{timeouts.boot_cycle.retried}/{timeouts.boot_cycle.retries}"
                     decision = f"Boot cycle {retries_str}, go ahead!" if retry else "Exceeded boot loop count, aborting!"
-                    self.log(f"The DUT asked us to reboot: {decision}\n")
+                    self.log(f"The DUT asked us to reboot: {decision}\n", LogLevel.WARN)
                     abort = abort or not retry
 
                 if abort:
@@ -564,7 +577,7 @@ class Machine(Thread):
 
                 execute_job()
             except Exception:
-                self.log(f"An exception got caught: {traceback.format_exc()}\n")
+                self.log(f"An exception got caught: {traceback.format_exc()}\n", LogLevel.ERROR)
 
             session_end()
 
