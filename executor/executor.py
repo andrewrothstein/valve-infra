@@ -83,6 +83,9 @@ class JobConsole(JobSession):
         self.sock = socket.create_connection(self.endpoint)
         self.start_time = datetime.now()
 
+    def fileno(self):
+        return self.sock.fileno()
+
     def match_console_patterns(self, buf):
         patterns_matched = set()
 
@@ -107,32 +110,51 @@ class JobConsole(JobSession):
             self.close()
         self.needs_reboot = self.console_patterns.needs_reboot
 
+    def _send(self, buf):
+        try:
+            self.sock.send(buf)
+        except (ConnectionResetError, BrokenPipeError, OSError):
+            self.close()
+
     def send(self, buf):
         self.last_send_activity = datetime.now()
 
-        ret = super().send(buf)
+        self._send(buf)
 
         try:
             self.match_console_patterns(buf)
         except Exception:
             self.log(traceback.format_exc())
 
-        return ret
-
     def recv(self, size=8192):
         self.last_recv_activity = datetime.now()
-        return super().recv(size)
+
+        buf = b""
+        try:
+            buf = self.sock.recv(size)
+            if len(buf) == 0:
+                self.close()
+        except (ConnectionResetError, BrokenPipeError, OSError):
+            self.close()
+
+        return buf
 
     def log(self, msg):
         relative_time = (datetime.now() - self.start_time).total_seconds()
 
         log_msg = f"+{relative_time:.3f}s: {msg}"
-        super().send(log_msg.encode())
+        self._send(log_msg.encode())
 
     def close(self):
         if not self.closing:
             self.closing = True
             self.log(f"<-- End of the session: {self.console_patterns.job_status} -->\n")
+
+        try:
+            self.sock.shutdown(socket.SHUT_RDWR)
+            self.sock.close()
+        except OSError:
+            pass
 
         super().close()
 

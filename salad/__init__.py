@@ -97,40 +97,23 @@ class SerialConsoleStream(ConsoleStream):
 class JobSession:
     def __init__(self, machine_id):
         self.machine_id = machine_id
-        self.sock = None
 
         self.is_over = False
 
     def start(self):
-        raise ValueError("The start method is not implemented")
+        raise ValueError("The method is not implemented")
 
     def fileno(self):
-        return self.sock.fileno()
+        return None
 
     def send(self, buf):
-        try:
-            self.sock.send(buf)
-        except (ConnectionResetError, BrokenPipeError, OSError):
-            self.close()
+        raise ValueError("The method is not implemented")
 
     def recv(self, size=8192):
-        buf = b""
-        try:
-            buf = self.sock.recv(size)
-            if len(buf) == 0:
-                self.close()
-        except (ConnectionResetError, BrokenPipeError, OSError):
-            self.close()
-
-        return buf
+        raise ValueError("The method is not implemented")
 
     def close(self):
         self.is_over = True
-        try:
-            self.sock.shutdown(socket.SHUT_RDWR)
-            self.sock.close()
-        except OSError:
-            pass
 
 
 class Salad(Thread):
@@ -182,7 +165,7 @@ class Salad(Thread):
             self._remove_stale_sessions()
 
             fd_to_ser_console = dict([(p.fileno(), p) for p in self._serial_devs.values()])
-            fd_to_session = dict([(s.fileno(), s) for m_id, s in self._sessions.items()])
+            fd_to_session = dict([(s.fileno(), s) for m_id, s in self._sessions.items() if s.fileno() is not None])
             rlist, _, _ = select.select(list(fd_to_ser_console.keys()) + list(fd_to_session.keys()),
                                         [], [], 1.0)
             for fd in rlist:
