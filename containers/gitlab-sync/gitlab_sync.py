@@ -70,9 +70,9 @@ class GitlabRunnerAPI:
         runner_details = self.gl.runners.get(runner_id)
         return runner_details.jobs.list(status='running')
 
-    def set_tags(self, runner_id, tags):  # pragma: nocover
-        runner = self.gl.runners.get(runner_id)
-        runner.tag_list = tags
+    def set_tags(self, machine):  # pragma: nocover
+        runner = self.find_by_name(machine["full_name"])
+        runner.tag_list = machine["tags"]
         runner.save()
 
 
@@ -158,17 +158,6 @@ class GitlabConfig:
         self._save()
 
 
-def sync_tags(runner_api, name, local_tags):  # pragma: nocover
-    remote_runner = runner_api.find_by_name(name)
-    remote_tags = runner_api.tags(remote_runner.id)
-    if not set(local_tags) == set(remote_tags):
-        logger.info(f"""
-local vs remote tags are out of sync: {local_tags} vs
-{remote_tags} setting remote tags to local tags...
-""")
-        runner_api.set_tags(remote_runner.id, local_tags)
-
-
 def sync_mars_machine_with_coordinator(machine, gitlab_config, runner_api):
     name, tags = machine["full_name"], machine["tags"]
 
@@ -203,7 +192,7 @@ def sync_mars_machine_with_coordinator(machine, gitlab_config, runner_api):
         pass
 
     # Both sides are in agreement now, make sure the tags are in agreement too!
-    sync_tags(runner_api, name, tags)
+    runner_api.set_tags(machine)
 
     return True
 
