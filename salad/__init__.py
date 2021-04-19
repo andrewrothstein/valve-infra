@@ -20,7 +20,8 @@ class ConsoleStream:
         self.machine_id_re = \
             re.compile(b".*SALAD.machine_id=(?P<machine_id>\\S+).*")
 
-        self.ping_re = re.compile(b"^SALAD.ping\r?\n$")
+        # NOTE: Some adapters send a NULL character at first, so just ignore it
+        self.ping_re = re.compile(b"^\x00?SALAD.ping\r?\n$")
 
     def log_msg(self, data, is_input=True):
         dir = "-->" if is_input else "<--"
