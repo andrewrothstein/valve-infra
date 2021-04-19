@@ -20,11 +20,14 @@ import os
 from minio import Minio
 from logging import getLogger, getLevelName, Formatter, StreamHandler
 
+from pprint import pformat
+
+
 logger = getLogger(__name__)
 logger.setLevel(getLevelName('DEBUG'))
 log_formatter = \
-    Formatter("%(asctime)s [%(levelname)s] %(name)s: "
-              "%(message)s [%(threadName)s] ")
+    Formatter("%(asctime)s [%(threadName)s] [%(levelname)s] %(name)s: "
+              "%(message)s")
 console_handler = StreamHandler()
 console_handler.setFormatter(log_formatter)
 logger.addHandler(console_handler)
@@ -151,10 +154,12 @@ class JobConsole(JobSession):
             return
 
         relative_time = (datetime.now() - self.start_time).total_seconds()
+        log_msg = f"+{relative_time:.3f}s: {msg}"
 
-        machine = f"{self.machine_id}: " if self.clientless else ""
-        log_msg = f"{machine}+{relative_time:.3f}s: {msg}"
-        self._send(log_msg.encode())
+        if self.clientless:
+            logger.info(log_msg.strip("\r\n"))
+        else:
+            self._send(log_msg.encode())
 
     def close(self):
         if not self.closing:
@@ -221,7 +226,7 @@ class SergentHartman:
             # port). Loop until it succeeds!
             self.reset()
 
-            print(f"SergentHartman/{mid} - Try registering the machine")
+            logger.info("SergentHartman/%s - Try registering the machine", mid)
 
             self.is_active = True
 
@@ -235,7 +240,12 @@ class SergentHartman:
             self.cur_loop += 1
 
             statuses_str = [f"{status.name}: {values}" for status, values in self.statuses.items()]
-            print(f"SergentHartman/{mid} - loop {self.cur_loop}/{self.boot_loop_counts} - statuses {statuses_str}: Execute one more round!")
+            logger.info("SergentHartman/%s - loop %s/%s - statuses %s: "
+                        "Execute one more round!",
+                        mid,
+                        self.cur_loop,
+                        self.boot_loop_counts,
+                        statuses_str)
 
             return self.create_job(self.bootloop_template)
 
@@ -340,7 +350,7 @@ class Machine(Thread):
 
     def __init__(self, machine_id, ready_for_service=False, tags=[], pdu_port=None,
                  local_tty_device=None):
-        super().__init__()
+        super().__init__(name=f'MachineThread-{machine_id}')
 
         # Machine
         self.machine_id = machine_id
@@ -377,7 +387,7 @@ class Machine(Thread):
         try:  # pragma: nocover
             del self._machines[self.machine_id]
         except Exception as e:
-            print(e)
+            logger.error("%s", e)
 
     def start_job(self, job, console_endpoint):
         if self.state != MachineState.IDLE:
@@ -415,8 +425,10 @@ class Machine(Thread):
         deploy_strt = self.job_config.deployment_start
         deploy_cnt = self.job_config.deployment_start
 
+        logger.info("Caching the kernel...")
         self._cache_remote_artifact("kernel", deploy_strt.kernel_url,
                                     deploy_cnt.kernel_url)
+        logger.info("Caching the initramfs...")
         self._cache_remote_artifact("initramfs", deploy_strt.initramfs_url,
                                     deploy_cnt.initramfs_url)
 
@@ -445,7 +457,6 @@ class Machine(Thread):
                 self.state = MachineState.RUNNING
 
             # Cut the power to the machine, we do not need it
-            logger.info("setting %s to off", self.pdu_port)
             self.pdu_port.set(PDUState.OFF)
 
             # Mark the start time to now()
@@ -498,8 +509,10 @@ class Machine(Thread):
             timeouts.overall.start()
 
             # Download the kernel/initramfs
+            self.log("Setup the infrastructure\n")
             timeouts.infra_setup.start()
             self._cache_remote_artifacts()
+            self.log(f"Completed setup of the infrastructure, after {timeouts.infra_setup.active_for} s")
             timeouts.infra_setup.stop()
 
             # Keep on resuming until success, timeouts' retry limits is hit, or the entire executor is going down
@@ -572,6 +585,7 @@ class Machine(Thread):
 
             try:
                 if not session_init():
+                    # No jobs for us to run!
                     continue
 
                 self.log(f"Starting the job: {self.job_config}\n\n", LogLevel.DEBUG)
@@ -700,4 +714,5 @@ class Machine(Thread):
 
         # Wait for all the workers to stop
         for machine in machines:
+            logger.debug("shutdown, joining on %s", machine)
             machine.join()
