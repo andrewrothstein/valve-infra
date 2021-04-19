@@ -1,8 +1,6 @@
 #!/usr/bin/env python3
 
-from datetime import datetime
 from threading import Thread
-from enum import Enum
 
 import serial.tools.list_ports
 import traceback
@@ -10,8 +8,6 @@ import threading
 import select
 import serial
 import socket
-import copy
-import time
 import sys
 import re
 
@@ -215,7 +211,8 @@ class Salad(Thread):
                         ser_dev = self.find_serial_dev_for(session.machine_id)
                         if ser_dev is not None:
                             ser_dev.send(buf)
-                except Exception as e:
+                except Exception:
                     traceback.print_exc()
+
 
 salad = Salad()
