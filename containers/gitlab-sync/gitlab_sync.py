@@ -1,16 +1,18 @@
 #!/usr/bin/env python3
 # -*- mode: python -*-
 
+# See also: https://docs.gitlab.com/ee/api/runners.html
+
 from pprint import pformat
 import gitlab
 from datetime import datetime
 import os
-import sys
 import requests
 import toml
 import time
 import json
 from logging import getLogger, getLevelName, Formatter, StreamHandler
+import click
 
 logger = getLogger(__name__)
 logger.setLevel(getLevelName('DEBUG'))
@@ -352,31 +354,23 @@ This ensure we start in a sane state."""
             rapi.register(runner)
 
 
-def main():  # pragma: nocover
-    gitlab_config = \
-        GitlabConfig(os.getenv('GITLAB_RUNNER_CONF_FILE',
-                               '/etc/gitlab-runner/config.toml'))
-    access_token = os.getenv('GITLAB_ACCESS_TOKEN', None)
-    registration_token = os.getenv('GITLAB_REGISTRATION_TOKEN', None)
-    if not (access_token and registration_token):
-        logger.error("gitlab tokens unavailable to run the sync service "
-                     "set GITLAB_ACCESS_TOKEN and "
-                     "GITLAB_REGISTRATION_TOKEN to enable this service")
-        sys.exit(1)
+@click.command()
+@click.option('--conf-file', required=True)
+@click.option('--access-token', required=True)
+@click.option('--registration-token', required=True)
+@click.option('--mars-host', required=True)
+def main(conf_file, access_token, registration_token, mars_host):  # pragma: nocover
+    gl = gitlab.Gitlab(url='https://gitlab.freedesktop.org',
+                       private_token=access_token)
+    runner_api = GitlabRunnerAPI(gl, registration_token)
 
-    mars_host = os.getenv('MARS_HOST', 'http://10.42.0.1:80')
-
-    remote_api = gitlab.Gitlab(url='https://gitlab.freedesktop.org',
-                               private_token=access_token)
-    runner_api = GitlabRunnerAPI(remote_api, registration_token)
-
-    initial_sync(gitlab_config, runner_api)
+    initial_sync(GitlabConfig(conf_file), runner_api)
 
     try:
-        mars_poller(mars_host, gitlab_config, runner_api)
+        poll_mars_forever(mars_host, gl, runner_api)
     except KeyboardInterrupt:
-        logger.info("Shutdown, Bye!")
+        logger.info("interuppted, shutting down...")
 
 
 if __name__ == '__main__':  # pragma: nocover
-    main()
+    main(auto_envvar_prefix='GITLAB')
