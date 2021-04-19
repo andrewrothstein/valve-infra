@@ -7,6 +7,7 @@ from pprint import pformat
 import gitlab
 from datetime import datetime
 import os
+import enum
 import requests
 import backoff
 import toml
@@ -48,6 +49,11 @@ class GitlabRunnerAPI:
     def unregister(self, runner):  # pragma: nocover
         """Remove the given runner from the server."""
         self.gl.runners.delete(runner.id)
+
+    def unregister_machine(self, machine):
+        runner = self.find_by_name(machine["full_name"])
+        assert runner
+        self.unregister(runner)
 
     def find_by_name(self, name):  # pragma: nocover
         """Find a runner with a description matching _name_. Return
@@ -209,15 +215,27 @@ def parse_iso8601_date(d):
     return datetime.fromisoformat(d.removesuffix("Z"))
 
 
-def relevant_event_diff(diff):
-    if 'values_changed' not in diff:
-        return False
-    values_changed = diff['values_changed']
-    if 'root.ready_for_service' in values_changed and \
-       values_changed['root.ready_for_service']['new_value']:
-        return True
-    return any([field in values_changed for field in
-                ['root.tags', 'root.base_name']])
+class Event(enum.Enum):
+    METADATA_CHANGE = 1
+    READY_FOR_SERVICE = 2
+    OUT_OF_SERVICE = 3
+    OTHER = 4
+
+
+def parse_event_diff(diff):
+    values_changed = diff.get('values_changed', {})
+    modified_fields = values_changed
+    modified_fields.update(diff.get('iterable_item_added', {}))
+    modified_fields.update(diff.get('iterable_item_removed', {}))
+
+    if 'root.base_name' in values_changed or any([key.startswith('root.tags') for key in modified_fields.keys()]):
+        return Event.METADATA_CHANGE
+    elif 'root.ready_for_service' in values_changed:
+        if values_changed['root.ready_for_service']['new_value']:
+            return Event.READY_FOR_SERVICE
+        return Event.OUT_OF_SERVICE
+    else:
+        return Event.OTHER
 
 
 def process_mars_events(events, gitlab_config, runner_api):

@@ -7,7 +7,8 @@ from gitlab_sync import (
     sync_mars_machine_with_coordinator,
     process_mars_events,
     parse_iso8601_date,
-    relevant_event_diff,
+    parse_event_diff,
+    Event,
     runner_is_managed_by_our_farm,
 )
 import copy
@@ -17,7 +18,14 @@ import random
 import unittest
 from unittest.mock import create_autospec, MagicMock, PropertyMock
 import pytest
+import requests
 import responses
+
+
+@attr.s
+class MockRunner(object):
+    id: int = attr.ib()
+    description: str = attr.ib()
 
 
 class GitlabRunnerAPITests(unittest.TestCase):
@@ -40,6 +48,13 @@ class GitlabRunnerAPITests(unittest.TestCase):
                 'run_untagged': 'false',
                 'locked': 'true'
             })
+
+    def test_unregistration(self):
+        self.mock_api.runners.list = MagicMock(
+            return_value=[MockRunner(1, 'tchar-gfx8-1')]
+        )
+        self.api.unregister_machine({"full_name": "tchar-gfx8-1"})
+        self.mock_api.runners.delete.assert_called_with(1)
 
 
 class MarsSyncTests(unittest.TestCase):
@@ -264,6 +279,18 @@ class ProcessMarsEventsTests(unittest.TestCase):
             parse_iso8601_date(events[-1]['date'])
         assert gitlab_sync.sync_mars_machine_with_coordinator.call_count == 0
 
+    def test_out_of_service_event(self):
+        event = {
+            'category': 'machine-updated',
+            'machine': 'http://10.42.0.1/machines/00:01:02:03:04:05',
+            'diff': '{"values_changed": {"root.ready_for_service": {"new_value": false, "old_value": true}}}',
+            'date': '2021-02-22T22:31:31Z'
+        }
+        assert process_mars_events([event], self.config, self.api) == \
+            parse_iso8601_date(event['date'])
+        assert gitlab_sync.sync_mars_machine_with_coordinator.call_count == 0
+        self.api.unregister_machine.assert_called_once()
+
 
 def test_parse_iso8601_date():
     assert parse_iso8601_date('2021-02-17T17:04:24.579263Z') == \
@@ -279,47 +306,48 @@ def test_parse_iso8601_date():
 @pytest.mark.parametrize(
     "diff,expectation",
     [
-        ({}, False),
+        ({}, Event.OTHER),
         ({"values_changed": {
             "root.ready_for_service": {
                 "new_value": True,
                 "old_value": False
             }
-        }}, True),
+        }}, Event.READY_FOR_SERVICE),
+        ({"values_changed": {
+            "root.ready_for_service": {
+                "new_value": False,
+                "old_value": True
+            }
+        }}, Event.OUT_OF_SERVICE),
         ({"values_changed": {
             "root.tags": {
                 "new_value": {'tag1', 'tag2'},
                 "old_value": {'tag1'},
             }
-        }}, True),
+        }}, Event.METADATA_CHANGE),
         ({"values_changed": {
             "root.base_name": {
                 "new_value": 'martin-farm',
                 "old_value": 'charlie-farm',
             }
-        }}, True),
+        }}, Event.METADATA_CHANGE),
         ({"values_changed": {
             "root.ip_address": {
                 "new_value": '10.42.0.10',
                 "old_value": '10.42.0.9',
             }
-        }}, False),
+        }}, Event.OTHER),
     ],
 )
-def test_relevant_event_diff(diff, expectation):
-    assert relevant_event_diff(diff) is expectation
-
-
-@attr.s
-class MockRunner:
-    description: str = attr.ib()
+def test_parse_event_diff(diff, expectation):
+    assert parse_event_diff(diff) is expectation
 
 
 @pytest.mark.parametrize(
     "runner,farm_name,expectation",
     [
-        (MockRunner("gfx8-1"), 'gfx8', True),
-        (MockRunner("random-gfx10-3"), 'gfx8', False),
+        (MockRunner(1, "gfx8-1"), 'gfx8', True),
+        (MockRunner(2, "random-gfx10-3"), 'gfx8', False),
     ],
 )
 def test_runner_is_managed_by_our_farm(monkeypatch, runner, farm_name, expectation):
