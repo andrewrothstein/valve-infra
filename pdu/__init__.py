@@ -42,7 +42,7 @@ class PDUPort:
         # Check the current state before writing it
         cur_state = self.state
         logger.debug("set: self.state=%s state=%s", cur_state, state)
-        if self.state == state:
+        if cur_state == state:
             return
 
         if cur_state == PDUState.OFF and state == PDUState.ON:
