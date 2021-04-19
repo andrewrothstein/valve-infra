@@ -413,9 +413,6 @@ class Machine(Thread):
             self.job_config = None
             self.job_console = None
 
-            # Cut the power to the machine, we do not need it
-            self.pdu_port.set(PDUState.OFF)
-
             # Pick a job
             if self.sergent_hartman.is_available and not self.ready_for_service:
                 self.state = MachineState.TRAINING
@@ -432,6 +429,10 @@ class Machine(Thread):
                 self.job_ready.clear()
 
                 self.state = MachineState.RUNNING
+
+            # Cut the power to the machine, we do not need it
+            logger.info("setting %s to off", self.pdu_port)
+            self.pdu_port.set(PDUState.OFF)
 
             # Mark the start time to now()
             self.job_start_time = datetime.now()
