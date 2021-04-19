@@ -244,7 +244,8 @@ class ProcessMarsEventsTests(unittest.TestCase):
         events = copy.deepcopy(self.events)
         events[0]['machine'] = 'http://connection-error.invalid'
         gitlab_sync.sync_mars_machine_with_coordinator.return_value = True
-        assert process_mars_events(events, self.config, self.api) is False
+        with pytest.raises(requests.exceptions.ConnectionError):
+            process_mars_events(events, self.config, self.api)
         assert gitlab_sync.sync_mars_machine_with_coordinator.call_count == 0
 
     def test_non_interesting_events(self):

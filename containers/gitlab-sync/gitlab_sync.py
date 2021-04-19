@@ -8,6 +8,7 @@ import gitlab
 from datetime import datetime
 import os
 import requests
+import backoff
 import toml
 import time
 import json
@@ -115,6 +116,10 @@ class GitlabConfig:
                                    if r['name'] != runner['name']]
         self._save()
 
+    def clear(self):  # pragma: nocover
+        self.config = GitlabConfig.DEFAULT_CONFIG
+        self._save()
+
     def add_runner(self, name, token):
         volumes = [
             'local-container-volume:/var/lib/containers',
@@ -197,40 +202,6 @@ def sync_mars_machine_with_coordinator(machine, gitlab_config, runner_api):
     return True
 
 
-def mars_fetch_machines(mars_host, gitlab_config, runner_api):  # pragma: nocover
-    logger.info(f"Fetching machines from MaRS at {mars_host}")
-    while True:
-        try:
-            r = requests.get(
-                f'{mars_host}/api/v1/machine/?ready_for_service=true')
-            r.raise_for_status()
-            machines = r.json()
-            if not machines:
-                break
-            logger.info(f"there are {len(machines)} machines ready"
-                        " for service, initializing...")
-            success = True
-            for machine in machines:
-                logger.info(f"configuring\n{pformat(machine)}")
-                if not sync_mars_machine_with_coordinator(machine,
-                                                          gitlab_config,
-                                                          runner_api):
-                    logger.error("An error occurred while synchronizing "
-                                 f"{pformat(machine)}. "
-                                 "Will attempt to refetch machines and "
-                                 "try again")
-                    success = False
-                    break
-            if success:
-                break
-            time.sleep(5)
-        except requests.ConnectionError as err:
-            logger.info(f"Initial machine fetch from MaRS ({mars_host}) "
-                        f"has failed. Error: {err}. "
-                        "Trying again...")
-            time.sleep(5)
-
-
 def parse_iso8601_date(d):
     # For some reason the datetime parser doesn't like the lone Z, I
     # thought it was spec'd. It does happily accept +00:00 in lieu of
@@ -261,21 +232,22 @@ events after the last one processed"""
         return False
     logger.info(f"===== events since last fetch =====\n:{pformat(events)}")
     last_checked = False
-    try:
-        for event in events:
-            if event['category'] != 'machine-updated':
-                logger.debug(f'ignoring {event}, only considering udpate events')
-                last_checked = parse_iso8601_date(event['date'])
-                continue
+    for event in events:
+        if event['category'] != 'machine-updated':
+            logger.debug(f'ignoring {event}, only considering udpate events')
+            last_checked = parse_iso8601_date(event['date'])
+            continue
 
-            diff = json.loads(event['diff'])
-            r = requests.get(event['machine'])
-            r.raise_for_status()
-            machine = r.json()
-            if not relevant_event_diff(diff):
-                logger.info("ignoring event, does not have a relevant diff")
-                last_checked = parse_iso8601_date(event['date'])
-                continue
+        diff = json.loads(event['diff'])
+        r = requests.get(event['machine'])
+        r.raise_for_status()
+        machine = r.json()
+        parsed_event = parse_event_diff(diff)
+        if parsed_event == Event.OTHER:
+            logger.info("ignoring event, does not have a relevant diff")
+            last_checked = parse_iso8601_date(event['date'])
+            continue
+        elif parsed_event in [Event.READY_FOR_SERVICE, Event.METADATA_CHANGE]:
             logger.debug(f"processing {event}")
             if not sync_mars_machine_with_coordinator(machine,
                                                       gitlab_config,
@@ -283,33 +255,53 @@ events after the last one processed"""
                 logger.error("An error occurred while synchronizing "
                              f"{pformat(machine)}.")
                 break
-            last_checked = parse_iso8601_date(event['date'])
-        return last_checked
-    except requests.ConnectionError:
-        return last_checked
+        elif parsed_event == Event.OUT_OF_SERVICE:
+            logger.info(f"{pformat(machine)} out of service, disabling runner")
+            runner_api.unregister_machine(machine)
+        else:
+            assert False  # pragma: nocover
+        last_checked = parse_iso8601_date(event['date'])
+    return last_checked
 
 
+@backoff.on_exception(backoff.constant,
+                      requests.exceptions.RequestException,
+                      interval=5)
 def poll_mars_forever(mars_host, gitlab_config, runner_api):  # pragma: nocover
     logger.info("Polling for changes in MaRS...")
-    last_checked = datetime.now()
 
-    mars_fetch_machines(mars_host, gitlab_config, runner_api)
+    r = requests.get(
+        f'{mars_host}/api/v1/machine/?ready_for_service=true')
+    r.raise_for_status()
+    machines = r.json()
+    if not machines:
+        gitlab_config.clear()
 
-    logger.info("Initial machine fetch complete, monitoring for events...")
-    while True:
-        try:
-            r = requests.get(
-                f'{mars_host}/api/v1/events/?since={last_checked.isoformat()}')
-            r.raise_for_status()
-            events = r.json()
-            last_event_time = process_mars_events(events,
+    logger.info(f"{len(machines)} machines ready for service, syncing...")
+
+    for machine in machines:
+        logger.info(f"syncing\n{pformat(machine)}")
+        if not sync_mars_machine_with_coordinator(machine,
                                                   gitlab_config,
-                                                  runner_api)
-            last_checked = last_event_time or last_checked
-        except requests.ConnectionError:
-            pass
-        finally:
-            time.sleep(5)
+                                                  runner_api):
+            logger.error("An error occurred while synchronizing "
+                         f"{pformat(machine)}. "
+                         "Will attempt to refetch machines and "
+                         "try again")
+            raise requests.exceptions.RequestException()
+
+    logger.info("MaRS sync complete, monitoring for events...")
+    last_checked = datetime.now()
+    while True:
+        r = requests.get(
+            f'{mars_host}/api/v1/events/?since={last_checked.isoformat()}')
+        r.raise_for_status()
+        events = r.json()
+        last_event_time = process_mars_events(events,
+                                              gitlab_config,
+                                              runner_api)
+        last_checked = last_event_time or last_checked
+        time.sleep(3)
 
 
 def runner_is_managed_by_our_farm(runner):

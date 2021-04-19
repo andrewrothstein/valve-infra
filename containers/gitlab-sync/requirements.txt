@@ -3,3 +3,4 @@ toml==0.10.2
 attrs~=20.3.0
 click~=7.1.2
 requests~=2.25.1
+backoff~=1.10.0
