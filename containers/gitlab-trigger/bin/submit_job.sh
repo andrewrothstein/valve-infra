@@ -14,7 +14,7 @@ export REGISTRY=10.42.0.1:8004
 
 # runtime panics have happened within buildah, very rarely, try and catch one for a bit,
 # https://github.com/containers/buildah/issues/3130
-export BUILDAH="buildah --debug"
+export BUILDAH="buildah"
 export BUILDAH_RUN="$BUILDAH run --isolation chroot"
 # No https, since this is an internal service
 export BUILDAH_COMMIT="$BUILDAH commit --format docker --tls-verify=false"
@@ -154,14 +154,15 @@ $BUILDAH config \
 	--cmd '['\"$TEST_ENTRYPOINT\"']' \
 	$test_container
 
-if [ -z "$CONTAINER_EXISTS" ]; then
+# FIXME: Something is wrong with this caching strategy...
+# if [ -z "$CONTAINER_EXISTS" ]; then
     # If this is first time building the internal container, fetch the
     # Mesa artifact and place it into the container so that it becomes
     # a self-contained test-workload.
     $BUILDAH_RUN $test_container env DEBIAN_FRONTEND=noninteractive apt-get update
     $BUILDAH_RUN $test_container env DEBIAN_FRONTEND=noninteractive apt-get install -y curl
     $BUILDAH_RUN $test_container bash -c "curl $MESA_URL | tar xzf -"
-fi
+# fi
 
 $BUILDAH_COMMIT $test_container $LOCAL_CONTAINER
 

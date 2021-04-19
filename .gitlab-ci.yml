@@ -83,15 +83,15 @@ machine_registration:
   script:
     - docker build -t $IMAGE_NAME machine_registration
 
-farm-runner:
+gitlab-trigger:
   extends:
     - .container base
   rules:
     - changes:
-      - containers/farm-runner/**
+      - containers/gitlab-trigger/**
       - .gitlab-ci.yml
   script:
-    - docker build -t $IMAGE_NAME containers/farm-runner
+    - docker build -t $IMAGE_NAME containers/gitlab-trigger
 
 valve-infra:
   extends:

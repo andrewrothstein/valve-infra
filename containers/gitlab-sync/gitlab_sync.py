@@ -143,7 +143,7 @@ class GitlabConfig:
             'docker': {
                 'tls_verify': False,
                 'image':
-                'registry.freedesktop.org/mupuf/valve-infra/gitlab-job-runner',
+                'registry.freedesktop.org/mupuf/valve-infra/gitlab-trigger',
                 'privileged': True,
                 'disable_entrypoint_overwrite': False,
                 'oom_kill_disable': False,
