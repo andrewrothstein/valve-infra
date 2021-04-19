@@ -76,8 +76,15 @@ class GitlabConfig:
         'session_server': {'session_timeout': 1800}
     }
 
+    def __init__(self, config_path):
+        self.config_path = config_path
+        self._reload_config()
+        self._save()
+        logger.debug("starting with the following configuration:\n"
+                     f"{pformat(self.config)}")
+
     def _save(self):
-        logger.debug(f"saving to {self.config_path} {GitlabConfig.DEFAULT_CONFIG}")
+        logger.debug("saving configuration...")
         with open(self.config_path, 'w') as f:
             toml.dump(self.config, f)
 
@@ -92,27 +99,20 @@ class GitlabConfig:
         except FileNotFoundError:
             self.config = GitlabConfig.DEFAULT_CONFIG
 
-    def __init__(self, config_path):
-        self.config_path = config_path
-        self._reload_config()
-        self._save()
-        logger.debug("starting with the following configuration:\n"
-                     f"{pformat(self.config)}")
-
-    def runners(self):
+    def local_runners(self):
         self._reload_config()
         if "runners" not in self.config:
             self.config["runners"] = []
         return self.config["runners"]
 
     def find_by_name(self, name):
-        for runner in self.runners():
+        for runner in self.local_runners():
             if runner["name"] == name:
                 return runner
 
     def remove_runner(self, runner):
-        self.runners()[:] = [r for r in self.runners()
-                             if r['name'] != runner['name']]
+        self.local_runners()[:] = [r for r in self.local_runners()
+                                   if r['name'] != runner['name']]
         self._save()
 
     def add_runner(self, name, token):
@@ -143,8 +143,7 @@ class GitlabConfig:
             }
         }
         logger.info(f"adding a new runner:\n{pformat(config)}")
-        self.runners().append(config)
-        logger.debug(f"new configuration:\n{pformat(self.config)}")
+        self.local_runners().append(config)
         self._save()
 
 
@@ -171,7 +170,7 @@ def sync_mars_machine_with_coordinator(machine, gitlab_config, runner_api):
 
     if not local_runner and not remote_runner:
         logger.info(f"There is neither a local nor remote runner for {name}."
-                    "Registering...")
+                    " Registering...")
         register()
     elif not local_runner and remote_runner:
         logger.info(f"There is remote runner named {name}, but not local."
@@ -290,7 +289,7 @@ events after the last one processed"""
         return last_checked
 
 
-def mars_poller(mars_host, gitlab_config, runner_api):  # pragma: nocover
+def poll_mars_forever(mars_host, gitlab_config, runner_api):  # pragma: nocover
     logger.info("Polling for changes in MaRS...")
     last_checked = datetime.now()
 
@@ -322,23 +321,23 @@ def initial_sync(config, rapi):  # pragma: nocover
     """Anything registered remotely that is not known locally, remove it.
 Anything known locally that is not registered remotely, register it.
 This ensure we start in a sane state."""
-    logger.info("Making the coordinator and local runner configuration "
-                "agree...")
+    logger.info("making the remote and local configurations agree...")
 
     remote_runners = rapi.runners()
-    local_runners = config.runners()
+    local_runners = config.local_runners()
 
     for runner in remote_runners:
-        logger.debug(f"{runner.description} is registered on the server, "
-                     f"tagged with: {rapi.tags(runner.id)}")
-
         if not runner_is_managed_by_our_farm(runner):
-            logger.info(f"ignoring {runner.description} since it is not managed by our farm")
+            logger.info(f"{runner.description} ignored, since it is "
+                        "not managed by our farm")
             continue
 
+        logger.debug(f"{runner.description} is registered on the server, "
+                     f"tagged with:\n{pformat(rapi.tags(runner.id))}")
+
         # Convention used by us
-        name = runner.description
-        local_runner = config.find_by_name(name)
+        machine_name = runner.description
+        local_runner = config.find_by_name(machine_name)
 
         if not local_runner:
             logger.warning(f"{runner.description} is registered on the "
@@ -362,12 +361,13 @@ This ensure we start in a sane state."""
 def main(conf_file, access_token, registration_token, mars_host):  # pragma: nocover
     gl = gitlab.Gitlab(url='https://gitlab.freedesktop.org',
                        private_token=access_token)
+    local_config = GitlabConfig(conf_file)
     runner_api = GitlabRunnerAPI(gl, registration_token)
 
-    initial_sync(GitlabConfig(conf_file), runner_api)
+    initial_sync(local_config, runner_api)
 
     try:
-        poll_mars_forever(mars_host, gl, runner_api)
+        poll_mars_forever(mars_host, local_config, runner_api)
     except KeyboardInterrupt:
         logger.info("interuppted, shutting down...")
 

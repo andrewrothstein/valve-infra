@@ -140,14 +140,14 @@ class GitlabConfigTests(unittest.TestCase):
     def test_defaultConfiguration(self):
         self.config = GitlabConfig(self.tmp_file.name)
         assert GitlabConfig.DEFAULT_CONFIG == self.load_toml()
-        assert len(self.config.runners()) == 0
+        assert len(self.config.local_runners()) == 0
         assert self.config.find_by_name("Johnson") is None
 
     def test_configurationFileNotFound(self):
         self.tmp_file.close()
         self.config = GitlabConfig(self.tmp_file.name)
         assert GitlabConfig.DEFAULT_CONFIG == self.load_toml()
-        assert len(self.config.runners()) == 0
+        assert len(self.config.local_runners()) == 0
         assert self.config.find_by_name("Johnson") is None
 
     def test_testAddRunner(self):
@@ -155,7 +155,7 @@ class GitlabConfigTests(unittest.TestCase):
         pop = range(1, 10)
         for i in pop:
             self.config.add_runner(f'test-runner-{i}', f'token-{i}')
-            assert len(self.config.runners()) == i
+            assert len(self.config.local_runners()) == i
         for i in random.sample(pop, k=len(pop)):
             assert self.config.find_by_name('test-runner-x') is None
             added_runner = self.config.find_by_name(f'test-runner-{i}')
@@ -172,7 +172,7 @@ class GitlabConfigTests(unittest.TestCase):
             runner = self.config.find_by_name(f'test-runner-{i}')
             assert runner is not None
             self.config.remove_runner(runner)
-            assert len(self.config.runners()) == 10 - i - 1
+            assert len(self.config.local_runners()) == 10 - i - 1
 
 
 class ProcessMarsEventsTests(unittest.TestCase):
