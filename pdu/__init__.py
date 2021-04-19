@@ -2,6 +2,16 @@ from datetime import datetime
 from enum import IntEnum
 
 import time
+from logging import getLogger, getLevelName, Formatter, StreamHandler
+
+logger = getLogger(__name__)
+logger.setLevel(getLevelName('DEBUG'))
+log_formatter = \
+    Formatter("%(asctime)s [%(threadName)s] [%(levelname)s] %(name)s: "
+              "%(message)s")
+console_handler = StreamHandler()
+console_handler.setFormatter(log_formatter)
+logger.addHandler(console_handler)
 
 
 class PDUState(IntEnum):
@@ -31,6 +41,7 @@ class PDUPort:
     def set(self, state):
         # Check the current state before writing it
         cur_state = self.state
+        logger.debug("set: self.state=%s state=%s", cur_state, state)
         if self.state == state:
             return
 
