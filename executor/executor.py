@@ -379,20 +379,24 @@ class Machine(Thread):
         if self.job_console is not None:
             self.job_console.log(msg, log_level=log_level)
 
-    def _cache_remote_artifact(self, f_type, start_url, continue_url):
-        f_name_base = f"{f_type}-{self.machine_id}"
+    def _cache_remote_artifact(self, artifact_name, start_url, continue_url):
+        artifact_prefix = f"{artifact_name}-{self.machine_id}"
 
-        if start_url == continue_url:
-            self.remote_url_to_local_cache_mapping[start_url] = f"http://10.42.0.1:9000/boot/{f_name_base}"
-            self.log(f'Caching {start_url} into minio...\n')
-            self.minio_cache.save_boot_artifact(start_url, f_name_base)
-        else:
-            self.remote_url_to_local_cache_mapping[start_url] = f"http://10.42.0.1:9000/boot/{f_name_base}-start"
-            self.remote_url_to_local_cache_mapping[continue_url] = f"http://10.42.0.1:9000/boot/{f_name_base}-continue"
-            self.log(f'Caching {start_url} into minio...\n')
-            self.minio_cache.save_boot_artifact(start_url, f"{f_name_base}-start")
-            self.log(f'Caching {continue_url} into minio...\n')
-            self.minio_cache.save_boot_artifact(continue_url, f"{f_name_base}-continue")
+        # Assume the remote artifacts already exist locally
+        self.remote_url_to_local_cache_mapping[start_url] = start_url
+        self.remote_url_to_local_cache_mapping[continue_url] = continue_url
+
+        def cache_it(url, suffix):
+            if url.startswith("http://10.42.0.1:9000"):
+                logger.debug("skip caching {url} since it already exists")
+                return
+            self.remote_url_to_local_cache_mapping[url] = f"http://10.42.0.1:9000/boot/{artifact_prefix}-{suffix}"
+            self.log(f'Caching {url} into minio...\n')
+            self.minio_cache.save_boot_artifact(start_url, f"{artifact_prefix}-start")
+
+        cache_it(start_url, 'start')
+        if start_url != continue_url:
+            cache_it(continue_url, 'continue')
 
     def _cache_remote_artifacts(self):
         deploy_strt = self.job_config.deployment_start
