@@ -59,13 +59,26 @@ def handle_valueError_exception(error):
 @app.route('/api/v1/machines', methods=['GET'])
 def get_machine_list():
     def ser(machine):
-        return {
+        ret = {
             "state": machine.state.name,
             "ready_for_service": machine.ready_for_service,
             "has_pdu_assigned": machine.pdu_port is not None,
             "local_tty_device": machine.local_tty_device,
             "tags": list(machine.tags)
         }
+
+        srgt = machine.sergent_hartman
+        if srgt is not None:
+            ret["training"] = {
+                "is_active": srgt.is_active,
+                "is_registered": srgt.is_machine_registered,
+                "boot_loop_counts": srgt.boot_loop_counts,
+                "qualifying_rate": srgt.qualifying_rate,
+                "current_loop_count": srgt.cur_loop,
+                "statuses": srgt.statuses,
+            }
+
+        return ret
 
     return {
         "machines": dict([(m.machine_id, ser(m)) for m in Machine.known_machines()]),
