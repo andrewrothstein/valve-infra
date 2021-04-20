@@ -33,8 +33,16 @@ class Timeout:
         self.retried = 0
 
     @property
+    def active_for(self):
+        if self.started_at is not None:
+            return datetime.now() - self.started_at
+        else:
+            return None
+
+    @property
     def has_expired(self):
-        return self.started_at is not None and datetime.now() - self.started_at > self.timeout
+        active_for = self.active_for
+        return active_for is not None and active_for > self.timeout
 
     def start(self):
         self.started_at = datetime.now()
