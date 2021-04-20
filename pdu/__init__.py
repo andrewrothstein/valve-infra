@@ -41,7 +41,7 @@ class PDUPort:
     def set(self, state):
         # Check the current state before writing it
         cur_state = self.state
-        logger.debug("set: self.state=%s state=%s", cur_state, state)
+        logger.debug("set: %s -> %s", cur_state, state)
         if cur_state == state:
             return
 
