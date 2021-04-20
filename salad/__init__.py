@@ -7,7 +7,6 @@ import traceback
 import threading
 import select
 import serial
-import socket
 import sys
 import re
 
