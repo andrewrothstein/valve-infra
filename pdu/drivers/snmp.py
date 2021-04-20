@@ -12,6 +12,30 @@ def _is_int(s):
         return False
 
 
+def retry_on_known_errors(func):
+    retriable_errors = [
+        "<built-in function set> returned NULL without setting an error",
+        "<built-in function get> returned NULL without setting an error"
+    ]
+
+    def retry(*args, **kwargs):
+        retries = 3
+
+        for i in range(retries):
+            try:
+                return func(*args, **kwargs)
+            except SystemError as e:
+                if str(e) in retriable_errors:
+                    logger.warning(f"Caught the re-triable error '{str(e)}', retrying ({i+1}/{retries})")
+                    time.sleep(1)
+                    continue
+                raise e
+
+        raise ValueError(f"The function {func} failed {retries} times in a row")
+
+    return retry
+
+
 class BaseSnmpPDU(PDU):
     def __init__(self, name, hostname, oid_outlets_label_base,
                  community="private"):
@@ -69,36 +93,32 @@ class BaseSnmpPDU(PDU):
         val_to_state = dict([(val, key) for key, val in self.action_to_snmp_value.items()])
         return getattr(PDUState, val_to_state.get(value))
 
+    @retry_on_known_errors
     def set_port_state(self, port_spec, state):
         SNMP_INTEGER_TYPE = 'i'
 
         port_id = self._port_spec_to_int(port_spec)
-        try:
-            set_result = snmp_set(self.port_oid(port_id),
-                                  self.state_to_raw_value(state),
-                                  SNMP_INTEGER_TYPE,
-                                  hostname=self.hostname,
-                                  version=1,
-                                  community=self.community)
+        ret = snmp_set(self.port_oid(port_id),
+                       self.state_to_raw_value(state),
+                       SNMP_INTEGER_TYPE,
+                       hostname=self.hostname,
+                       version=1,
+                       community=self.community)
 
-            if self.state_transition_delay_seconds is not None:
-                logger.debug("Enforcing %s seconds of delay for state change", self.state_transition_delay_seconds)
-                # TODO: keep track of state changes to avoid a forced sleep.
-                time.sleep(self.state_transition_delay_seconds)
+        if self.state_transition_delay_seconds is not None:
+            logger.debug("Enforcing %s seconds of delay for state change", self.state_transition_delay_seconds)
+            # TODO: keep track of state changes to avoid a forced sleep.
+            time.sleep(self.state_transition_delay_seconds)
 
-            return set_result
-        except SystemError as e:
-            raise ValueError(f"The snmp_set() call failed with the following error: {e}")
+        return ret
 
+    @retry_on_known_errors
     def get_port_state(self, port_spec):
         port_id = self._port_spec_to_int(port_spec)
-        try:
-            vs = snmp_get(self.port_oid(port_id),
-                          hostname=self.hostname,
-                          version=1,
-                          community=self.community)
-        except SystemError as e:
-            raise ValueError(f"The snmp_get() call failed with the following error: {e}")
+        vs = snmp_get(self.port_oid(port_id),
+                        hostname=self.hostname,
+                        version=1,
+                        community=self.community)
         return self.raw_value_to_state(int(vs.value))
 
     def __eq__(self, other):
