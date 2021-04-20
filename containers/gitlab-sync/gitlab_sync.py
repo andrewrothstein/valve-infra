@@ -328,8 +328,6 @@ def main(conf_file, access_token, registration_token, mars_host):  # pragma: noc
     local_config = GitlabConfig(conf_file)
     runner_api = GitlabRunnerAPI(gl, registration_token)
 
-    initial_sync(local_config, runner_api)
-
     try:
         poll_mars_forever(mars_host, local_config, runner_api)
     except KeyboardInterrupt:
