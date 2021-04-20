@@ -32,13 +32,16 @@ class MaRS(Thread):
 
     def run(self):
         while True:
-            Machine.sync_machines_with_mars()
+            try:
+                Machine.sync_machines_with_mars()
 
-            # Wait for 5 seconds, with the ability to exit every second
-            for i in range(5):
-                time.sleep(1)
-                if self.stop_event.is_set():
-                    return
+                # Wait for 5 seconds, with the ability to exit every second
+                for i in range(5):
+                    time.sleep(1)
+                    if self.stop_event.is_set():
+                        return
+            except Exception:
+                traceback.print_exc()
 
 
 def get_machine_or_fail(machine_id):
