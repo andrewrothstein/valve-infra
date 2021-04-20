@@ -13,11 +13,43 @@ import os
 sys.path.append(os.path.abspath('{}/../'.format(os.path.dirname(__file__))))
 
 from salad import salad
-from executor import Machine
+from executor import Machine, SergentHartman, MachineState
 from job import Job
+from client import JobStatus
+
+
+class CustomJSONEncoder(flask.json.JSONEncoder):
+    def default(self, obj):
+        if isinstance(obj, JobStatus):
+            return obj.name
+        elif isinstance(obj, SergentHartman):
+            return {
+                "is_active": obj.is_active,
+                "is_registered": obj.is_machine_registered,
+                "boot_loop_counts": obj.boot_loop_counts,
+                "qualifying_rate": obj.qualifying_rate,
+                "current_loop_count": obj.cur_loop,
+                "statuses": dict([(s.name, val) for s, val in obj.statuses.items()]),
+            }
+        elif isinstance(obj, MachineState):
+            return obj.name
+        elif isinstance(obj, Machine):
+            return {
+                obj.machine_id: {
+                    "state": obj.state,
+                    "ready_for_service": obj.ready_for_service,
+                    "has_pdu_assigned": obj.pdu_port is not None,
+                    "local_tty_device": obj.local_tty_device,
+                    "tags": list(obj.tags),
+                    "training": obj.sergent_hartman
+                }
+            }
+
+        return super().default(self, obj)
 
 
 app = flask.Flask(__name__)
+app.json_encoder = CustomJSONEncoder
 
 
 class MaRS(Thread):
@@ -61,30 +93,8 @@ def handle_valueError_exception(error):
 
 @app.route('/api/v1/machines', methods=['GET'])
 def get_machine_list():
-    def ser(machine):
-        ret = {
-            "state": machine.state.name,
-            "ready_for_service": machine.ready_for_service,
-            "has_pdu_assigned": machine.pdu_port is not None,
-            "local_tty_device": machine.local_tty_device,
-            "tags": list(machine.tags)
-        }
-
-        srgt = machine.sergent_hartman
-        if srgt is not None:
-            ret["training"] = {
-                "is_active": srgt.is_active,
-                "is_registered": srgt.is_machine_registered,
-                "boot_loop_counts": srgt.boot_loop_counts,
-                "qualifying_rate": srgt.qualifying_rate,
-                "current_loop_count": srgt.cur_loop,
-                "statuses": srgt.statuses,
-            }
-
-        return ret
-
     return {
-        "machines": dict([(m.machine_id, ser(m)) for m in Machine.known_machines()]),
+        "machines": Machine.known_machines()
     }
 
 
