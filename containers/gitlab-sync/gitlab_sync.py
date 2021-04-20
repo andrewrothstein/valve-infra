@@ -26,10 +26,21 @@ console_handler.setFormatter(log_formatter)
 logger.addHandler(console_handler)
 
 
+def parse_iso8601_date(d):
+    # For some reason the datetime parser doesn't like the lone Z, I
+    # thought it was spec'd. It does happily accept +00:00 in lieu of
+    # Z.
+    return datetime.fromisoformat(d.removesuffix("Z"))
+
+
 class GitlabRunnerAPI:
-    def __init__(self, remote_api, runner_registration_token):
+    def __init__(self, remote_api, runner_registration_token, farm_name=None):
         self.gl = remote_api
         self.registration_token = runner_registration_token
+        self.farm_name = farm_name or os.environ.get('FARM_NAME', 'unknown')
+
+    def runner_is_managed_by_our_farm(self, runner):
+        return runner.description.startswith(self.farm_name)
 
     def register(self, name, tags):
         """Register a new runner with the given name and tag list"""
@@ -43,28 +54,28 @@ class GitlabRunnerAPI:
         }
         return self.gl.runners.create(registration_config)
 
-    def runners(self):  # pragma: nocover
-        return self.gl.runners.list()
+    def registered_runners(self):
+        # Not cached on purpose, it's less efficient and arguable we
+        # don't need to requery, but it removes some corner cases of
+        # people faffinf manually on the server side
+        return filter(self.runner_is_managed_by_our_farm,
+                      self.gl.runners.list())
 
-    def unregister(self, runner):  # pragma: nocover
+    def unregister(self, runner):
         """Remove the given runner from the server."""
         self.gl.runners.delete(runner.id)
 
     def unregister_machine(self, machine):
         runner = self.find_by_name(machine["full_name"])
-        assert runner
-        self.unregister(runner)
+        if runner:
+            self.unregister(runner)
 
-    def find_by_name(self, name):  # pragma: nocover
+    def find_by_name(self, name):
         """Find a runner with a description matching _name_. Return
         the matching runner structure"""
-        for runner in self.runners():
+        for runner in self.registered_runners():
             if runner.description == name:
                 return runner
-
-    def tags(self, runner_id):  # pragma: nocover
-        runner_details = self.gl.runners.get(runner_id)
-        return runner_details.tag_list
 
     def active_jobs(self, runner_id):  # pragma: nocover
         runner_details = self.gl.runners.get(runner_id)
@@ -103,23 +114,25 @@ class GitlabConfig:
         try:
             self.config = toml.load(self.config_path) or \
                 GitlabConfig.DEFAULT_CONFIG
-        except FileNotFoundError:
+        except (FileNotFoundError, toml.TomlDecodeError) as err:
+            logger.warning("Encountered an exception reloading configuration: %s\n"
+                           "Loading the default configuration", err)
             self.config = GitlabConfig.DEFAULT_CONFIG
 
-    def local_runners(self):
+    def runners(self):
         self._reload_config()
         if "runners" not in self.config:
             self.config["runners"] = []
         return self.config["runners"]
 
     def find_by_name(self, name):
-        for runner in self.local_runners():
+        for runner in self.runners():
             if runner["name"] == name:
                 return runner
 
     def remove_runner(self, runner):
-        self.local_runners()[:] = [r for r in self.local_runners()
-                                   if r['name'] != runner['name']]
+        self.runners()[:] = [r for r in self.runners()
+                             if r['name'] != runner['name']]
         self._save()
 
     def clear(self):  # pragma: nocover
@@ -154,7 +167,7 @@ class GitlabConfig:
             }
         }
         logger.info(f"adding a new runner:\n{pformat(config)}")
-        self.local_runners().append(config)
+        self.runners().append(config)
         self._save()
 
 
@@ -195,13 +208,6 @@ def sync_mars_machine_with_coordinator(machine, gitlab_config, runner_api):
     runner_api.set_tags(machine)
 
     return True
-
-
-def parse_iso8601_date(d):
-    # For some reason the datetime parser doesn't like the lone Z, I
-    # thought it was spec'd. It does happily accept +00:00 in lieu of
-    # Z.
-    return datetime.fromisoformat(d.removesuffix("Z"))
 
 
 class Event(enum.Enum):
@@ -282,22 +288,22 @@ def poll_mars_forever(mars_host, gitlab_config, runner_api):  # pragma: nocover
     r.raise_for_status()
     machines = r.json()
     if not machines:
+        logger.info("There are no registered machines, clear any old runner configuration")
         gitlab_config.clear()
+    else:
+        logger.info(f"{len(machines)} machines ready for service, syncing...")
+        for machine in machines:
+            logger.info(f"syncing\n{pformat(machine)}")
+            if not sync_mars_machine_with_coordinator(machine,
+                                                      gitlab_config,
+                                                      runner_api):
+                logger.error("An error occurred while synchronizing "
+                             f"{pformat(machine)}. "
+                             "Will attempt to refetch machines and "
+                             "try again")
+                raise requests.exceptions.RequestException()
+    logger.info("MaRS sync complete, switching to event monitoring mode...")
 
-    logger.info(f"{len(machines)} machines ready for service, syncing...")
-
-    for machine in machines:
-        logger.info(f"syncing\n{pformat(machine)}")
-        if not sync_mars_machine_with_coordinator(machine,
-                                                  gitlab_config,
-                                                  runner_api):
-            logger.error("An error occurred while synchronizing "
-                         f"{pformat(machine)}. "
-                         "Will attempt to refetch machines and "
-                         "try again")
-            raise requests.exceptions.RequestException()
-
-    logger.info("MaRS sync complete, monitoring for events...")
     last_checked = datetime.now()
     while True:
         r = requests.get(
@@ -309,47 +315,6 @@ def poll_mars_forever(mars_host, gitlab_config, runner_api):  # pragma: nocover
                                               runner_api)
         last_checked = last_event_time or last_checked
         time.sleep(3)
-
-
-def runner_is_managed_by_our_farm(runner):
-    farm_name = os.environ.get('FARM_NAME', 'unknown')
-    return runner.description.startswith(farm_name)
-
-
-def initial_sync(config, rapi):  # pragma: nocover
-    """Anything registered remotely that is not known locally, remove it.
-Anything known locally that is not registered remotely, register it.
-This ensure we start in a sane state."""
-    logger.info("making the remote and local configurations agree...")
-
-    remote_runners = rapi.runners()
-    local_runners = config.local_runners()
-
-    for runner in remote_runners:
-        if not runner_is_managed_by_our_farm(runner):
-            logger.info(f"{runner.description} ignored, since it is "
-                        "not managed by our farm")
-            continue
-
-        logger.debug(f"{runner.description} is registered on the server, "
-                     f"tagged with:\n{pformat(rapi.tags(runner.id))}")
-
-        # Convention used by us
-        machine_name = runner.description
-        local_runner = config.find_by_name(machine_name)
-
-        if not local_runner:
-            logger.warning(f"{runner.description} is registered on the "
-                           "coordinator but is not locally, removing from "
-                           "coordinator...")
-            rapi.unregister(runner)
-
-    for runner in local_runners:
-        remote_runner = rapi.find_by_name(runner["name"])
-        if not remote_runner:
-            logger.warn(f"{runner['name']} is registered locally but "
-                        "not remotely, registering now")
-            rapi.register(runner)
 
 
 @click.command()

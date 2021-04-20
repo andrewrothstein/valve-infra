@@ -9,8 +9,8 @@ from gitlab_sync import (
     parse_iso8601_date,
     parse_event_diff,
     Event,
-    runner_is_managed_by_our_farm,
 )
+from operator import attrgetter
 import copy
 import tempfile
 import toml
@@ -28,33 +28,82 @@ class MockRunner(object):
     description: str = attr.ib()
 
 
-class GitlabRunnerAPITests(unittest.TestCase):
-    def setUp(self):
-        # The Gitlab API is mostly generated dynamically, which makes
-        # testing it a mess. You can't use auto-specing. Lukcily, our
-        # testing needs are minor.
-        self.mock_api = MagicMock()
-        self.mock_api.runners = MagicMock()
-        self.api = GitlabRunnerAPI(self.mock_api,
-                                   'test-registration-token')
+@pytest.fixture
+def remote_with_runners():
+    remote_api = MagicMock()
+    remote_api.runners.list = MagicMock(
+        return_value=[
+            MockRunner(1, "random-gfx7-9"),
+            MockRunner(2, "random-gfx8-3"),
+            MockRunner(3, "random-gfx9-3"),
+            MockRunner(4, "tchar-gfx8-1"),
+            MockRunner(5, "tchar-gfx10-2"),
+            MockRunner(6, "mupuf-gfx10-3"),
+        ]
+    )
+    yield remote_api
 
-    def test_registration(self):
-        self.api.register('name-1', 'tags-1')
-        self.mock_api.runners.create.assert_called_with(
-            {
-                'token': 'test-registration-token',
-                'description': 'name-1',
-                'tag_list': 'tags-1',
-                'run_untagged': 'false',
-                'locked': 'true'
-            })
 
-    def test_unregistration(self):
-        self.mock_api.runners.list = MagicMock(
-            return_value=[MockRunner(1, 'tchar-gfx8-1')]
-        )
-        self.api.unregister_machine({"full_name": "tchar-gfx8-1"})
-        self.mock_api.runners.delete.assert_called_with(1)
+@pytest.fixture
+def tmpfile():
+    # The pytest provided fixtures around temporary files are nuts, roll our own.
+    tmp_file = tempfile.NamedTemporaryFile()
+    yield tmp_file
+    tmp_file.close()
+
+
+@pytest.mark.parametrize(
+    "runner,farm_name,expectation",
+    [
+        (MockRunner(1, "gfx8-1"), 'gfx8', True),
+        (MockRunner(2, "random-gfx10-3"), 'gfx8', False),
+    ],
+)
+def test_runner_registration_farm(monkeypatch, runner, farm_name, expectation):
+    monkeypatch.setenv('FARM_NAME', farm_name)
+    api = GitlabRunnerAPI(MagicMock(), 'test-registration-token')
+    assert api.runner_is_managed_by_our_farm(runner) is expectation
+
+
+def test_runner_registration():
+    remote_api = MagicMock()
+    remote_api.runners = MagicMock()
+    api = GitlabRunnerAPI(remote_api, 'test-registration-token')
+
+    api.register('name-1', 'tags-1')
+    remote_api.runners.create.assert_called_with(
+        {
+            'token': 'test-registration-token',
+            'description': 'name-1',
+            'tag_list': 'tags-1',
+            'run_untagged': 'false',
+            'locked': 'true'
+        }
+    )
+
+
+def test_registered_runners(remote_with_runners):
+    api = GitlabRunnerAPI(remote_with_runners, 'test-registration-token', farm_name='tchar')
+    runners = sorted(api.registered_runners(), key=attrgetter('id'))
+    assert len(runners) == 2
+    assert runners[0].description == 'tchar-gfx8-1'
+    assert runners[1].description == 'tchar-gfx10-2'
+
+
+def test_unregister():
+    remote_api = MagicMock()
+    api = GitlabRunnerAPI(remote_api, 'test-registration-token', farm_name='tchar')
+    api.unregister(MockRunner(1, "random-gfx7-9"))
+    remote_api.runners.delete.assert_called_with(1)
+
+
+def test_unregister_machine(remote_with_runners):
+    api = GitlabRunnerAPI(remote_with_runners, 'test-registration-token', farm_name='tchar')
+    api.unregister_machine({"full_name": "tchar-gfx8-1"})
+    remote_with_runners.runners.delete.assert_called_with(4)
+    remote_with_runners.reset_mock()
+    api.unregister_machine({"full_name": "mupuf-gfx10-3"})
+    remote_with_runners.runners.delete.assert_not_called()
 
 
 class MarsSyncTests(unittest.TestCase):
@@ -137,57 +186,49 @@ class MarsSyncTests(unittest.TestCase):
         self.config.add_runner.assert_not_called()
 
 
-class GitlabConfigTests(unittest.TestCase):
-    def setUp(self):
-        self.tmp_file = tempfile.NamedTemporaryFile()
+def test_config_corrupted_configuration(tmpfile):
+    tmpfile.write(b'{broke n toml {};;;;}')
+    _ = GitlabConfig(tmpfile.name)  # Test the side-effect in the init
+    assert GitlabConfig.DEFAULT_CONFIG == toml.load(tmpfile.name)
 
-    def tearDown(self):
-        self.tmp_file.close()
 
-    def load_toml(self):
-        return toml.load(self.tmp_file.name)
+def test_config_file_not_found(tmpfile):
+    tmpfile.close()
+    _ = GitlabConfig(tmpfile.name)  # Test the side-effect in the init
+    assert GitlabConfig.DEFAULT_CONFIG == toml.load(tmpfile.name)
 
-    def test_corruptedConfiguration(self):
-        self.tmp_file.write(b'{broke n toml {};;;;}')
-        self.config = GitlabConfig(self.tmp_file.name)
-        assert GitlabConfig.DEFAULT_CONFIG == self.load_toml()
 
-    def test_defaultConfiguration(self):
-        self.config = GitlabConfig(self.tmp_file.name)
-        assert GitlabConfig.DEFAULT_CONFIG == self.load_toml()
-        assert len(self.config.local_runners()) == 0
-        assert self.config.find_by_name("Johnson") is None
+def test_config_default_configuration(tmpfile):
+    config = GitlabConfig(tmpfile.name)
+    assert GitlabConfig.DEFAULT_CONFIG == toml.load(tmpfile.name)
+    assert len(config.runners()) == 0
+    assert config.find_by_name("Johnson") is None
 
-    def test_configurationFileNotFound(self):
-        self.tmp_file.close()
-        self.config = GitlabConfig(self.tmp_file.name)
-        assert GitlabConfig.DEFAULT_CONFIG == self.load_toml()
-        assert len(self.config.local_runners()) == 0
-        assert self.config.find_by_name("Johnson") is None
 
-    def test_testAddRunner(self):
-        self.config = GitlabConfig(self.tmp_file.name)
-        pop = range(1, 10)
-        for i in pop:
-            self.config.add_runner(f'test-runner-{i}', f'token-{i}')
-            assert len(self.config.local_runners()) == i
-        for i in random.sample(pop, k=len(pop)):
-            assert self.config.find_by_name('test-runner-x') is None
-            added_runner = self.config.find_by_name(f'test-runner-{i}')
-            assert added_runner is not None
-            assert added_runner['token'] == f'token-{i}'
-            assert added_runner['docker']['image'].find('gitlab-trigger')
-            assert len(added_runner['docker']['volumes']) == 3
+def test_config_add_runner(tmpfile):
+    config = GitlabConfig(tmpfile.name)
+    pop = range(1, 10)
+    for i in pop:
+        config.add_runner(f'test-runner-{i}', f'token-{i}')
+        assert len(config.runners()) == i
+    for i in random.sample(pop, k=len(pop)):
+        assert config.find_by_name('test-runner-x') is None
+        added_runner = config.find_by_name(f'test-runner-{i}')
+        assert added_runner is not None
+        assert added_runner['token'] == f'token-{i}'
+        assert added_runner['docker']['image'].find('gitlab-trigger')
+        assert len(added_runner['docker']['volumes']) == 3
 
-    def test_testRemoveRunner(self):
-        self.config = GitlabConfig(self.tmp_file.name)
-        for i in range(1, 10):
-            self.config.add_runner(f'test-runner-{i}', f'token-{i}')
-        for i in range(1, 5):
-            runner = self.config.find_by_name(f'test-runner-{i}')
-            assert runner is not None
-            self.config.remove_runner(runner)
-            assert len(self.config.local_runners()) == 10 - i - 1
+
+def test_config_remove_runner(tmpfile):
+    config = GitlabConfig(tmpfile.name)
+    for i in range(1, 10):
+        config.add_runner(f'test-runner-{i}', f'token-{i}')
+    for i in range(1, 5):
+        runner = config.find_by_name(f'test-runner-{i}')
+        assert runner is not None
+        config.remove_runner(runner)
+        assert len(config.runners()) == 10 - i - 1
 
 
 class ProcessMarsEventsTests(unittest.TestCase):
@@ -341,15 +382,3 @@ def test_parse_iso8601_date():
 )
 def test_parse_event_diff(diff, expectation):
     assert parse_event_diff(diff) is expectation
-
-
-@pytest.mark.parametrize(
-    "runner,farm_name,expectation",
-    [
-        (MockRunner(1, "gfx8-1"), 'gfx8', True),
-        (MockRunner(2, "random-gfx10-3"), 'gfx8', False),
-    ],
-)
-def test_runner_is_managed_by_our_farm(monkeypatch, runner, farm_name, expectation):
-    monkeypatch.setenv('FARM_NAME', farm_name)
-    assert runner_is_managed_by_our_farm(runner) is expectation
