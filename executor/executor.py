@@ -420,9 +420,10 @@ class Machine(Thread):
                 self.state = MachineState.TRAINING
 
                 self.job_config = self.sergent_hartman.next_task()
-                self.job_console = JobConsole(self.machine_id, endpoint=None, clientless=True,
-                                              console_patterns=self.job_config.console_patterns,
-                                              log_level=LogLevel.WARN)
+                self.job_console = JobConsole(self.machine_id,
+                                              endpoint=None,
+                                              clientless=True,
+                                              console_patterns=self.job_config.console_patterns)
             else:
                 # Wait for a job to be set
                 self.state = MachineState.IDLE
@@ -560,8 +561,8 @@ class Machine(Thread):
             try:
                 if not session_init():
                     continue
-                self.log(f"Starting the job: {self.job_config}\n\n")
 
+                self.log(f"Starting the job: {self.job_config}\n\n", LogLevel.DEBUG)
                 execute_job()
             except Exception:
                 self.log(f"An exception got caught: {traceback.format_exc()}\n", LogLevel.ERROR)
