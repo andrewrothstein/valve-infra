@@ -288,6 +288,9 @@ class MinioCache():
             secure=False,
         )
 
+    def is_local_url(self, url):
+        return url.startswith(f"http://{self._endpoint}/")
+
     def save_boot_artifact(self, remote_artifact_url, minio_object_name):
         minio_bucket_name = 'boot'
         with tempfile.NamedTemporaryFile("wb") as temp_download_area, \
@@ -389,8 +392,8 @@ class Machine(Thread):
         self.remote_url_to_local_cache_mapping[continue_url] = continue_url
 
         def cache_it(url, suffix):
-            if url.startswith("http://10.42.0.1:9000"):
-                logger.debug("skip caching {url} since it already exists")
+            if self.minio_cache.is_local_url(url):
+                logger.debug(f"Ignore caching {url} as it is already hosted by our minio cache")
                 return
             self.remote_url_to_local_cache_mapping[url] = f"http://10.42.0.1:9000/boot/{artifact_prefix}-{suffix}"
             self.log(f'Caching {url} into minio...\n')
