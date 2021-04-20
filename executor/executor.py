@@ -279,7 +279,10 @@ class SergentHartman:
 
 
 class MinioCache():
-    def __init__(self, endpoint="10.42.0.1:9000"):
+    def __init__(self, endpoint=None):
+        if endpoint is None:
+            endpoint = os.environ.get("MINIO_URL", "10.42.0.1:9000")
+
         self._endpoint = endpoint
         self._client = Minio(
             endpoint=self._endpoint,
