@@ -69,6 +69,7 @@ class PDUPort:
 class PDU:
     def __init__(self, name):
         self.name = name
+        self.state_transition_delay_seconds = 1
 
     @property
     def ports(self):

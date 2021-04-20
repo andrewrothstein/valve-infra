@@ -1,5 +1,7 @@
 from pdu import PDU, PDUPort, PDUState
 from easysnmp import snmp_get, snmp_set, snmp_walk
+import time
+from .. import logger
 
 
 def _is_int(s):
@@ -72,12 +74,19 @@ class BaseSnmpPDU(PDU):
 
         port_id = self._port_spec_to_int(port_spec)
         try:
-            return snmp_set(self.port_oid(port_id),
-                            self.state_to_raw_value(state),
-                            SNMP_INTEGER_TYPE,
-                            hostname=self.hostname,
-                            version=1,
-                            community=self.community)
+            set_result = snmp_set(self.port_oid(port_id),
+                                  self.state_to_raw_value(state),
+                                  SNMP_INTEGER_TYPE,
+                                  hostname=self.hostname,
+                                  version=1,
+                                  community=self.community)
+
+            if self.state_transition_delay_seconds is not None:
+                logger.debug("Enforcing %s seconds of delay for state change", self.state_transition_delay_seconds)
+                # TODO: keep track of state changes to avoid a forced sleep.
+                time.sleep(self.state_transition_delay_seconds)
+
+            return set_result
         except SystemError as e:
             raise ValueError(f"The snmp_set() call failed with the following error: {e}")
 
