@@ -19,8 +19,11 @@ class ConsoleStream:
         self.machine_id_re = \
             re.compile(b".*SALAD.machine_id=(?P<machine_id>\\S+).*")
 
-        # NOTE: Some adapters send NULL characters at first, so just ignore them.
-        self.ping_re = re.compile(b"^\x00*SALAD.ping\r?\n$")
+        # NOTE: Some adapters send garbage at first, so don't assume
+        # the ping is at the first byte offset (i.e., do not think you
+        # can anchor to ^), sometimes '\x00\x00SALAD.ping' is seen,
+        # othertimes '\xfcSALAD.ping', and so on.
+        self.ping_re = re.compile(b"SALAD.ping\r?\n$")
 
     def log_msg(self, data, is_input=True):
         dir = "-->" if is_input else "<--"
@@ -53,7 +56,7 @@ class ConsoleStream:
 
         self.log_msg(line)
 
-        if self.ping_re.match(line):
+        if self.ping_re.search(line):
             self.send(b"SALAD.pong\n")
 
 
