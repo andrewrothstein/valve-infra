@@ -114,7 +114,9 @@ class JobConsole(JobSession):
     def send(self, buf):
         self.last_send_activity = datetime.now()
 
-        self._send(buf)
+        # Do not re-print the logs as SALAD already printed them for us
+        if not self.clientless:
+            self._send(buf)
 
         try:
             self.match_console_patterns(buf)
