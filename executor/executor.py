@@ -154,7 +154,11 @@ class JobConsole(JobSession):
         if log_level < self.log_level:
             return
 
-        relative_time = (datetime.now() - self.start_time).total_seconds()
+        if self.start_time is not None:
+            relative_time = (datetime.now() - self.start_time).total_seconds()
+        else:
+            relative_time = 0.0
+
         log_msg = f"+{relative_time:.3f}s: {msg}"
 
         if self.clientless:
