@@ -17,6 +17,7 @@ import tempfile
 import socket
 import time
 import os
+import re
 from minio import Minio
 from logging import getLogger, getLevelName, Formatter, StreamHandler
 
@@ -294,20 +295,26 @@ class SergentHartman:
 
 
 class MinioCache():
-    def __init__(self, endpoint=None):
-        if endpoint is None:
-            endpoint = os.environ.get("MINIO_URL", "10.42.0.1:9000")
+    def __init__(self, url=None):
+        if url is None:
+            url = os.environ.get("MINIO_URL", "http://10.42.0.1:9000")
 
-        self._endpoint = endpoint
+        m = re.match("https?://(?P<endpoint>[^/]+)", url)
+        if m is None:
+            raise ValueError(f"The URL '{url}' is not of the format 'http(s)://host:port'")
+
+        self.url = url
+        endpoint = m.group("endpoint")
+
         self._client = Minio(
-            endpoint=self._endpoint,
+            endpoint=endpoint,
             access_key="minioadmin",
             secret_key=os.environ['MINIO_ROOT_PASSWORD'],
             secure=False,
         )
 
     def is_local_url(self, url):
-        return url.startswith(f"http://{self._endpoint}/")
+        return url.startswith(f"{self.url}/")
 
     def save_boot_artifact(self, remote_artifact_url, minio_object_name):
         minio_bucket_name = 'boot'
