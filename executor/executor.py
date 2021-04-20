@@ -21,8 +21,6 @@ import re
 from minio import Minio
 from logging import getLogger, getLevelName, Formatter, StreamHandler
 
-from pprint import pformat
-
 
 logger = getLogger(__name__)
 logger.setLevel(getLevelName('DEBUG'))
