@@ -29,6 +29,11 @@ console_handler = StreamHandler()
 console_handler.setFormatter(log_formatter)
 logger.addHandler(console_handler)
 
+
+# Constants
+CONSOLE_DRAINING_DELAY = 1
+
+
 class MachineState(Enum):
     WAIT_FOR_CONFIG = 0
     IDLE = 1
@@ -474,6 +479,7 @@ class Machine(Thread):
 
             # Signal to the job that we reached the end of the execution
             if self.job_console is not None:
+                time.sleep(CONSOLE_DRAINING_DELAY)  # Make sure all messages in flight get consumed before the end of the job
                 self.job_console.close()
                 self.job_console = None
 
