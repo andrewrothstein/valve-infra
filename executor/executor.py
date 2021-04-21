@@ -187,8 +187,14 @@ def str_to_int(string, default):
 
 
 class SergentHartman:
-    def __init__(self, machine, boot_loop_counts=100, qualifying_rate=100):
+    def __init__(self, machine, boot_loop_counts=None, qualifying_rate=None):
         super().__init__()
+
+        if boot_loop_counts is None:
+            boot_loop_counts = str_to_int(os.environ.get("SERGENT_HARTMAN_BOOT_COUNT"), 100)
+
+        if qualifying_rate is None:
+            qualifying_rate = str_to_int(os.environ.get("SERGENT_HARTMAN_QUALIFYING_BOOT_COUNT"), 100)
 
         self.machine = machine
         self.boot_loop_counts = boot_loop_counts
