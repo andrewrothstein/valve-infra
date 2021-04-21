@@ -103,8 +103,6 @@ class GitlabConfig:
         self.config_path = config_path
         self._reload_config()
         self._save()
-        logger.debug("starting with the following configuration:\n"
-                     f"{pformat(self.config)}")
 
     def _save(self):
         logger.debug("saving configuration...")
@@ -192,10 +190,11 @@ def sync_mars_machine_with_coordinator(machine, gitlab_config, runner_api):
         register()
     elif not local_runner and remote_runner:
         logger.info(f"There is remote runner named {name}, but not local."
-                    "Deleting remote runner and reregistering...")
+                    " Deleting remote runner and reregistering...")
         running_jobs = runner_api.active_jobs(remote_runner.id)
         if running_jobs:
-            logger.error("The remote runner is actively running jobs. "
+            logger.error("The remote runner is actively running jobs, or "
+                         "waiting for a timeout to expire. "
                          "For now this means you should manually sort "
                          "that out and come back.")
             return False
@@ -212,6 +211,7 @@ def sync_mars_machine_with_coordinator(machine, gitlab_config, runner_api):
     # Both sides are in agreement now, make sure the tags are in agreement too!
     runner_api.set_tags(machine)
 
+    logger.info(f'The runner {name} has been synchronized')
     return True
 
 
@@ -270,8 +270,7 @@ events after the last one processed"""
             if not sync_mars_machine_with_coordinator(machine,
                                                       gitlab_config,
                                                       runner_api):
-                logger.error("An error occurred while synchronizing "
-                             f"{pformat(machine)}.")
+                logger.error("An error occurred while synchronizing {machine['full_name']}")
                 break
         elif parsed_event == Event.OUT_OF_SERVICE:
             logger.info(f"{pformat(machine)} out of service, disabling runner")
@@ -298,7 +297,7 @@ def poll_mars_forever(mars_host, gitlab_config, runner_api):  # pragma: nocover
     else:
         logger.info(f"{len(machines)} machines ready for service, syncing...")
         for machine in machines:
-            logger.info(f"syncing\n{pformat(machine)}")
+            logger.info(f"syncing {machine['full_name']}")
             if not sync_mars_machine_with_coordinator(machine,
                                                       gitlab_config,
                                                       runner_api):
