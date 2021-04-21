@@ -120,7 +120,7 @@ class JobSession:
 
 class Salad(Thread):
     def __init__(self):
-        super().__init__()
+        super().__init__(name=f'SaladThread')
 
         self._stop_event = threading.Event()
 
