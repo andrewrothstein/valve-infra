@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+from logging import getLogger, getLevelName, Formatter, StreamHandler
 from threading import Thread
 
 import serial.tools.list_ports
@@ -7,8 +8,17 @@ import traceback
 import threading
 import select
 import serial
-import sys
 import re
+
+
+logger = getLogger(__name__)
+logger.setLevel(getLevelName('DEBUG'))
+log_formatter = \
+    Formatter("%(asctime)s [%(threadName)s] [%(levelname)s] %(name)s: "
+              "%(message)s")
+console_handler = StreamHandler()
+console_handler.setFormatter(log_formatter)
+logger.addHandler(console_handler)
 
 
 class ConsoleStream:
@@ -28,11 +38,11 @@ class ConsoleStream:
     def log_msg(self, data, is_input=True):
         dir = "-->" if is_input else "<--"
         mid = "UNKNOWN" if self.machine_id is None else self.machine_id
-        print(f"{self.stream_name}/{mid} {dir} {data}")
+        logger.info(f"{self.stream_name}/{mid} {dir} {data}")
 
     def _send(self, data):
         # To be implemented by the children of this class
-        print(f"WARNING: The console '{self.stream_name}' does not implement the _send() method", file=sys.stderr)
+        logger.error(f"WARNING: The console '{self.stream_name}' does not implement the _send() method")
 
     def send(self, data):
         self._send(data)
@@ -47,9 +57,9 @@ class ConsoleStream:
 
             # Make sure users are aware when the ownership of a console changes
             if self.machine_id is not None and new_machine_id != self.machine_id:
-                print((f"WARNING: The console {self.stream_name}'s associated "
-                       f"machine changed from {self.machine_id} "
-                       f"to {new_machine_id}"))
+                logger.warning((f"WARNING: The console {self.stream_name}'s associated "
+                                f"machine changed from {self.machine_id} "
+                                f"to {new_machine_id}"))
 
             # Make the new machine the associated machine of this session
             self.machine_id = new_machine_id
@@ -145,12 +155,12 @@ class Salad(Thread):
         for new_dev in ports - set(self._serial_devs.keys()):
             try:
                 self._serial_devs[new_dev] = SerialConsoleStream(new_dev)
-                print(f"Found new serial device {new_dev}")
+                logger.warning(f"Found new serial device {new_dev}")
             except Exception as e:
-                print(f"ERROR: Could not allocate a stream for the serial port {new_dev}: {e}")
+                logger.error(f"ERROR: Could not allocate a stream for the serial port {new_dev}: {e}")
 
         for old_dev in set(self._serial_devs.keys()) - ports:
-            print(f"Serial device {old_dev} got removed")
+            logger.warning(f"Serial device {old_dev} got removed")
             del self._serial_devs[old_dev]
 
     def _remove_stale_sessions(self):
@@ -198,7 +208,7 @@ class Salad(Thread):
                         if ser_dev is not None:
                             ser_dev.send(buf)
                 except Exception:
-                    traceback.print_exc()
+                    logger.error(traceback.format_exc())
 
 
 salad = Salad()
