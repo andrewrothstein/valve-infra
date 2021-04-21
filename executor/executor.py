@@ -264,11 +264,11 @@ class SergentHartman:
         if self.cur_loop == 0:
             if job_status != JobStatus.PASS:
                 delay = str_to_int(os.getenv("SERGENT_HARTMAN_REGISTRATION_RETRIAL_DELAY", None), 120)
-                print(f"SergentHartman/{mid} - Registration failed with status {job_status.name}. Retrying in {delay} second(s)")
+                logger.warning(f"SergentHartman/{mid} - Registration failed with status {job_status.name}. Retrying in {delay} second(s)")
                 self.reset()
                 return delay
             else:
-                print(f"SergentHartman/{mid} - Registration succeeded, moving on to the boot loop")
+                logger.info(f"SergentHartman/{mid} - Registration succeeded, moving on to the boot loop")
         else:
             # We are in the boot loop
             self.statuses[job_status] += 1
@@ -285,7 +285,7 @@ class SergentHartman:
                 r = requests.patch(mars_machine_url, json=params)
                 r.raise_for_status()
 
-                print(f"SergentHartman/{mid}: Reported to MaRS that the machine is {'' if ready_for_service else 'NOT '}ready for service")
+                logger.info(f"SergentHartman/{mid}: Reported to MaRS that the machine is {'' if ready_for_service else 'NOT '}ready for service")
 
         return 0
 
@@ -352,7 +352,7 @@ class BootsClient:
 
         r = requests.post(cls.url(f"/duts/{mac_addr}/boot"), json=params)
         if r.status_code != 200:
-            print("BOOTS ERROR: ", r.json())
+            logger.error(f"Setting the BOOTS config failed: {r.json()}")
         return r.status_code
 
 
