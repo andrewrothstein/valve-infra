@@ -55,8 +55,8 @@ services:
     environment:
       - GITLAB_REGISTRATION_TOKEN=$GITLAB_REGISTRATION_TOKEN
       - GITLAB_ACCESS_TOKEN=$GITLAB_ACCESS_TOKEN
-      - GITLAB_MARS_HOST=http://10.42.0.1:80
       - GITLAB_CONF_FILE=/etc/gitlab-runner/config.toml
+      - MARS_HOST=http://10.42.0.1:80
       - FARM_NAME=$FARM_NAME
     volumes:
       - ${TMP_MOUNT}/gitlab-runner:/etc/gitlab-runner

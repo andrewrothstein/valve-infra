@@ -5,5 +5,5 @@ WORKDIR /app
 COPY requirements.txt /app/
 RUN pip install --no-cache-dir -r requirements.txt
 COPY . /app
-ENTRYPOINT ["python", "gitlab_sync.py"]
+CMD ["python", "gitlab_sync.py", "service"]
 

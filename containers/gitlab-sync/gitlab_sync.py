@@ -317,16 +317,25 @@ def poll_mars_forever(mars_host, gitlab_config, runner_api):  # pragma: nocover
         time.sleep(3)
 
 
-@click.command()
-@click.option('--conf-file', required=True)
-@click.option('--access-token', required=True)
-@click.option('--registration-token', required=True)
-@click.option('--mars-host', required=True)
-def main(conf_file, access_token, registration_token, mars_host):  # pragma: nocover
-    gl = gitlab.Gitlab(url='https://gitlab.freedesktop.org',
-                       private_token=access_token)
+@click.group()
+@click.option('--access-token', required=True, envvar='GITLAB_ACCESS_TOKEN')
+@click.pass_context
+def cli(ctx, access_token):  # pragma: nocover
+    # ensure that ctx.obj exists and is a dict (in case `cli()` is called
+    # by means other than the `if` block below)
+    ctx.ensure_object(dict)
+    ctx.obj['GITLAB_API'] = gitlab.Gitlab(url='https://gitlab.freedesktop.org',
+                                          private_token=access_token)
+
+
+@cli.command()
+@click.option('--conf-file', required=True, envvar='GITLAB_CONF_FILE')
+@click.option('--registration-token', required=True, envvar='GITLAB_REGISTRATION_TOKEN')
+@click.option('--mars-host', required=True, envvar='MARS_HOST')
+@click.pass_context
+def service(ctx, conf_file, registration_token, mars_host):  # pragma: nocover
     local_config = GitlabConfig(conf_file)
-    runner_api = GitlabRunnerAPI(gl, registration_token)
+    runner_api = GitlabRunnerAPI(ctx.obj['GITLAB_API'], registration_token)
 
     try:
         poll_mars_forever(mars_host, local_config, runner_api)
@@ -334,5 +343,23 @@ def main(conf_file, access_token, registration_token, mars_host):  # pragma: noc
         logger.info("interuppted, shutting down...")
 
 
+@cli.command()
+@click.option('--farm-name', required=True, envvar='FARM_NAME')
+@click.pass_context
+def remove_all_gitlab_runners(ctx, farm_name):  # pragma: nocover
+    gl = ctx.obj['GITLAB_API']
+    runners = list(filter(lambda r: r.description.startswith(f'{farm_name}-'),
+                          gl.runners.list(all=True)))
+    if not click.confirm(f'About to remove {len(runners)} runners for the '
+                         f' {farm_name} farm, are you sure?',
+                         default=False):
+        return
+
+    for runner in runners:
+        if runner.description.startswith(f'{farm_name}-'):
+            print(f"removing {runner.description}")
+            runner.delete()
+
+
 if __name__ == '__main__':  # pragma: nocover
-    main(auto_envvar_prefix='GITLAB')
+    cli()
