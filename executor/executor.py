@@ -287,6 +287,9 @@ class SergentHartman:
 
                 logger.info(f"SergentHartman/{mid}: Reported to MaRS that the machine is {'' if ready_for_service else 'NOT '}ready for service")
 
+                # Update the machine
+                self.machine.ready_for_service = ready_for_service
+
         return 0
 
     @property
