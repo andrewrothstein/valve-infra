@@ -60,7 +60,7 @@ services:
       - FARM_NAME=$FARM_NAME
     volumes:
       - ${TMP_MOUNT}/gitlab-runner:/etc/gitlab-runner
-    restart: always
+    restart: unless-stopped
   ntpd:
     image: ermaker/chrony
     cap_add:
