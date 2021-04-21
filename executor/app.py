@@ -3,7 +3,6 @@
 from threading import Thread, Event
 
 import traceback
-import requests
 import flask
 import time
 import sys
