@@ -83,8 +83,13 @@ class GitlabRunnerAPI:
 
     def set_tags(self, machine):  # pragma: nocover
         runner = self.find_by_name(machine["full_name"])
-        runner.tag_list = machine["tags"]
-        runner.save()
+        if runner is not None:
+            runner.tag_list = machine["tags"]
+            runner.save()
+        else:
+            logger.error("This should not happen!")
+            import traceback
+            traceback.print_stack()
 
 
 class GitlabConfig:
