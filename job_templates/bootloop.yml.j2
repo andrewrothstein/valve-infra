@@ -18,9 +18,9 @@ timeouts:
 
 console_patterns:
     session_end:
-        regex: "^(\\[[\\d \\.]{12}\\] reboot: .*|\\+ poweroff -f\r)$"
+        regex: "^.*It's now safe to turn off your computer\r$"
     job_success:
-        regex: "^JOB_RESULT=0\r$"
+        regex: "^.*Execution is over, pipeline status: 0\r$"
     job_warn:
         regex: "^The configured console is not connected to SALAD$"
 
@@ -32,8 +32,7 @@ deployment:
       url: "http://10.42.0.1:9000/boot/default_kernel"
       cmdline:
         - b2c.container="-ti --tls-verify=false docker://10.42.0.1:8002/mupuf/valve-infra/machine_registration:latest check"
-        - b2c.ntp_peer="10.42.0.1" b2c.pipefail b2c.cache_device=auto
-        - b2c.shutdown_cmd="echo JOB_RESULT=$B2C_PIPELINE_PREV_CONTAINER_EXIT_CODE; poweroff -f"
+        - b2c.ntp_peer="10.42.0.1" b2c.pipefail b2c.cache_device=auto b2c.poweroff_delay=15
         - console={{ local_tty_device }},115200 earlyprintk=vga,keep SALAD.machine_id={{ machine_id }}
         - loglevel=6
     initramfs:

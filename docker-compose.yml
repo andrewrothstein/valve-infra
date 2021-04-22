@@ -24,7 +24,7 @@ services:
       - MARS_HOST=http://10.42.0.1:80
       - DEFAULT_KERNEL=http://10.42.0.1:9000/boot/default_kernel
       - DEFAULT_INITRD=http://10.42.0.1:9000/boot/default_boot2container.cpio.xz
-      - DEFAULT_CMDLINE=b2c.container="-ti --tls-verify=false docker://10.42.0.1:8002/mupuf/valve-infra/machine_registration:latest register" b2c.ntp_peer="10.42.0.1" b2c.cache_device=auto loglevel=6
+      - DEFAULT_CMDLINE=b2c.container="-ti --tls-verify=false docker://10.42.0.1:8002/mupuf/valve-infra/machine_registration:latest register" b2c.ntp_peer="10.42.0.1" b2c.cache_device=none loglevel=6
     volumes:
       - ${TMP_MOUNT}/boots:/boots
       - ${TMP_MOUNT}/boots/nfs-roots:/nfs
