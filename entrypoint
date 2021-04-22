@@ -75,10 +75,10 @@ mcli policy set public minio/boot
 mcli policy set public minio/jobs
 
 # Download a default kernel and initramfs for our infra
-upload_to_minio_if_missing https://gitlab.freedesktop.org/mupuf/boot2container/-/jobs/8517642/artifacts/raw/releases/HEAD/initramfs.linux_amd64.cpio.xz /boot/boot2container_2021_03_25.cpio.xz
-mcli cp minio/boot/boot2container_2021_03_25.cpio.xz minio/boot/default_boot2container.cpio.xz
+upload_to_minio_if_missing https://gitlab.freedesktop.org/mupuf/boot2container/-/releases/v0.7/downloads/initramfs.linux_amd64.cpio.xz /boot/boot2container_2021_04_22.cpio.xz
+mcli cp minio/boot/boot2container_2021_04_22.cpio.xz minio/boot/default_boot2container.cpio.xz
 
-upload_to_minio_if_missing https://gitlab.freedesktop.org/mupuf/valve-infra/-/wikis/uploads/0c40a562ec083f1bf00efcdafd486ada/bzImage /boot/default_kernel_2021_03_25
-mcli cp minio/boot/default_kernel_2021_03_25 minio/boot/default_kernel
+upload_to_minio_if_missing https://gitlab.freedesktop.org/mupuf/boot2container/-/releases/v0.7/downloads/bzImage /boot/default_kernel_2021_04_22
+mcli cp minio/boot/default_kernel_2021_04_22 minio/boot/default_kernel
 
 docker-compose logs --tail=0 -f || /bin/true
