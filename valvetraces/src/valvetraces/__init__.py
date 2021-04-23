@@ -1,15 +1,20 @@
 #!/usr/bin/env python3
 
+try:
+    from functools import cached_property
+except:
+    from backports.cached_property import cached_property
 from getpass import getpass
 
 import argparse
-import humanize
-import requests
-import hashlib
 import base64
-import sys
+import hashlib
+import humanize
 import os
 import re
+import requests
+import sys
+
 from PIL import Image
 from gfxinfo import GFXInfo
 
@@ -104,6 +109,10 @@ class Client:
         self.username = username
 
         self._login_cookie = None
+
+    @cached_property
+    def machine_tags(self):
+        return GFXInfo().machine_tags()
 
     def login(self):
         if self._login_cookie is None:
@@ -243,7 +252,7 @@ class Client:
         if machine_tags is None:
             confirmation_message = ('I confirm the trace is uploaded from '
                                     'the same computer that produced the trace')
-            machine_tags = list(GFXInfo().machine_tags())
+            machine_tags = list(self.machine_tags)
         else:
             confirmation_message = ('I confirm the machine tags provided are '
                                     'the ones produced at the same computer '
