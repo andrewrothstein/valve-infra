@@ -8,7 +8,7 @@ from jinja2 import Template
 from enum import Enum, IntEnum
 
 from salad import salad, JobSession
-from pdu import PDU, PDUState
+from pdu import PDUState
 from client import JobStatus
 from job import Job
 
@@ -218,7 +218,7 @@ class SergentHartman:
             # Instantiate the template, and write in the temporary file
             template_params = {
                 "ready_for_service": self.machine.ready_for_service,
-                "machine_id": self.machine.machine_id,
+                "machine_id": self.machine.id,
                 "machine_tags": set(self.machine.tags),
                 "local_tty_device": self.machine.local_tty_device,
             }
@@ -227,7 +227,7 @@ class SergentHartman:
             return Job(template)
 
     def next_task(self):
-        mid = self.machine.machine_id
+        mid = self.machine.id
 
         if not self.is_active:
             # Start by forcing the machine to register itself to make sure the
@@ -259,7 +259,7 @@ class SergentHartman:
             return self.create_job(self.bootloop_template)
 
     def report(self, job_status):
-        mid = self.machine.machine_id
+        mid = self.machine.id
 
         if self.cur_loop == 0:
             if job_status != JobStatus.PASS:
@@ -277,17 +277,7 @@ class SergentHartman:
                 self.is_active = False
 
                 # Update MaRS
-                mars_machine_url = f"{self.machine.mars_base_url()}/api/v1/machine/{self.machine.machine_id}/"
                 ready_for_service = self.statuses[JobStatus.PASS] >= self.qualifying_rate
-                params = {
-                    "ready_for_service": ready_for_service
-                }
-                r = requests.patch(mars_machine_url, json=params)
-                r.raise_for_status()
-
-                logger.info(f"SergentHartman/{mid}: Reported to MaRS that the machine is {'' if ready_for_service else 'NOT '}ready for service")
-
-                # Update the machine
                 self.machine.ready_for_service = ready_for_service
 
         return 0
@@ -355,28 +345,17 @@ class BootsClient:
         return r.status_code
 
 
-class Machine(Thread):
-    _machines = dict()
+class Executor(Thread):
+    def __init__(self, machine):
+        super().__init__(name=f'ExecutorThread-{machine.id}')
 
-    @classmethod
-    def mars_base_url(cls):
-        return os.getenv('MARS_URL', "http://127.0.0.1")
+        self.machine = machine
 
-    def __init__(self, machine_id, ready_for_service=False, tags=[], pdu_port=None,
-                 local_tty_device=None):
-        super().__init__(name=f'MachineThread-{machine_id}')
-
-        # Machine
-        self.machine_id = machine_id
-        self.minio_cache = MinioCache()
-        self.pdu_port = pdu_port
         self.state = MachineState.WAIT_FOR_CONFIG
-        self.ready_for_service = ready_for_service
-        self.tags = set(tags)
-        self.local_tty_device = local_tty_device
+        self.minio_cache = MinioCache()
 
         # Training / Qualifying process
-        self.sergent_hartman = SergentHartman(self)
+        self.sergent_hartman = SergentHartman(machine)
 
         # Outside -> Inside communication
         self.job_ready = Event()
@@ -391,17 +370,9 @@ class Machine(Thread):
         # private LAN, for which HTTPS offers no advantage.
         self.remote_url_to_local_cache_mapping = {}
 
-        self._machines[self.machine_id] = self
-
         # Start the background thread that will manage the machine
         self.stop_event = Event()
         self.start()
-
-    def __del__(self):
-        try:  # pragma: nocover
-            del self._machines[self.machine_id]
-        except Exception as e:
-            logger.error("%s", e)
 
     def start_job(self, job, console_endpoint):
         if self.state != MachineState.IDLE:
@@ -409,7 +380,7 @@ class Machine(Thread):
 
         self.state = MachineState.QUEUED
         self.job_config = job
-        self.job_console = JobConsole(self.machine_id, console_endpoint, self.job_config.console_patterns)
+        self.job_console = JobConsole(self.machine.id, console_endpoint, self.job_config.console_patterns)
         self.job_ready.set()
 
     def log(self, msg, log_level=LogLevel.INFO):
@@ -417,7 +388,7 @@ class Machine(Thread):
             self.job_console.log(msg, log_level=log_level)
 
     def _cache_remote_artifact(self, artifact_name, start_url, continue_url):
-        artifact_prefix = f"{artifact_name}-{self.machine_id}"
+        artifact_prefix = f"{artifact_name}-{self.machine.id}"
 
         # Assume the remote artifacts already exist locally
         self.remote_url_to_local_cache_mapping[start_url] = start_url
@@ -453,11 +424,11 @@ class Machine(Thread):
             self.job_console = None
 
             # Pick a job
-            if self.sergent_hartman.is_available and not self.ready_for_service:
+            if self.sergent_hartman.is_available and not self.machine.ready_for_service:
                 self.state = MachineState.TRAINING
 
                 self.job_config = self.sergent_hartman.next_task()
-                self.job_console = JobConsole(self.machine_id,
+                self.job_console = JobConsole(self.machine.id,
                                               endpoint=None,
                                               clientless=True,
                                               console_patterns=self.job_config.console_patterns)
@@ -473,7 +444,7 @@ class Machine(Thread):
                 self.state = MachineState.RUNNING
 
             # Cut the power to the machine, we do not need it
-            self.pdu_port.set(PDUState.OFF)
+            self.machine.pdu_port.set(PDUState.OFF)
 
             # Mark the start time to now()
             self.job_start_time = datetime.now()
@@ -486,11 +457,11 @@ class Machine(Thread):
         def set_boot_config(deployment):
             # Allow the kernel cmdline to reference some machine attributes
             template = Template(deployment.kernel_cmdline)
-            kernel_cmdline = template.render(machine_id=self.machine_id,
-                                             tags=self.tags,
-                                             local_tty_device=self.local_tty_device)
+            kernel_cmdline = template.render(machine_id=self.machine.id,
+                                             tags=self.machine.tags,
+                                             local_tty_device=self.machine.local_tty_device)
 
-            BootsClient.set_config(mac_addr=self.machine_id,
+            BootsClient.set_config(mac_addr=self.machine.id,
                                    kernel_path=self.remote_url_to_local_cache_mapping.get(deployment.kernel_url),
                                    initramfs_path=self.remote_url_to_local_cache_mapping.get(deployment.initramfs_url),
                                    kernel_cmdline=kernel_cmdline)
@@ -537,13 +508,13 @@ class Machine(Thread):
                 self.job_console.reset_per_boot_state()
 
                 # Make sure the machine shuts down
-                self.pdu_port.set(PDUState.OFF)
+                self.machine.pdu_port.set(PDUState.OFF)
 
                 # Set up the deployment
                 self.log("Setting up the boot configuration\n")
                 set_boot_config(deployment)
-                self.log(f"Power up the machine, enforcing {self.pdu_port.min_off_time} seconds of down time\n")
-                self.pdu_port.set(PDUState.ON)
+                self.log(f"Power up the machine, enforcing {self.machine.pdu_port.min_off_time} seconds of down time\n")
+                self.machine.pdu_port.set(PDUState.ON)
 
                 # Start the boot, and enable the timeouts!
                 self.log("Boot the machine\n")
@@ -563,7 +534,7 @@ class Machine(Thread):
                     time.sleep(0.1)
 
                 # Cut the power
-                self.pdu_port.set(PDUState.OFF)
+                self.machine.pdu_port.set(PDUState.OFF)
 
                 # Increase the retry count of the timeouts that expired, and
                 # abort the job if we exceeded their limits.
@@ -595,7 +566,7 @@ class Machine(Thread):
 
         while not self.stop_event.is_set():
             # Wait for the machine to have an assigned PDU port
-            if self.pdu_port is None:
+            if self.machine.pdu_port is None:
                 time.sleep(1)
                 continue
 
@@ -612,123 +583,3 @@ class Machine(Thread):
             session_end()
 
             # TODO: Keep the state of the job in memory for later querying
-
-    @classmethod
-    def update_or_create(cls, machine_id, ready_for_service=False, tags=[], pdu_port=None,
-                         local_tty_device=None):
-        machine = cls._machines.get(machine_id)
-        if machine is None:
-            machine = cls(machine_id, ready_for_service=ready_for_service,
-                          tags=tags, pdu_port=pdu_port, local_tty_device=local_tty_device)
-        else:
-            machine.ready_for_service = ready_for_service
-            machine.tags = tags
-            if machine.pdu_port != pdu_port:
-                machine.pdu_port = pdu_port
-            machine.local_tty_device = local_tty_device
-
-        return machine
-
-    @classmethod
-    def get_by_id(cls, machine_id):
-        return cls._machines.get(machine_id)
-
-    @classmethod
-    def known_machines(cls):
-        return list(cls._machines.values())
-
-    @classmethod
-    def sync_machines_with_mars(cls):
-        def get_PDU_or_create_from_MaRS_URL(mars_pdu_url, pdu_port, pdu_off_delay):
-            if mars_pdu_url is None:
-                return None
-
-            pdu = pdus.get(mars_pdu_url)
-            if pdu is None:
-                r = requests.get(mars_pdu_url)
-                r.raise_for_status()
-
-                p = r.json()
-                pdu = PDU.create(p.get('pdu_model'), p.get('name'), p.get('config', {}))
-
-            if pdu is not None:
-                for port in pdu.ports:
-                    if str(port.port_id) == str(pdu_port):
-                        port.min_off_time = int(pdu_off_delay)
-                        return port
-
-            return None
-
-        pdus = dict()
-
-        r = requests.get(f"{cls.mars_base_url()}/api/v1/machine/")
-        r.raise_for_status()
-
-        local_only_machines = set(cls.known_machines())
-        for m in r.json():
-            # Ignore retired machines
-            if m.get('is_retired', False):
-                continue
-
-            pdu_port = get_PDU_or_create_from_MaRS_URL(m.get('pdu'), m.get('pdu_port_id'),
-                                                       m.get('pdu_off_delay', 5))
-            machine = cls.update_or_create(m.get("mac_address"),
-                                           ready_for_service=m.get('ready_for_service', False),
-                                           tags=set(m.get('tags', [])),
-                                           pdu_port=pdu_port,
-                                           local_tty_device=m.get("local_tty_device"))
-
-            # Remove the machine from the list of local-only machines
-            local_only_machines.discard(machine)
-
-        # Delete all the machines that are not found in MaRS
-        for machine in local_only_machines:
-            del cls._machines[machine.machine_id]
-
-    @classmethod
-    def find_suitable_machine(cls, target):
-        cls.sync_machines_with_mars()
-
-        wanted_tags = set(target.tags)
-
-        # If the target_id is specified, check the tags
-        if target.target_id is not None:
-            machine = cls.get_by_id(target.target_id)
-            if machine is None:
-                return None, 404, f"Unknown machine with ID {target.target_id}"
-            elif not wanted_tags.issubset(machine.tags):
-                return None, 406, f"The machine {target.target_id} does not matching tags (asked: {wanted_tags}, actual: {machine.tags})"
-            elif machine.state != MachineState.IDLE:
-                return None, 409, f"The machine {target.target_id} is unavailable: Current state is {machine.state.name}"
-            return machine, 200, None
-        else:
-            found_a_candidate_machine = False
-            for machine in cls.known_machines():
-                if not wanted_tags.issubset(machine.tags):
-                    continue
-
-                found_a_candidate_machine = True
-                if machine.state == MachineState.IDLE:
-                    return machine, 200, "success"
-
-            if found_a_candidate_machine:
-                return None, 409, f"All machines matching the tags {wanted_tags} are busy"
-            else:
-                return None, 406, f"No machines found matching the tags {wanted_tags}"
-
-    @classmethod
-    def shutdown_all_workers(cls):
-        machines = cls.known_machines()
-
-        # Signal all the workers we want to stop
-        for machine in machines:
-            machine.stop_event.set()
-            try:
-                machine.sergent_hartman.kill()
-            except AttributeError:
-                pass
-
-        # Wait for all the workers to stop
-        for machine in machines:
-            logger.debug("shutdown, joining on %s", machine)
-            machine.join()

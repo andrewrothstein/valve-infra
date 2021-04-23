@@ -1,10 +1,7 @@
 #!/usr/bin/env python3
 
-from threading import Thread, Event
-
 import traceback
 import flask
-import time
 import sys
 import os
 
@@ -12,9 +9,11 @@ import os
 sys.path.append(os.path.abspath('{}/../'.format(os.path.dirname(__file__))))
 
 from salad import salad
-from executor import Machine, SergentHartman, MachineState
+from executor import Executor, SergentHartman, MachineState
 from job import Job
 from client import JobStatus
+
+from mars import MarsClient, Machine
 
 
 class CustomJSONEncoder(flask.json.JSONEncoder):
@@ -34,49 +33,23 @@ class CustomJSONEncoder(flask.json.JSONEncoder):
             return obj.name
         elif isinstance(obj, Machine):
             return {
-                obj.machine_id: {
-                    "state": obj.state,
-                    "ready_for_service": obj.ready_for_service,
-                    "has_pdu_assigned": obj.pdu_port is not None,
-                    "local_tty_device": obj.local_tty_device,
-                    "tags": list(obj.tags),
-                    "training": obj.sergent_hartman
-                }
+                "state": obj.executor.state,
+                "ready_for_service": obj.ready_for_service,
+                "has_pdu_assigned": obj.pdu_port is not None,
+                "local_tty_device": obj.local_tty_device,
+                "tags": list(obj.tags),
+                "training": obj.executor.sergent_hartman
             }
 
-        return super().default(self, obj)
+        return super().default(obj)
 
 
 app = flask.Flask(__name__)
 app.json_encoder = CustomJSONEncoder
 
 
-class MaRS(Thread):
-    def __init__(self):
-        super().__init__()
-        self.stop_event = Event()
-
-    def stop(self, wait=True):
-        self.stop_event.set()
-        if wait:
-            self.join()
-
-    def run(self):
-        while True:
-            try:
-                Machine.sync_machines_with_mars()
-
-                # Wait for 5 seconds, with the ability to exit every second
-                for i in range(5):
-                    time.sleep(1)
-                    if self.stop_event.is_set():
-                        return
-            except Exception:
-                traceback.print_exc()
-
-
 def get_machine_or_fail(machine_id):
-    machine = Machine.get_by_id(machine_id)
+    machine = MarsClient.get_machine_by_id(machine_id)
     if machine is None:
         raise ValueError(f"Unknown machine ID '{machine_id}'")
     return machine
@@ -93,21 +66,51 @@ def handle_valueError_exception(error):
 @app.route('/api/v1/machines', methods=['GET'])
 def get_machine_list():
     return {
-        "machines": Machine.known_machines()
+        "machines": dict([(m.id, m) for m in mars.known_machines])
     }
 
 
 @app.route('/api/v1/jobs', methods=['POST'])
 def post_job():
+    def find_suitable_machine(target):
+        mars.sync_machines()
+
+        wanted_tags = set(target.tags)
+
+        # If the target_id is specified, check the tags
+        if target.target_id is not None:
+            machine = mars.get_machine_by_id(target.target_id)
+            if machine is None:
+                return None, 404, f"Unknown machine with ID {target.target_id}"
+            elif not wanted_tags.issubset(machine.tags):
+                return None, 406, f"The machine {target.target_id} does not matching tags (asked: {wanted_tags}, actual: {machine.tags})"
+            elif machine.executor.state != MachineState.IDLE:
+                return None, 409, f"The machine {target.target_id} is unavailable: Current state is {machine.state.name}"
+            return machine, 200, None
+        else:
+            found_a_candidate_machine = False
+            for machine in mars.known_machines:
+                if not wanted_tags.issubset(machine.tags):
+                    continue
+
+                found_a_candidate_machine = True
+                if machine.executor.state == MachineState.IDLE:
+                    return machine, 200, "success"
+
+            if found_a_candidate_machine:
+                return None, 409, f"All machines matching the tags {wanted_tags} are busy"
+            else:
+                return None, 406, f"No machines found matching the tags {wanted_tags}"
+
     job_params = flask.request.json
 
     metadata = job_params["metadata"]
     job = Job(job_params["job"])
 
-    machine, error_code, reason = Machine.find_suitable_machine(job.target)
+    machine, error_code, reason = find_suitable_machine(job.target)
     if machine is not None:
         endpoint = (flask.request.remote_addr, metadata.get("callback_port"))
-        machine.start_job(job, endpoint)
+        machine.executor.start_job(job, endpoint)
 
     response = {
         # TODO: Store the job in memory, and show the ID here
@@ -121,14 +124,13 @@ if __name__ == '__main__':  # pragma: nocover
     salad.start()
 
     # Create all the workers based on the machines found in MaRS
-    mars_poller = MaRS()
-    mars_poller.start()
+    mars = MarsClient()
+    mars.start()
 
     # Start flask
     app.run(host='0.0.0.0', port=os.getenv("EXECUTOR_PORT", 8003))
 
     # Shutdown
-    mars_poller.stop(wait=False)
-    Machine.shutdown_all_workers()
+    mars.stop(wait=False)
     salad.stop()
-    mars_poller.join()
+    mars.join()
