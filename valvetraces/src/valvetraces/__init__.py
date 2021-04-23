@@ -319,8 +319,6 @@ class Client:
                             params={"frame_output": {"upload": blob.signed_id, "trace_id": trace_id,
                             "metadata": {"machine_tags": machine_tags}, "trace_frame_id": frame_id}})
 
-        return
-
 def entrypoint():
     parser = argparse.ArgumentParser(prog='valvetraces')
     parser.add_argument('--username', help='Username you want to use in the service')
