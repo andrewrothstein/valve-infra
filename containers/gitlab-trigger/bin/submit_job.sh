@@ -58,8 +58,8 @@ if skopeo inspect --tls-verify=false docker://$LOCAL_CONTAINER ; then
      CONTAINER_EXISTS=yes
 fi
 
-test_container=$($BUILDAH from "docker://$MESA_IMAGE")
-test_container_mount=$($BUILDAH mount $test_container)
+test_container=$($BUILDAH from "docker://$MESA_IMAGE") || exit 1
+test_container_mount=$($BUILDAH mount $test_container) || exit 1
 
 # Collect up the environment from the job that is of use to the test
 # payload. This would ideally be an environment file, sourced by the
@@ -152,7 +152,7 @@ eval $(
 # Setup the entrypoint based on the job variables
 $BUILDAH config \
 	--cmd '['\"$TEST_ENTRYPOINT\"']' \
-	$test_container
+	$test_container || exit 1
 
 # FIXME: Something is wrong with this caching strategy...
 # if [ -z "$CONTAINER_EXISTS" ]; then
@@ -164,7 +164,7 @@ $BUILDAH config \
     $BUILDAH_RUN $test_container bash -c "curl $MESA_URL | tar xzf -"
 # fi
 
-$BUILDAH_COMMIT $test_container $LOCAL_CONTAINER
+$BUILDAH_COMMIT $test_container $LOCAL_CONTAINER || exit 1
 
 # Pushing may fail, apparently. I (cturner) have never seen it fail,
 # but I have seen other race conditions in these tools, so be
@@ -172,11 +172,8 @@ $BUILDAH_COMMIT $test_container $LOCAL_CONTAINER
 # https://gitlab.freedesktop.org/freedesktop/ci-templates/-/blob/master/templates/debian.yml#L510
 # Podman isn't used because it's a heavy (~250MB) dependency for the
 # container and buildah seems to perform this task just fine.
-$BUILDAH_PUSH $LOCAL_CONTAINER || true
-sleep 2
-$BUILDAH_PUSH $LOCAL_CONTAINER
-
-$BUILDAH unmount $test_container
+$BUILDAH_PUSH $LOCAL_CONTAINER || sleep 2 && $BUILDAH_PUSH $LOCAL_CONTAINER || exit 1
+$BUILDAH unmount $test_container || exit 1
 
 # And now build and submit the test job
 cat <<EOF > job.yml
