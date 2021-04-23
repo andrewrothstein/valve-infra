@@ -302,9 +302,10 @@ class Client:
 
         return self._upload_blob(filepath, name, data_checksum)
 
+    def upload_frames(self, trace_id, frames, machine_tags=None):
+        if machine_tags is None:
+            machine_tags = list(self.machine_tags)
 
-    def upload_frames(self, trace_id, frames):
-        machine_tags = list(GFXInfo().machine_tags())
         for frame in frames:
             file_name = os.path.basename(frame)
             pattern = r'(?P<frame_id>\d+$)'
@@ -341,26 +342,36 @@ def entrypoint():
     download_parser.add_argument('-o', '--output_folder', default="./", help='Folder where to output the trace')
     download_parser.add_argument('trace', help='Path to the trace you want to upload')
 
-    upload_trace_parser = subparsers.add_parser('upload_trace', help='Upload a trace')
+    add_tags_parser = argparse.ArgumentParser(add_help=False)
+    add_tags_parser.add_argument('-t',
+                                 '--tag',
+                                 dest="machine_tags",
+                                 action='append',
+                                 help=('If none provided, the machine tags '
+                                       'attached to the file(s) to be uploaded '
+                                       'will be generated in the machine '
+                                       'running this command. If provided, '
+                                       'just attach the specified machine tag '
+                                       'to the trace to be uploaded (can be '
+                                       'repeated).'))
+
+    upload_trace_parser = subparsers.add_parser('upload_trace',
+                                                parents=[add_tags_parser],
+                                                help='Upload a trace')
     upload_trace_parser.add_argument('-f', '--frame', action='append', required=True, dest="frames", type=int,
                                      help='ID of the frame that should be captured from this trace (can be repeated)')
-    upload_trace_parser.add_argument('-t',
-                                     '--tag',
-                                     dest="machine_tags",
-                                     action='append',
-                                     help=('If none provided, the machine tags '
-                                           'attached to the trace to be '
-                                           'uploaded will be generated in the '
-                                           'machine running this command. '
-                                           'If provided, just attach the '
-                                           'specified machine tag to the trace '
-                                           'to be uploaded (can be repeated).'))
     upload_trace_parser.add_argument('app_id',
                                      help='Name/steam app ID of the application/game/benchmark you want to upload a trace for')
     upload_trace_parser.add_argument('trace', help='Path to the trace you want to upload')
-    upload_frames_parser = subparsers.add_parser('upload_frames', help='Upload frames')
-    upload_frames_parser.add_argument('--trace', help='ID of the trace', type=int, required=True)
-    upload_frames_parser.add_argument('frames', nargs='+')
+
+    upload_frames_parser = subparsers.add_parser('upload_frames',
+                                                 parents=[add_tags_parser],
+                                                 help='Upload frames')
+    upload_frames_parser.add_argument('--trace-id', required=True, type=int,
+                                      help='ID of the trace')
+    upload_frames_parser.add_argument('frames', nargs='+',
+                                      help=('Path(s) to the frame(s) '
+                                            'you want to upload'))
 
     args = parser.parse_args()
 
@@ -383,7 +394,7 @@ def entrypoint():
     elif args.cmd == "upload_trace":
         client.upload_trace(args.app_id, args.trace, args.frames, args.machine_tags)
     elif args.cmd == "upload_frames":
-        client.upload_frames(args.trace, args.frames)
+        client.upload_frames(args.trace_id, args.frames, args.machine_tags)
     else:
         parser.print_help(sys.stderr)
 
