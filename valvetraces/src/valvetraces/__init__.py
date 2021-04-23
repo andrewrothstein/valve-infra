@@ -387,8 +387,6 @@ def entrypoint():
     else:
         parser.print_help(sys.stderr)
 
-# TODO: valvetraces upload_frames --trace $file -f 2=$file -f 4=$file -f 6=$file
-
 
 if __name__ == '__main__':
     entrypoint()
