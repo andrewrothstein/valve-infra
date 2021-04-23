@@ -44,7 +44,7 @@ class Blob:
         self.signed_id = blob_dict.get("signed_id")
         if self.signed_id is None:
             raise ValueError("The signed_id is from the blob-creation response")
-        
+
         self.record_type = blob_dict.get("record_type")
 
     def upload(self, f):
