@@ -202,18 +202,16 @@ class Client:
         else:
             raise ValueError(f"Found more than one application matching the app_id '{app_id}': {suitable_apps}")
 
-    def _upload_trace_blob(self, filepath, name):
+    def _data_checksum(self, filepath):
         hash_md5 = hashlib.md5()
         with open(filepath, "rb") as f:
-            # Generate the MD5 hash for the bucket
             for chunk in iter(lambda: f.read(4096), b""):
                 hash_md5.update(chunk)
-            data_checksum = base64.b64encode(hash_md5.digest()).decode()
-            # Check if file already exists on server
-            r = self._post("/api/v1/checksum", {"checksum": data_checksum})
-            if "accepted" not in r:
-                return Blob(r)
 
+            return base64.b64encode(hash_md5.digest()).decode()
+
+    def _upload_blob(self, filepath, name, data_checksum):
+        with open(filepath, "rb") as f:
             # Check the file size
             f.seek(0, os.SEEK_END)
             file_size = f.tell()
@@ -230,6 +228,16 @@ class Client:
             blob.upload(f)
 
             return blob
+
+    def _upload_trace_blob(self, filepath, name):
+        # Generate the MD5 hash for the bucket
+        data_checksum = self._data_checksum(filepath)
+        # Check if file already exists on server
+        r = self._post("/api/v1/checksum", {"checksum": data_checksum})
+        if "accepted" not in r:
+            return Blob(r)
+
+        return self._upload_blob(filepath, name, data_checksum)
 
     def upload_trace(self, app_id, filepath, frame_ids, machine_tags=None):
         if machine_tags is None:
@@ -280,28 +288,11 @@ class Client:
         if "accepted" not in r:
             return Blob(r)
 
-        hash_md5 = hashlib.md5()
-        with open(filepath, "rb") as f:
-            # Generate the MD5 hash for the bucket
-            for chunk in iter(lambda: f.read(4096), b""):
-                hash_md5.update(chunk)
-            data_checksum = base64.b64encode(hash_md5.digest()).decode()
-            # Check the file size
-            f.seek(0, os.SEEK_END)
-            file_size = f.tell()
-            f.seek(0, os.SEEK_SET)
+        # Generate the MD5 hash for the bucket
+        data_checksum = self._data_checksum(filepath)
 
-            # Ask the website for the URL of where to upload the file
-            r_blob = self._post("/rails/active_storage/direct_uploads",
-                                 {"blob": {"filename": name, "byte_size": file_size,
-                                           "content_type": "application/octet-stream",
-                                           "checksum": data_checksum}})
-            blob = Blob(r_blob)
+        return self._upload_blob(filepath, name, data_checksum)
 
-            # Send the file to the bucket
-            blob.upload(f)
-
-            return blob
 
     def upload_frames(self, trace_id, frames):
         machine_tags = list(GFXInfo().machine_tags())
