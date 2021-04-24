@@ -10,7 +10,8 @@ import base64
 import sys
 import os
 import re
-
+from PIL import Image
+from gfxinfo import GFXInfo
 
 class App:
     def __init__(self, app_blob):
@@ -31,25 +32,24 @@ class App:
 class Blob:
     def __init__(self, blob_dict):
         direct_upload = blob_dict.get("direct_upload")
-        if direct_upload is None:
-            raise ValueError("The key 'direct_upload' is missing from the blob-creation response")
-
-        self.url = direct_upload.get('url')
-        if self.url is None:
-            raise ValueError("The URL is missing from the 'direct_upload' key")
+        if direct_upload is not None:
+            self.url = direct_upload.get('url')
+            if self.url is None:
+                raise ValueError("The URL is missing from the 'direct_upload' key")
 
         self.headers = direct_upload.get('headers')
-        if self.url is None:
+        if self.headers is None:
             raise ValueError("The headers are missing from the 'direct_upload' key")
 
         self.signed_id = blob_dict.get("signed_id")
         if self.signed_id is None:
             raise ValueError("The signed_id is from the blob-creation response")
+        
+        self.record_type = blob_dict.get("record_type")
 
     def upload(self, f):
         r = requests.put(self.url, headers=self.headers, data=f)
         r.raise_for_status()
-
 
 class Trace:
     def __init__(self, trace_blob):
@@ -95,7 +95,7 @@ class Trace:
         return humanize.naturalsize(self.size, binary=True)
 
     def __str__(self):
-        return f"<Trace {self.filename}, size {self.human_size}>"
+        return f"<Trace {self.id}, {self.filename}, size {self.human_size}>"
 
 
 class Client:
@@ -202,13 +202,17 @@ class Client:
         else:
             raise ValueError(f"Found more than one application matching the app_id '{app_id}': {suitable_apps}")
 
-    def _upload_blob(self, filepath, name):
+    def _upload_trace_blob(self, filepath, name):
         hash_md5 = hashlib.md5()
         with open(filepath, "rb") as f:
             # Generate the MD5 hash for the bucket
             for chunk in iter(lambda: f.read(4096), b""):
                 hash_md5.update(chunk)
             data_checksum = base64.b64encode(hash_md5.digest()).decode()
+            # Check if file already exists on server
+            r = self._post("/api/v1/checksum", {"checksum": data_checksum})
+            if "accepted" not in r:
+                return Blob(r)
 
             # Check the file size
             f.seek(0, os.SEEK_END)
@@ -231,9 +235,6 @@ class Client:
         if machine_tags is None:
             confirmation_message = ('I confirm the trace is uploaded from '
                                     'the same computer that produced the trace')
-
-            from gfxinfo import GFXInfo
-
             machine_tags = list(GFXInfo().machine_tags())
         else:
             confirmation_message = ('I confirm the machine tags provided are '
@@ -254,7 +255,13 @@ class Client:
             return
 
         # Upload the blob
-        blob = self._upload_blob(filepath, trace_name)
+        blob = self._upload_trace_blob(filepath, trace_name)
+        if blob.record_type != 'trace':
+            raise ValueError(f'Expected a trace in the blob, gotten {blob}')
+        if "accepted" not in r:
+            print('Trace already exists in the server. Skipping upload.')
+            return Trace(blob.get('record'))
+
 
         # Create the trace from the blob
         r = self._post("/api/v1/traces/",
@@ -265,6 +272,54 @@ class Client:
 
         return Trace(r)
 
+    def _upload_frame_blob(self, filepath, name):
+        image_md5 = hashlib.md5(Image.open(filepath).convert(mode="RGBA").tobytes())
+        img_checksum = base64.b64encode(image_md5.digest()).decode()
+        # Check if frame already exists on server
+        r = self._post("/api/v1/image_checksum", {"checksum": img_checksum})
+        if "accepted" not in r:
+            return Blob(r)
+
+        hash_md5 = hashlib.md5()
+        with open(filepath, "rb") as f:
+            # Generate the MD5 hash for the bucket
+            for chunk in iter(lambda: f.read(4096), b""):
+                hash_md5.update(chunk)
+            data_checksum = base64.b64encode(hash_md5.digest()).decode()
+            # Check the file size
+            f.seek(0, os.SEEK_END)
+            file_size = f.tell()
+            f.seek(0, os.SEEK_SET)
+
+            # Ask the website for the URL of where to upload the file
+            r_blob = self._post("/rails/active_storage/direct_uploads",
+                                 {"blob": {"filename": name, "byte_size": file_size,
+                                           "content_type": "application/octet-stream",
+                                           "checksum": data_checksum}})
+            blob = Blob(r_blob)
+
+            # Send the file to the bucket
+            blob.upload(f)
+
+            return blob
+
+    def upload_frames(self, trace_id, frames):
+        machine_tags = list(GFXInfo().machine_tags())
+        for frame in frames:
+            file_name = os.path.basename(frame)
+            pattern = r'(?P<frame_id>\d+$)'
+            without_ext, _ = os.path.splitext(frame)
+            m = re.search(pattern, without_ext)
+            if m is None:
+                print(f"Couldn't identify \"{frame}\" 's frame id. Skipping ...")
+                continue
+            frame_id = int(m.groupdict({}).get('frame_id'))
+            blob = self._upload_frame_blob(frame, file_name)
+            r = self._post("/api/v1/traces/" + str(trace_id) + "/trace_frames/" + str(frame_id) + "/frame_outputs",
+                            params={"frame_output": {"upload": blob.signed_id, "trace_id": trace_id,
+                            "metadata": {"machine_tags": machine_tags}, "trace_frame_id": frame_id}})
+
+        return
 
 def entrypoint():
     parser = argparse.ArgumentParser(prog='valvetraces')
@@ -305,6 +360,9 @@ def entrypoint():
     upload_trace_parser.add_argument('app_id',
                                      help='Name/steam app ID of the application/game/benchmark you want to upload a trace for')
     upload_trace_parser.add_argument('trace', help='Path to the trace you want to upload')
+    upload_frames_parser = subparsers.add_parser('upload_frames', help='Upload frames')
+    upload_frames_parser.add_argument('--trace', help='ID of the trace', type=int, required=True)
+    upload_frames_parser.add_argument('frames', nargs='+')
 
     args = parser.parse_args()
 
@@ -326,6 +384,8 @@ def entrypoint():
         print(f"The trace got saved at '{path}'")
     elif args.cmd == "upload_trace":
         client.upload_trace(args.app_id, args.trace, args.frames, args.machine_tags)
+    elif args.cmd == "upload_frames":
+        client.upload_frames(args.trace, args.frames)
     else:
         parser.print_help(sys.stderr)
 
