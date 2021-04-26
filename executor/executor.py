@@ -466,6 +466,8 @@ class Machine(Thread):
                                               clientless=True,
                                               console_patterns=self.job_config.console_patterns)
             else:
+                self.sergent_hartman.reset()
+
                 # Wait for a job to be set
                 self.state = MachineState.IDLE
                 if not self.job_ready.wait(1):
