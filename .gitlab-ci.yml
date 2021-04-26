@@ -93,6 +93,16 @@ gitlab-trigger:
   script:
     - docker build -t $IMAGE_NAME containers/gitlab-trigger
 
+salad:
+  extends:
+    - .container base
+  rules:
+    - changes:
+      - salad/**
+      - .gitlab-ci.yml
+  script:
+    - docker build -t $IMAGE_NAME salad/
+
 valve-infra:
   extends:
     - .container base

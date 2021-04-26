@@ -6,4 +6,6 @@ docker build -t registry.freedesktop.org/mupuf/valve-infra/gitlab-sync ./contain
 
 docker build -t registry.freedesktop.org/mupuf/valve-infra/gitlab-trigger containers/gitlab-trigger
 
+docker build -t registry.freedesktop.org/mupuf/valve-infra/salad salad/
+
 docker build -t registry.freedesktop.org/mupuf/valve-infra/valve-infra .

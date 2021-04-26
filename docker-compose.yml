@@ -42,6 +42,7 @@ services:
       - SERGENT_HARTMAN_QUALIFYING_BOOT_COUNT=100
       - SERGENT_HARTMAN_REGISTRATION_RETRIAL_DELAY=120
       - MARS_URL=http://10.42.0.1:80
+      - SALAD_URL=http://10.42.0.1:8005
       - BOOTS_URL=http://10.42.0.1:8087
       - MINIO_URL=http://10.42.0.1:9000
       - MINIO_ROOT_PASSWORD=$MINIO_ROOT_PASSWORD
@@ -60,6 +61,13 @@ services:
       - FARM_NAME=$FARM_NAME
     volumes:
       - ${TMP_MOUNT}/gitlab-runner:/etc/gitlab-runner
+    restart: unless-stopped
+  salad:
+    privileged: true
+    network_mode: host
+    image: registry.freedesktop.org/mupuf/valve-infra/salad
+    environment:
+     - SALAD_PORT=8005
     restart: unless-stopped
   ntpd:
     image: ermaker/chrony

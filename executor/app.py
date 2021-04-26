@@ -8,7 +8,6 @@ import os
 # Add the parent folder to the python path
 sys.path.append(os.path.abspath('{}/../'.format(os.path.dirname(__file__))))
 
-from salad import salad
 from executor import Executor, SergentHartman, MachineState
 from job import Job
 from client import JobStatus
@@ -120,9 +119,6 @@ def post_job():
 
 
 if __name__ == '__main__':  # pragma: nocover
-    # Start the monitoring of serial consoles
-    salad.start()
-
     # Create all the workers based on the machines found in MaRS
     mars = MarsClient()
     mars.start()
@@ -131,6 +127,4 @@ if __name__ == '__main__':  # pragma: nocover
     app.run(host='0.0.0.0', port=os.getenv("EXECUTOR_PORT", 8003))
 
     # Shutdown
-    mars.stop(wait=False)
-    salad.stop()
-    mars.join()
+    mars.stop(wait=True)

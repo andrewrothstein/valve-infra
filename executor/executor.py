@@ -3,11 +3,10 @@
 from datetime import datetime
 from threading import Thread, Event
 from collections import defaultdict
-from urllib.parse import urlparse
+from urllib.parse import urlparse, urlsplit
 from jinja2 import Template
 from enum import Enum, IntEnum
 
-from salad import salad, JobSession
 from pdu import PDUState
 from client import JobStatus
 from job import Job
@@ -15,6 +14,7 @@ from job import Job
 import traceback
 import requests
 import tempfile
+import select
 import socket
 import time
 import os
@@ -58,39 +58,63 @@ def str_to_int(string, default):
         return default
 
 
-class JobConsole(JobSession):
-    def __init__(self, machine_id, endpoint, console_patterns, clientless=False, log_level=LogLevel.INFO):
-        super().__init__(machine_id)
+class JobConsole(Thread):
+    def __init__(self, machine_id, client_endpoint, console_patterns, clientless=False, log_level=LogLevel.INFO):
+        super().__init__(name=f'ConsoleThread')
 
-        self.endpoint = endpoint
+        self.machine_id = machine_id
+
+        self.client_endpoint = client_endpoint
         self.console_patterns = console_patterns
         self.clientless = clientless
         self.log_level = log_level
 
+        # Thread
+        self._stop_event = Event()
+
+        # Sockets
+        self.client_sock = None
+        self.salad_sock = self.connect_to_salad()
+
         # Job-long state
-        self.closing = False
+        self.is_over = False
         self.start_time = None
         self.line_buffer = b""
 
         self.reset_per_boot_state()
 
+    @property
+    def salad_base_url(self):
+        return os.getenv('SALAD_URL', "http://10.42.0.1:8005")
+
+    @property
+    def salad_url(self):
+        return f"{self.salad_base_url}/api/v1/machine/{self.machine_id}"
+
+    def connect_to_salad(self):
+        parsed_url = urlsplit(self.salad_base_url)
+
+        r = requests.get(self.salad_url)
+        r.raise_for_status()
+
+        machine = r.json()
+        port = machine.get("tcp_port")
+
+        return socket.create_connection((parsed_url.hostname, port))
+
     def reset_per_boot_state(self):
-        self.last_send_activity = None
-        self.last_recv_activity = None
+        self.last_activity_from_machine = None
+        self.last_activity_from_client = None
 
         self.console_patterns.reset_per_boot_state()
         self.needs_reboot = self.console_patterns.needs_reboot
 
     def start(self):
         if not self.clientless:
-            self.sock = socket.create_connection(self.endpoint)
+            self.client_sock = socket.create_connection(self.client_endpoint)
         self.start_time = datetime.now()
 
-    def fileno(self):
-        if self.clientless:
-            return None
-        else:
-            return self.sock.fileno()
+        super().start()
 
     def match_console_patterns(self, buf):
         patterns_matched = set()
@@ -101,7 +125,9 @@ class JobConsole(JobSession):
         while True:
             idx = to_process.find(b'\n', cur)
             if idx > 0:
-                patterns_matched |= self.console_patterns.process_line(to_process[cur:idx+1])
+                line = to_process[cur:idx+1]
+                logger.info(f"-> {line}")
+                patterns_matched |= self.console_patterns.process_line(line)
                 cur = idx + 1
             else:
                 break
@@ -116,44 +142,6 @@ class JobConsole(JobSession):
             self.close()
         self.needs_reboot = self.console_patterns.needs_reboot
 
-    def _send(self, buf):
-        if not self.clientless:
-            try:
-                self.sock.send(buf)
-            except (ConnectionResetError, BrokenPipeError, OSError):
-                self.close()
-        else:
-            print(buf.decode(), end="", flush=True)
-
-    def send(self, buf):
-        self.last_send_activity = datetime.now()
-
-        # Do not re-print the logs as SALAD already printed them for us
-        if not self.clientless:
-            self._send(buf)
-
-        try:
-            self.match_console_patterns(buf)
-        except Exception:
-            self.log(traceback.format_exc())
-
-    def recv(self, size=8192):
-        self.last_recv_activity = datetime.now()
-
-        buf = b""
-
-        if self.clientless:
-            return buf
-
-        try:
-            buf = self.sock.recv(size)
-            if len(buf) == 0:
-                self.close()
-        except (ConnectionResetError, BrokenPipeError, OSError):
-            self.close()
-
-        return buf
-
     def log(self, msg, log_level=LogLevel.INFO):
         # Ignore messages with a log level lower than the minimum set
         if log_level < self.log_level:
@@ -165,25 +153,83 @@ class JobConsole(JobSession):
             relative_time = 0.0
 
         log_msg = f"+{relative_time:.3f}s: {msg}"
+        logger.info(log_msg.rstrip("\r\n"))
 
-        if self.clientless:
-            logger.info(log_msg.strip("\r\n"))
-        else:
-            self._send(log_msg.encode())
+        if not self.clientless:
+            try:
+                self.client_sock.send(log_msg.encode())
+            except OSError:
+                pass
 
     def close(self):
-        if not self.closing:
-            self.closing = True
+        was_over = self.is_over
+        self.is_over = True
+
+        if not was_over:
             self.log(f"<-- End of the session: {self.console_patterns.job_status} -->\n")
 
         if not self.clientless:
             try:
-                self.sock.shutdown(socket.SHUT_RDWR)
-                self.sock.close()
+                self.client_sock.shutdown(socket.SHUT_RDWR)
+                self.client_sock.close()
             except OSError:
                 pass
 
-        super().close()
+        try:
+            self.salad_sock.shutdown(socket.SHUT_RDWR)
+            self.salad_sock.close()
+        except OSError:
+            pass
+
+        self._stop_event.set()
+
+    def stop(self):
+        self._stop_event.set()
+        self.join()
+
+    def run(self):
+        while not self._stop_event.is_set():
+            fds = [self.salad_sock.fileno()]
+            if not self.clientless:
+                fds.extend([self.client_sock.fileno()])
+
+            rlist, _, _ = select.select(fds, [], [], 1.0)
+
+            for fd in rlist:
+                try:
+                    if fd == self.salad_sock.fileno():
+                        # DUT's stdout/err: Salad -> Client
+                        buf = self.salad_sock.recv(8192)
+                        if len(buf) == 0:
+                            self.close()
+
+                        # Match the console patterns
+                        try:
+                            self.match_console_patterns(buf)
+                        except Exception:
+                            self.log(traceback.format_exc())
+
+                        self.last_activity_from_machine = datetime.now()
+
+                        # Forward to the client
+                        if not self.clientless:
+                            self.client_sock.send(buf)
+
+                    elif fd == self.client_sock.fileno():
+                        # DUT's stdin: Client -> Salad
+                        buf = self.client_sock.recv(8192)
+                        if len(buf) == 0:
+                            self.close()
+
+                        self.last_activity_from_client = datetime.now()
+
+                        # Forward to the salad
+                        self.salad_sock.send(buf)
+                except (ConnectionResetError, BrokenPipeError, OSError):
+                    self.log(traceback.format_exc())
+                    self.close()
+                except Exception:
+                    logger.error(traceback.format_exc())
 
 
 class SergentHartman:
@@ -429,7 +475,7 @@ class Executor(Thread):
 
                 self.job_config = self.sergent_hartman.next_task()
                 self.job_console = JobConsole(self.machine.id,
-                                              endpoint=None,
+                                              client_endpoint=None,
                                               clientless=True,
                                               console_patterns=self.job_config.console_patterns)
             else:
@@ -488,9 +534,6 @@ class Executor(Thread):
                 time.sleep(1)
 
         def execute_job():
-            # Ask Salad to relay inputs/outputs to/from the test machine to/from the client
-            salad.register_session(self.job_console)
-
             # Start the overall timeout
             timeouts = self.job_config.timeouts
             timeouts.overall.start()
@@ -526,9 +569,9 @@ class Executor(Thread):
                        and not self.stop_event.is_set() and not timeouts.has_expired):
                     # Update the activity timeouts, based on when was the
                     # last time we sent it data
-                    if self.job_console.last_send_activity is not None:
+                    if self.job_console.last_activity_from_machine is not None:
                         timeouts.first_console_activity.stop()
-                        timeouts.console_activity.reset(when=self.job_console.last_send_activity)
+                        timeouts.console_activity.reset(when=self.job_console.last_activity_from_machine)
 
                     # Wait a little bit before checking again
                     time.sleep(0.1)
