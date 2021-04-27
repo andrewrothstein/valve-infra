@@ -361,8 +361,16 @@ def remove_all_gitlab_runners(ctx, farm_name):  # pragma: nocover
 
     for runner in runners:
         if runner.description.startswith(f'{farm_name}-'):
-            print(f"removing {runner.description}")
-            runner.delete()
+            logger.info("Attempting to remove %s...", runner.description)
+            try:
+                runner.delete()
+                logger.info('Removed')
+            except gitlab.exceptions.GitlabDeleteError as err:
+                if 'Runner associated with more than one project' in err.error_message:
+                    logger.error('Not removing %s since it is associated to more than one project',
+                                 runner.description)
+                else:
+                    raise
 
 
 if __name__ == '__main__':  # pragma: nocover
