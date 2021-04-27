@@ -16,6 +16,7 @@ PRIVATE_INTERFACE=${PRIVATE_INTERFACE:-private}
 MINIO_ROOT_PASSWORD=`tr -dc _A-Z-a-z-0-9 < /dev/urandom | head -c 32`
 FARM_NAME=${FARM_NAME:?Must be defined as an environment variable - think of something unique to your farm!}
 " > ./config/prod.env
+touch ./config/private.env
 cat ./config/private.env >> ./config/prod.env
 
 . ./config/prod.env
