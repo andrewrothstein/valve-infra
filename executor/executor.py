@@ -3,6 +3,7 @@
 from datetime import datetime
 from threading import Thread, Event
 from collections import defaultdict
+from urllib.parse import urlparse
 from jinja2 import Template
 from enum import Enum, IntEnum
 
@@ -17,7 +18,6 @@ import tempfile
 import socket
 import time
 import os
-import re
 from minio import Minio
 from logging import getLogger, getLevelName, Formatter, StreamHandler
 
@@ -49,6 +49,13 @@ class LogLevel(IntEnum):
     INFO = 1
     WARN = 2
     ERROR = 3
+
+
+def str_to_int(string, default):
+    try:
+        return int(string)
+    except Exception:
+        return default
 
 
 class JobConsole(JobSession):
@@ -179,13 +186,6 @@ class JobConsole(JobSession):
         super().close()
 
 
-def str_to_int(string, default):
-    try:
-        return int(string)
-    except Exception:
-        return default
-
-
 class SergentHartman:
     def __init__(self, machine, boot_loop_counts=None, qualifying_rate=None):
         super().__init__()
@@ -310,15 +310,11 @@ class MinioCache():
         if url is None:
             url = os.environ.get("MINIO_URL", "http://10.42.0.1:9000")
 
-        m = re.match("https?://(?P<endpoint>[^/]+)", url)
-        if m is None:
-            raise ValueError(f"The URL '{url}' is not of the format 'http(s)://host:port'")
-
+        parsed_url = urlparse(url)
         self.url = url
-        endpoint = m.group("endpoint")
 
         self._client = Minio(
-            endpoint=endpoint,
+            endpoint=parsed_url.netloc,
             access_key="minioadmin",
             secret_key=os.environ['MINIO_ROOT_PASSWORD'],
             secure=False,
