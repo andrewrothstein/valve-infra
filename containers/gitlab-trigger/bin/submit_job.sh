@@ -71,9 +71,10 @@ set +o xtrace
 CONTAINER_ENV_PARAMS=""
 # Pass through relevant env vars from the gitlab job to the test container
 for var in \
-    BARE_METAL_TEST_SCRIPT \
-    BM_KERNEL_MODULES \
-    BM_START_XORG \
+    B2C_JOB_SUCCESS_REGEX \
+    B2C_JOB_WARN_REGEX \
+    B2C_START_XORG \
+    B2C_TEST_SCRIPT \
     CI_COMMIT_BRANCH \
     CI_COMMIT_TITLE \
     CI_JOB_ID \
@@ -151,7 +152,7 @@ eval $(
 
 # Setup the entrypoint based on the job variables
 $BUILDAH config \
-	--cmd '['\"$TEST_ENTRYPOINT\"']' \
+	--cmd '['\"$B2C_TEST_SCRIPT\"']' \
 	$test_container || exit 1
 
 # FIXME: Something is wrong with this caching strategy...
@@ -199,9 +200,9 @@ console_patterns:
     session_end:
         regex: "^.*It's now safe to turn off your computer\r$"
     job_success:
-        regex: '^\+ DEQP_EXITCODE=0\r$'
+        regex: $B2C_JOB_SUCCESS_REGEX
     job_warn:
-      regex: '^ERROR - dEQP error.*$'
+      regex: $B2C_JOB_WARN_REGEX
 
 # Environment to deploy
 deployment:
