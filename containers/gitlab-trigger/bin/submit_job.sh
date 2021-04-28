@@ -132,6 +132,8 @@ for var in \
     PIGLIT_TESTS \
     TEST_LD_PRELOAD \
     TU_DEBUG \
+    VALVE_TRACES_FILTERS \
+    VALVE_TRACES_OPTIONS \
     VK_CPU \
     VK_DRIVER \
     ; do
