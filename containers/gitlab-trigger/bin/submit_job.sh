@@ -196,7 +196,7 @@ timeouts:
     minutes: 1
     retries: 0
   overall:           # Maximum time the job can take, not overrideable by the "continue" deployment
-    hours: 2
+    hours: 4
     retries: 0
     # no retries possible here
 
