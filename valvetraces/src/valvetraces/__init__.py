@@ -15,6 +15,7 @@ import re
 import requests
 import sys
 
+from enum import Enum
 from PIL import Image
 from gfxinfo import GFXInfo
 
@@ -33,6 +34,23 @@ class App:
     def __repr__(self):
         return str(self)
 
+class BlobType(Enum):
+    UNKNOWN = 0
+    TRACE = 1
+    FRAME = 2
+
+    @staticmethod
+    def from_str(label):
+        if label is None:
+            return BlobType.UNKNOWN
+
+        lowered = label.lower()
+        if lowered == 'trace':
+            return BlobType.TRACE
+        elif lowered == 'frameoutput':
+            return BlobType.FRAME
+        else:
+            return BlobType.UNKNOWN
 
 class Blob:
     def __init__(self, blob_dict):
@@ -50,7 +68,7 @@ class Blob:
         if self.signed_id is None:
             raise ValueError("The signed_id is from the blob-creation response")
 
-        self.record_type = blob_dict.get("record_type")
+        self.record_type = BlobType.from_str(blob_dict.get("record_type"))
 
     def upload(self, f):
         r = requests.put(self.url, headers=self.headers, data=f)
@@ -273,8 +291,9 @@ class Client:
 
         # Upload the blob
         blob = self._upload_trace_blob(filepath, trace_name)
-        if blob.record_type != 'trace':
-            raise ValueError(f'Expected a trace in the blob, gotten {blob}')
+        if blob.record_type != BlobType.TRACE:
+            raise ValueError(f'Expected a {BlobType.TRACE} in the blob, '
+                             f'gotten {blob.record_type}')
         if "accepted" not in r:
             print('Trace already exists in the server. Skipping upload.')
             return Trace(blob.get('record'))
