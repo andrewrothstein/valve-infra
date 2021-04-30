@@ -37,8 +37,11 @@ export MESA_IMAGE_NAME=${MESA_IMAGE#registry.freedesktop.org/}
 # namely the Mesa commit being internally bundled in the local
 # container. For internal registry caching, MESA_TEMPLATES_COMMIT is
 # not useful since it doesn't change as often as the Mesa commit,
-# replace it with CI_COMMIT_SHA, to cache on the built Mesa instead.
-export LOCAL_CONTAINER_NAME=${MESA_IMAGE_NAME/%${MESA_TEMPLATES_COMMIT}/${CI_COMMIT_SHA}}
+# replace it with CI_JOB_ID, to cache on the built Mesa and job
+# environment instead. CI_COMMIT_SHA is not what you want, since
+# multiple jobs for the same commit will overwrite the environment
+# variables.
+export LOCAL_CONTAINER_NAME=${MESA_IMAGE_NAME/%${MESA_TEMPLATES_COMMIT}/${CI_JOB_ID}}
 export LOCAL_CONTAINER="10.42.0.1:8004/${LOCAL_CONTAINER_NAME}"
 
 # The built Mesa artifact is uploaded to the upstream Minio instance,
@@ -157,15 +160,14 @@ $BUILDAH config \
 	--cmd '['\"$B2C_TEST_SCRIPT\"']' \
 	$test_container || exit 1
 
-# FIXME: Something is wrong with this caching strategy...
-# if [ -z "$CONTAINER_EXISTS" ]; then
+if [ -z "$CONTAINER_EXISTS" ]; then
     # If this is first time building the internal container, fetch the
     # Mesa artifact and place it into the container so that it becomes
     # a self-contained test-workload.
     $BUILDAH_RUN $test_container env DEBIAN_FRONTEND=noninteractive apt-get update
     $BUILDAH_RUN $test_container env DEBIAN_FRONTEND=noninteractive apt-get install -y curl
     $BUILDAH_RUN $test_container bash -c "curl $MESA_URL | tar xzf -"
-# fi
+fi
 
 $BUILDAH_COMMIT $test_container $LOCAL_CONTAINER || exit 1
 
