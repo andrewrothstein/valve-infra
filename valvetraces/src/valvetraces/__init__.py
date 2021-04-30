@@ -53,7 +53,8 @@ class BlobType(Enum):
             return BlobType.UNKNOWN
 
 class Blob:
-    def __init__(self, blob_dict):
+    def __init__(self, blob_dict, new=True):
+        self.new = new
         direct_upload = blob_dict.get("direct_upload")
         if direct_upload is not None:
             self.url = direct_upload.get('url')
@@ -69,6 +70,9 @@ class Blob:
             raise ValueError("The signed_id is from the blob-creation response")
 
         self.record_type = BlobType.from_str(blob_dict.get("record_type"))
+
+        if not self.new and self.record_type != BlobType.UNKNOWN:
+            self.record = blob_dict.get("record")
 
     def upload(self, f):
         r = requests.put(self.url, headers=self.headers, data=f)
@@ -262,7 +266,7 @@ class Client:
         # Check if file already exists on server
         r = self._post("/api/v1/checksum", {"checksum": data_checksum})
         if "accepted" not in r:
-            return Blob(r)
+            return Blob(r, new=False)
 
         return self._upload_blob(filepath, name, data_checksum)
 
@@ -294,9 +298,9 @@ class Client:
         if blob.record_type != BlobType.TRACE:
             raise ValueError(f'Expected a {BlobType.TRACE} in the blob, '
                              f'gotten {blob.record_type}')
-        if "accepted" not in r:
+        if not blob.new:
             print('Trace already exists in the server. Skipping upload.')
-            return Trace(blob.get('record'))
+            return Trace(blob.record)
 
 
         # Create the trace from the blob
@@ -314,7 +318,7 @@ class Client:
         # Check if frame already exists on server
         r = self._post("/api/v1/image_checksum", {"checksum": img_checksum})
         if "accepted" not in r:
-            return Blob(r)
+            return Blob(r, new=False)
 
         # Generate the MD5 hash for the bucket
         data_checksum = self._data_checksum(filepath)
