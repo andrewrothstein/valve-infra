@@ -60,7 +60,7 @@ executor:
     - |
        docker run --rm \
            --entrypoint=sh $IMAGE_NAME \
-           -c 'pip install tox && tox'
+           -c 'pip install tox && cd executor && tox'
 
 gitlab-sync:
   extends:

@@ -9,4 +9,4 @@ RUN set -ex \
         && pip install --no-cache-dir -r executor/requirements.txt \
         && apk del --no-network .build-deps
 COPY . /app
-CMD /app/executor/app.py
+CMD /app/executor/app.py run

@@ -5,7 +5,6 @@ from executor import Executor
 import traceback
 import requests
 import time
-import os
 
 
 class Machine:
@@ -99,10 +98,10 @@ class Machine:
 
 
 class MarsClient(Thread):
-    def __init__(self):
+    def __init__(self, base_url):
         super().__init__()
 
-        self.mars_base_url = os.getenv('MARS_URL', "http://127.0.0.1")
+        self.mars_base_url = base_url
         self.stop_event = Event()
         self._machines = {}
 

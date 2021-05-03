@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import traceback
+import click
 import flask
 import sys
 import os
@@ -63,6 +64,9 @@ def handle_valueError_exception(error):
 
 @app.route('/api/v1/machines', methods=['GET'])
 def get_machine_list():
+    with app.app_context():
+        mars = flask.current_app.mars
+
     return {
         "machines": dict([(m.id, m) for m in mars.known_machines])
     }
@@ -71,6 +75,9 @@ def get_machine_list():
 @app.route('/api/v1/jobs', methods=['POST'])
 def post_job():
     def find_suitable_machine(target):
+        with app.app_context():
+            mars = flask.current_app.mars
+
         mars.sync_machines()
 
         wanted_tags = set(target.tags)
@@ -119,13 +126,32 @@ def post_job():
     return flask.make_response(flask.jsonify(response), error_code)
 
 
-if __name__ == '__main__':  # pragma: nocover
+@click.group()
+@click.pass_context
+def cli(ctx, gitlab_url, access_token):  # pragma: nocover
+    # ensure that ctx.obj exists and is a dict (in case `cli()` is called
+    # by means other than the `if` block below)
+    ctx.ensure_object(dict)
+
+
+@cli.command()
+@click.option('--mars-url', envvar='MARS_URL', default="http://127.0.0.1")
+@click.option('--host', envvar='EXECUTOR_HOST', default="0.0.0.0")
+@click.option('--port', envvar='EXECUTOR_PORT', type=int, default=8003)
+@click.pass_context
+def run(ctx, mars_url, host, port):  # pragma: nocover
     # Create all the workers based on the machines found in MaRS
-    mars = MarsClient()
+    mars = MarsClient(mars_url)
     mars.start()
 
     # Start flask
-    app.run(host='0.0.0.0', port=os.getenv("EXECUTOR_PORT", 8003))
+    with app.app_context():
+        flask.current_app.mars = mars
+    app.run(host=host, port=port)
 
     # Shutdown
     mars.stop(wait=True)
+
+
+if __name__ == '__main__':  # pragma: nocover
+    cli()
