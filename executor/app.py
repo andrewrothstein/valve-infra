@@ -8,11 +8,10 @@ import os
 # Add the parent folder to the python path
 sys.path.append(os.path.abspath('{}/../'.format(os.path.dirname(__file__))))
 
-from executor import Executor, SergentHartman, MachineState
-from job import Job
-from client import JobStatus
-
-from mars import MarsClient, Machine
+from executor import SergentHartman, MachineState            # noqa
+from job import Job                                          # noqa
+from client import JobStatus                                 # noqa
+from mars import MarsClient, Machine                         # noqa
 
 
 class CustomJSONEncoder(flask.json.JSONEncoder):
@@ -82,9 +81,11 @@ def post_job():
             if machine is None:
                 return None, 404, f"Unknown machine with ID {target.target_id}"
             elif not wanted_tags.issubset(machine.tags):
-                return None, 406, f"The machine {target.target_id} does not matching tags (asked: {wanted_tags}, actual: {machine.tags})"
+                return None, 406, (f"The machine {target.target_id} does not matching tags "
+                                   f"(asked: {wanted_tags}, actual: {machine.tags})")
             elif machine.executor.state != MachineState.IDLE:
-                return None, 409, f"The machine {target.target_id} is unavailable: Current state is {machine.state.name}"
+                return None, 409, (f"The machine {target.target_id} is unavailable: "
+                                   f"Current state is {machine.state.name}")
             return machine, 200, None
         else:
             found_a_candidate_machine = False

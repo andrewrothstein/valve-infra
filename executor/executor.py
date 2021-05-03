@@ -60,7 +60,7 @@ def str_to_int(string, default):
 
 class JobConsole(Thread):
     def __init__(self, machine_id, client_endpoint, console_patterns, clientless=False, log_level=LogLevel.INFO):
-        super().__init__(name=f'ConsoleThread')
+        super().__init__(name='ConsoleThread')
 
         self.machine_id = machine_id
 
@@ -312,7 +312,8 @@ class SergentHartman:
         if self.cur_loop == 0:
             if job_status != JobStatus.PASS:
                 delay = str_to_int(os.getenv("SERGENT_HARTMAN_REGISTRATION_RETRIAL_DELAY", None), 120)
-                logger.warning(f"SergentHartman/{mid} - Registration failed with status {job_status.name}. Retrying in {delay} second(s)")
+                logger.warning((f"SergentHartman/{mid} - Registration failed with status {job_status.name}. "
+                                f"Retrying in {delay} second(s)"))
                 self.reset()
                 return delay
             else:
@@ -525,7 +526,7 @@ class Executor(Thread):
 
             # Signal to the job that we reached the end of the execution
             if self.job_console is not None:
-                time.sleep(CONSOLE_DRAINING_DELAY)  # Make sure all messages in flight get consumed before the end of the job
+                time.sleep(CONSOLE_DRAINING_DELAY)  # Delay to make sure messages are read before the end of the job
                 self.job_console.close()
                 self.job_console = None
 
@@ -594,8 +595,8 @@ class Executor(Thread):
                 if self.job_console.needs_reboot:
                     retry = timeouts.boot_cycle.retry()
                     retries_str = f"{timeouts.boot_cycle.retried}/{timeouts.boot_cycle.retries}"
-                    decision = f"Boot cycle {retries_str}, go ahead!" if retry else "Exceeded boot loop count, aborting!"
-                    self.log(f"The DUT asked us to reboot: {decision}\n", LogLevel.WARN)
+                    dec = f"Boot cycle {retries_str}, go ahead!" if retry else "Exceeded boot loop count, aborting!"
+                    self.log(f"The DUT asked us to reboot: {dec}\n", LogLevel.WARN)
                     abort = abort or not retry
 
                 if abort:

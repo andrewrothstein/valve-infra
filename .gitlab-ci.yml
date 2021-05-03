@@ -57,6 +57,10 @@ executor:
       - .gitlab-ci.yml
   script:
     - docker build -t $IMAGE_NAME -f executor/Dockerfile .
+    - |
+       docker run --rm \
+           --entrypoint=sh $IMAGE_NAME \
+           -c 'pip install tox && tox'
 
 gitlab-sync:
   extends:
