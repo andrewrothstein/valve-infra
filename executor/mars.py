@@ -8,9 +8,10 @@ import time
 
 
 class Machine:
-    def __init__(self, mars_base_url, machine_id, fields=None):
+    def __init__(self, mars_base_url, machine_id, fields=None, gitlab_runner_api=None):
         self.mars_base_url = mars_base_url
         self._machine_id = machine_id
+        self.gitlab_runner_api = gitlab_runner_api
 
         self.pdu_port = self._create_pdu_port(fields)
 
@@ -22,7 +23,13 @@ class Machine:
         # Executor associated (temporary)
         self.executor = Executor(self)
 
-    def destroy(self):
+        # Make sure the updates are reflected in the runner's state
+        self.update_runner_state()
+
+    def remove(self):
+        if self.gitlab_runner_api is not None:
+            self.gitlab_runner_api.remove(self.full_name)
+
         self.executor.stop_event.set()
         self.executor.join()
 
@@ -33,6 +40,10 @@ class Machine:
     @property
     def id(self):
         return self._machine_id
+
+    @property
+    def full_name(self):
+        return self._fields.get('full_name')
 
     @property
     def mac_address(self):
@@ -50,6 +61,13 @@ class Machine:
         r.raise_for_status()
 
         self._fields['ready_for_service'] = val
+
+        # Make sure the updates are reflected in the runner's state
+        self.update_runner_state
+
+    @property
+    def is_retired(self):
+        return self._fields.get('is_retired', False)
 
     @property
     def tags(self):
@@ -96,12 +114,26 @@ class Machine:
 
         self._fields = fields
 
+        # Make sure the updates are reflected in the runner's state
+        self.update_runner_state()
+
+    def update_runner_state(self):
+        if self.gitlab_runner_api is None:
+            return
+
+        if self.ready_for_service and not self.is_retired:
+            self.gitlab_runner_api.expose(self.full_name, self.tags)
+        else:
+            self.gitlab_runner_api.remove(self.full_name)
+
 
 class MarsClient(Thread):
-    def __init__(self, base_url):
+    def __init__(self, base_url, gitlab_runner_api=None):
         super().__init__()
 
         self.mars_base_url = base_url
+        self.gitlab_runner_api = gitlab_runner_api
+
         self.stop_event = Event()
         self._machines = {}
 
@@ -115,7 +147,7 @@ class MarsClient(Thread):
     def _machine_update_or_create(self, machine_id, fields):
         machine = self._machines.get(machine_id)
         if machine is None:
-            machine = Machine(self.mars_base_url, machine_id, fields)
+            machine = Machine(self.mars_base_url, machine_id, fields, self.gitlab_runner_api)
         else:
             machine.update(fields)
 
@@ -140,7 +172,16 @@ class MarsClient(Thread):
 
         # Delete all the machines that are not found in MaRS
         for machine in local_only_machines:
+            self._machines[machine.id].remove()
             del self._machines[machine.id]
+
+        # Delete all the Gitlab Runner that are not found locally
+        if self.gitlab_runner_api is not None:
+            gitlab_runners = self.gitlab_runner_api.exposed_machines
+            non_local_runners = set(gitlab_runners) - set([m.full_name for m in self.known_machines])
+
+            for machine_name in non_local_runners:
+                self.gitlab_runner_api.remove(machine_name)
 
     def stop(self, wait=True):
         self.stop_event.set()

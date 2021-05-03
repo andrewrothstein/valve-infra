@@ -62,21 +62,6 @@ executor:
            --entrypoint=sh $IMAGE_NAME \
            -c 'pip install tox && cd executor && tox'
 
-gitlab-sync:
-  extends:
-    - .container base
-  rules:
-    - changes:
-      - containers/gitlab-sync/**
-      - .gitlab-ci.yml
-  script:
-    - docker build -t $IMAGE_NAME ./containers/gitlab-sync
-    - |
-       docker run --rm \
-           -v $(pwd)/htmlcov:/app/htmlcov \
-           --entrypoint=sh $IMAGE_NAME \
-           -c 'pip install tox && tox'
-
 machine_registration:
   extends:
     - .container base

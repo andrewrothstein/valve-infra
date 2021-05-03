@@ -41,27 +41,23 @@ services:
       - SERGENT_HARTMAN_BOOT_COUNT=100
       - SERGENT_HARTMAN_QUALIFYING_BOOT_COUNT=100
       - SERGENT_HARTMAN_REGISTRATION_RETRIAL_DELAY=120
+      - GITLAB_REGISTRATION_TOKEN=$GITLAB_REGISTRATION_TOKEN
+      - GITLAB_ACCESS_TOKEN=$GITLAB_ACCESS_TOKEN
+      - GITLAB_CONF_FILE=/etc/gitlab-runner/config.toml
+      - FARM_NAME=$FARM_NAME
       - MARS_URL=http://10.42.0.1:80
       - SALAD_URL=http://10.42.0.1:8005
       - BOOTS_URL=http://10.42.0.1:8087
       - MINIO_URL=http://10.42.0.1:9000
       - MINIO_ROOT_PASSWORD=$MINIO_ROOT_PASSWORD
+    volumes:
+      - ${TMP_MOUNT}/gitlab-runner:/etc/gitlab-runner
+    restart: unless-stopped
   gitlab-runner:
     image: gitlab/gitlab-runner:alpine-v13.5.0
     volumes:
       - ${TMP_MOUNT}/gitlab-runner:/etc/gitlab-runner
       - /var/run/docker.sock:/var/run/docker.sock
-  gitlab-sync:
-    image: registry.freedesktop.org/mupuf/valve-infra/gitlab-sync
-    environment:
-      - GITLAB_REGISTRATION_TOKEN=$GITLAB_REGISTRATION_TOKEN
-      - GITLAB_ACCESS_TOKEN=$GITLAB_ACCESS_TOKEN
-      - GITLAB_CONF_FILE=/etc/gitlab-runner/config.toml
-      - MARS_HOST=http://10.42.0.1:80
-      - FARM_NAME=$FARM_NAME
-    volumes:
-      - ${TMP_MOUNT}/gitlab-runner:/etc/gitlab-runner
-    restart: unless-stopped
   salad:
     privileged: true
     network_mode: host

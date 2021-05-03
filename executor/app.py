@@ -13,6 +13,7 @@ from executor import SergentHartman, MachineState            # noqa
 from job import Job                                          # noqa
 from client import JobStatus                                 # noqa
 from mars import MarsClient, Machine                         # noqa
+from gitlab_runner import GitlabRunnerAPI                    # noqa
 
 
 class CustomJSONEncoder(flask.json.JSONEncoder):
@@ -127,11 +128,26 @@ def post_job():
 
 
 @click.group()
+@click.option('--gitlab-url', envvar='GITLAB_URL', default='https://gitlab.freedesktop.org')
+@click.option('--gitlab-conf-file', envvar='GITLAB_CONF_FILE')
+@click.option('--gitlab-access-token', envvar='GITLAB_ACCESS_TOKEN')
+@click.option('--gitlab-registration-token', envvar='GITLAB_REGISTRATION_TOKEN')
+@click.option('--farm-name', required=True, envvar='FARM_NAME')
 @click.pass_context
-def cli(ctx, gitlab_url, access_token):  # pragma: nocover
+def cli(ctx, gitlab_url, gitlab_conf_file, gitlab_access_token,
+        gitlab_registration_token, farm_name):  # pragma: nocover
     # ensure that ctx.obj exists and is a dict (in case `cli()` is called
     # by means other than the `if` block below)
     ctx.ensure_object(dict)
+
+    if gitlab_conf_file is not None and gitlab_access_token is not None and gitlab_registration_token is not None:
+        ctx.obj['GITLAB_RUNNER_API'] = GitlabRunnerAPI(gitlab_url, gitlab_conf_file, gitlab_access_token,
+                                                       gitlab_registration_token, farm_name)
+    else:
+        print(("WARNING: The runners won't be exposed on GitLab because the default configuration file, "
+               "and/or the access/registration tokens are not set"))
+
+    ctx.obj['FARM_NAME'] = farm_name
 
 
 @cli.command()
@@ -141,7 +157,7 @@ def cli(ctx, gitlab_url, access_token):  # pragma: nocover
 @click.pass_context
 def run(ctx, mars_url, host, port):  # pragma: nocover
     # Create all the workers based on the machines found in MaRS
-    mars = MarsClient(mars_url)
+    mars = MarsClient(mars_url, gitlab_runner_api=ctx.obj['GITLAB_RUNNER_API'])
     mars.start()
 
     # Start flask
@@ -151,6 +167,37 @@ def run(ctx, mars_url, host, port):  # pragma: nocover
 
     # Shutdown
     mars.stop(wait=True)
+
+
+@cli.group()
+@click.pass_context
+def gitlab(ctx):  # pragma: nocover
+    # ensure that ctx.obj exists and is a dict (in case `cli()` is called
+    # by means other than the `if` block below)
+    ctx.ensure_object(dict)
+
+    if "GITLAB_API" not in ctx.obj:
+        print("ERROR: Can't use the gitlab command without GitLab support")
+        ctx.abort()
+
+
+@gitlab.command()
+@click.pass_context
+def remove_runners(ctx,):  # pragma: nocover
+    gl = ctx.obj['GITLAB_RUNNER'].gl
+    farm_name = ctx.obj['FARM_NAME']
+
+    runners = list(filter(lambda r: r.description.startswith(f'{farm_name}-'),
+                          gl.runners.list(all=True)))
+    if not click.confirm(f'About to remove {len(runners)} runners for the '
+                         f' {farm_name} farm, are you sure?',
+                         default=False):
+        return
+
+    for runner in runners:
+        if runner.description.startswith(f'{farm_name}-'):
+            print(f"removing {runner.description}")
+            runner.delete()
 
 
 if __name__ == '__main__':  # pragma: nocover
