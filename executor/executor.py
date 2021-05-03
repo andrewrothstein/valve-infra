@@ -10,6 +10,7 @@ from enum import Enum, IntEnum
 from pdu import PDUState
 from client import JobStatus
 from job import Job
+from logger import logger
 
 import traceback
 import requests
@@ -19,17 +20,6 @@ import socket
 import time
 import os
 from minio import Minio
-from logging import getLogger, getLevelName, Formatter, StreamHandler
-
-
-logger = getLogger(__name__)
-logger.setLevel(getLevelName('DEBUG'))
-log_formatter = \
-    Formatter("%(asctime)s [%(threadName)s] [%(levelname)s] %(name)s: "
-              "%(message)s")
-console_handler = StreamHandler()
-console_handler.setFormatter(log_formatter)
-logger.addHandler(console_handler)
 
 
 # Constants
