@@ -1,5 +1,4 @@
-FROM alpine:edge
+FROM quay.io/buildah/stable
 RUN set -ex \
-        && apk add --no-cache bash wget curl skopeo python3 py3-requests \
-	&& apk add buildah --repository=http://dl-cdn.alpinelinux.org/alpine/edge/testing
+        && dnf -y update; dnf -y install findutils bash wget curl python3-requests; dnf -y clean all;
 COPY bin/ /usr/local/bin

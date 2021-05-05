@@ -58,6 +58,7 @@ services:
     volumes:
       - ${TMP_MOUNT}/gitlab-runner:/etc/gitlab-runner
       - /var/run/docker.sock:/var/run/docker.sock
+      - ${PWD}/config/gitlab_runner_seccomp.json:/usr/share/containers/seccomp.json
   salad:
     privileged: true
     network_mode: host

@@ -159,7 +159,8 @@ class GitlabConfig:
                 'tls_verify': False,
                 'image':
                 'registry.freedesktop.org/mupuf/valve-infra/gitlab-trigger',
-                'privileged': True,
+                'privileged': False,
+                'security_opt': 'seccomp=/usr/share/containers/seccomp.json',
                 'disable_entrypoint_overwrite': False,
                 'oom_kill_disable': False,
                 'disable_cache': False,

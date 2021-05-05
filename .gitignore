@@ -1,5 +1,5 @@
 # Used for private configuration, such as API tokens
-config/
+config/*.env
 **/htmlcov/
 .coverage
 *.pyc
