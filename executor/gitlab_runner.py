@@ -55,13 +55,8 @@ class GitlabRunnerConfig:
 
     def set_tags(self, machine_name, machine_tags):  # pragma: nocover
         runner = self.find_by_name(machine_name)
-        if runner is not None:
-            runner.tag_list = list(machine_tags)
-            runner.save()
-        else:
-            logger.error("This should not happen!")
-            import traceback
-            traceback.print_stack()
+        runner.tag_list = list(machine_tags)
+        runner.save()
 
     @property
     def runner_names(self):
@@ -79,6 +74,8 @@ class GitlabConfig:
         self.config_path = config_path
         self._reload_config()
         self._save()
+
+        logger.debug(f"starting with the following configuration:\n{pformat(self.config)}")
 
     def _save(self):
         logger.debug("saving configuration...")
@@ -192,8 +189,7 @@ class GitlabRunnerAPI:
             register(name, tags)
         elif not local_runner and remote_runner:
             logger.info(f"GitlabRunnerAPI: There is remote runner named {name}, but "
-                         "not local. Deleting remote runner and reregistering...")
-
+                        "not local. Deleting remote runner and reregistering...")
             running_jobs = self.remote_config.active_jobs(remote_runner.id)
             if running_jobs:
                 logger.error("GitlabRunnerAPI: The remote runner is actively "
@@ -214,7 +210,6 @@ class GitlabRunnerAPI:
         # Both sides are in agreement now, make sure the tags are in agreement too!
         self.remote_config.set_tags(name, tags)
 
-        logger.info(f'The runner {name} has been synchronized')
         return True
 
     def drop_unsynced_runners(self):
