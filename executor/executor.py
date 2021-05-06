@@ -138,8 +138,6 @@ class JobConsole(Thread):
             self.log(f"Matched the following patterns: {', '.join(patterns_matched)}\n")
 
         # Check if the state changed
-        if self.console_patterns.session_has_ended:
-            self.close()
         self.needs_reboot = self.console_patterns.needs_reboot
 
     def log(self, msg, log_level=LogLevel.INFO):
@@ -214,6 +212,10 @@ class JobConsole(Thread):
                         # Forward to the client
                         if not self.clientless:
                             self.client_sock.send(buf)
+
+                        # The message got forwarded, close the session if it ended
+                        if self.console_patterns.session_has_ended:
+                            self.close()
 
                     elif fd == self.client_sock.fileno():
                         # DUT's stdin: Client -> Salad
