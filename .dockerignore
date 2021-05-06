@@ -1,3 +1,5 @@
 **/.tox/**
 containers/
 **/__pycache__/**
+.git
+**/.venv/
