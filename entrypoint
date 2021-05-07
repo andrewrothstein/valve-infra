@@ -83,3 +83,5 @@ upload_to_minio_if_missing https://gitlab.freedesktop.org/mupuf/valve-infra/-/wi
 mcli cp minio/boot/default_kernel_2021_04_23 minio/boot/default_kernel
 
 docker-compose logs --tail=0 -f || /bin/true
+
+stop_infra()
