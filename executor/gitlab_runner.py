@@ -110,6 +110,9 @@ class GitlabConfig:
                 return runner
 
     def remove_machine(self, machine_name):
+        if self.find_by_name(machine_name) is None:
+            return  # pragma: nocover
+
         self.runners()[:] = [r for r in self.runners()
                              if r['name'] != machine_name]
         self._save()
