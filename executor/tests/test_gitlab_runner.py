@@ -101,6 +101,31 @@ def test_runner_runner_names(remote_with_runners):
     assert api.runner_names == ['tchar-gfx8-1', 'tchar-gfx10-2']
 
 
+def test_runner_pause(remote_with_runners):
+    api = GitlabRunnerConfig(remote_with_runners, 'test-registration-token', farm_name='tchar')
+    api.gl.http_put.return_value = {"active": False}
+
+    api.set_active("tchar-gfx8-1", False)
+
+    api.gl.http_put.assert_called_with(path='/runners/4', query_data={"active": False})
+
+
+def test_runner_pause_unknown_runner(remote_with_runners):
+    api = GitlabRunnerConfig(remote_with_runners, 'test-registration-token', farm_name='tchar')
+
+    with pytest.raises(ValueError, match="The machine 'unknown' is not found on the Gitlab API"):
+        api.set_active("unknown", False)
+
+
+def test_runner_unpause(remote_with_runners):
+    api = GitlabRunnerConfig(remote_with_runners, 'test-registration-token', farm_name='tchar')
+    api.gl.http_put.return_value = {"active": True}
+
+    api.set_active("tchar-gfx10-2", True)
+
+    api.gl.http_put.assert_called_with(path='/runners/5', query_data={"active": True})
+
+
 class GitlabRunnerAPITests(unittest.TestCase):
     @patch("gitlab.Gitlab")
     @patch("gitlab_runner.GitlabRunnerConfig", autospec=True)
@@ -205,6 +230,14 @@ class GitlabRunnerAPITests(unittest.TestCase):
         self.local_config.remove_machine.assert_has_calls([call("machine 1"),
                                                            call("machine 3")],
                                                           any_order=True)
+
+    def test_pause(self):
+        self.runner_api.pause("toto")
+        self.remote_config.set_active.assert_called_with("toto", False)
+
+    def test_unpause(self):
+        self.runner_api.unpause("toto")
+        self.remote_config.set_active.assert_called_with("toto", True)
 
 
 def test_config_corrupted_configuration(tmpfile):

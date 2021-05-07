@@ -42,6 +42,14 @@ class GitlabRunnerConfig:
         if runner:
             self.unregister(runner)
 
+    def set_active(self, machine_name, is_active):
+        runner = self.find_by_name(machine_name)
+        if runner:
+            r = self.gl.http_put(path=f"/runners/{runner.id}", query_data={"active": is_active})
+            assert r.get('active') == is_active
+        else:
+            raise ValueError(f"The machine '{machine_name}' is not found on the Gitlab API")
+
     def find_by_name(self, name):
         """Find a runner with a description matching _name_. Return
         the matching runner structure"""
@@ -211,6 +219,12 @@ class GitlabRunnerAPI:
         self.remote_config.set_tags(name, tags)
 
         return True
+
+    def pause(self, machine_name):
+        self.remote_config.set_active(machine_name, False)
+
+    def unpause(self, machine_name):
+        self.remote_config.set_active(machine_name, True)
 
     def drop_unsynced_runners(self):
         local_machines = set(self.local_config.runner_names)
