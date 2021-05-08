@@ -332,11 +332,11 @@ class Client:
         if machine_tags is None:
             machine_tags = list(self.machine_tags)
 
+        pattern = re.compile('(?P<frame_id>\d+$)')
         for frame in frames:
             file_name = os.path.basename(frame)
-            pattern = r'(?P<frame_id>\d+$)'
             without_ext, _ = os.path.splitext(frame)
-            m = re.search(pattern, without_ext)
+            m = pattern.search(pattern, without_ext)
             if m is None:
                 print(f"Couldn't identify \"{frame}\" 's frame id. Skipping ...")
                 continue
