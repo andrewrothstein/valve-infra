@@ -366,7 +366,8 @@ def entrypoint():
 
     download_parser = subparsers.add_parser('download', help='Download a trace from the service')
     download_parser.add_argument('-o', '--output_folder', default="./", help='Folder where to output the trace')
-    download_parser.add_argument('trace', help='Path to the trace you want to upload')
+    download_parser.add_argument('trace',
+                                 help='Path to the trace you want to download')
 
     add_tags_parser = argparse.ArgumentParser(add_help=False)
     add_tags_parser.add_argument('-t',
