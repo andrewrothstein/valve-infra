@@ -338,13 +338,19 @@ class Client:
             without_ext, _ = os.path.splitext(frame)
             m = pattern.search(pattern, without_ext)
             if m is None:
-                print(f"Couldn't identify \"{frame}\" 's frame id. Skipping ...")
+                print(f"Couldn't identify \"{frame}\" 's frame id. "
+                      "Skipping ...")
                 continue
             frame_id = int(m.groupdict({}).get('frame_id'))
             blob = self._upload_frame_blob(frame, file_name)
-            r = self._post("/api/v1/traces/" + str(trace_id) + "/trace_frames/" + str(frame_id) + "/frame_outputs",
-                            params={"frame_output": {"upload": blob.signed_id, "trace_id": trace_id,
-                            "metadata": {"machine_tags": machine_tags}, "trace_frame_id": frame_id}})
+            r = self._post(
+                '/api/v1/traces/{}/trace_frames/{}/frame_outputs'.format(
+                    trace_id, frame_id),
+                params={"frame_output":
+                        {"upload": blob.signed_id,
+                         "trace_id": trace_id,
+                         "metadata": {"machine_tags": machine_tags},
+                         "trace_frame_id": frame_id}})
 
 def entrypoint():
     parser = argparse.ArgumentParser(prog='valvetraces')
