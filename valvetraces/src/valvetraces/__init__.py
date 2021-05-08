@@ -212,8 +212,11 @@ class Client:
             with requests.get(trace.url, stream=True) as r:
                 r.raise_for_status()
 
-                # Read all the available data, then write to disk
-                for chunk in r.iter_content(None):
+                # Reading all the available data without limiting the
+                # chunk size is problematic when using SSL
+                # connections. Limit the chunk size:
+                # https://bugs.python.org/issue42853
+                for chunk in r.iter_content(chunk_size=1048576):
                     f.write(chunk)
 
         return trace_path
