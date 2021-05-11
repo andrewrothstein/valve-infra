@@ -336,7 +336,7 @@ class Client:
         for frame in frames:
             file_name = os.path.basename(frame)
             without_ext, _ = os.path.splitext(frame)
-            m = pattern.search(pattern, without_ext)
+            m = pattern.search(without_ext)
             if m is None:
                 print(f"Couldn't identify \"{frame}\" 's frame id. "
                       "Skipping ...")
