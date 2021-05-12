@@ -182,8 +182,11 @@ class GitlabConfig:
 
 
 class GitlabRunnerAPI:
-    def __init__(self, instance_url, config_file, access_token, registration_token, farm_name=None):
+    def __init__(self, instance_url, config_file, access_token, registration_token, farm_name=None,
+                 expose_generic_runner=True):
         self.instance_url = instance_url
+        self.farm_name = farm_name
+        self.expose_generic_runner = expose_generic_runner
 
         self.gl = Gitlab(url=instance_url, private_token=access_token)
         self.remote_config = GitlabRunnerConfig(self.gl, registration_token, farm_name)
@@ -191,9 +194,21 @@ class GitlabRunnerAPI:
 
         self.drop_unsynced_runners()
 
+        # Expose or remove a generic runner
+        if expose_generic_runner:
+            self.expose(self.generic_runner_name, [f"{farm_name}-gateway", 'CI-gateway'],
+                        cpus=4, memory="4GB")
+        else:
+            self.remove(self.generic_runner_name)
+
+    @property
+    def generic_runner_name(self):
+        return f"{self.farm_name}-gateway"
+
     @property
     def exposed_machines(self):
-        return set(self.local_config.runner_names) | set(self.remote_config.runner_names)
+        runners = set(self.local_config.runner_names) | set(self.remote_config.runner_names)
+        return runners - set([self.generic_runner_name])
 
     def remove(self, machine_name):
         self.remote_config.unregister_machine(machine_name)

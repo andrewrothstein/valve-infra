@@ -132,17 +132,19 @@ def post_job():
 @click.option('--gitlab-conf-file', envvar='GITLAB_CONF_FILE')
 @click.option('--gitlab-access-token', envvar='GITLAB_ACCESS_TOKEN')
 @click.option('--gitlab-registration-token', envvar='GITLAB_REGISTRATION_TOKEN')
+@click.option('--gitlab-generic-runner/--no-gitlab-generic-runner', default=True)
 @click.option('--farm-name', required=True, envvar='FARM_NAME')
 @click.pass_context
 def cli(ctx, gitlab_url, gitlab_conf_file, gitlab_access_token,
-        gitlab_registration_token, farm_name):  # pragma: nocover
+        gitlab_registration_token, gitlab_generic_runner, farm_name):  # pragma: nocover
     # ensure that ctx.obj exists and is a dict (in case `cli()` is called
     # by means other than the `if` block below)
     ctx.ensure_object(dict)
 
     if gitlab_conf_file is not None and gitlab_access_token is not None and gitlab_registration_token is not None:
         ctx.obj['GITLAB_RUNNER_API'] = GitlabRunnerAPI(gitlab_url, gitlab_conf_file, gitlab_access_token,
-                                                       gitlab_registration_token, farm_name)
+                                                       gitlab_registration_token, farm_name,
+                                                       expose_generic_runner=gitlab_generic_runner)
     else:
         print(("WARNING: The runners won't be exposed on GitLab because the default configuration file, "
                "and/or the access/registration tokens are not set"))

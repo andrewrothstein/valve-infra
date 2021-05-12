@@ -138,6 +138,16 @@ class GitlabRunnerAPITests(unittest.TestCase):
         self.machine_name = 'gfx8-1'
         self.machine_tags = ['tag1', 'tag2']
 
+    @patch("gitlab.Gitlab")
+    @patch("gitlab_runner.GitlabRunnerConfig", autospec=True)
+    @patch("gitlab_runner.GitlabConfig", autospec=True)
+    def test_generic_runner(self, gitlab_mock, runner_config_mock, config_mock):
+        runner_api = GitlabRunnerAPI("url", "file", "access_token", "registration_token",
+                                     farm_name="mupuf", expose_generic_runner=False)
+
+        runner_api.remote_config.unregister_machine.assert_called_with(runner_api.generic_runner_name)
+        runner_api.local_config.remove_machine(runner_api.generic_runner_name)
+
     def test_noRunners(self):
         self.remote_config.find_by_name.return_value = None
         self.local_config.find_by_name.return_value = None
