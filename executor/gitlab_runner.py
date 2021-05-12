@@ -29,7 +29,7 @@ class GitlabRunnerConfig:
     def registered_runners(self):
         # Not cached on purpose, it's less efficient and arguable we
         # don't need to re-query, but it removes some corner cases of
-        # people faffinf manually on the server side
+        # people faffing manually on the server side
         return filter(self.runner_is_managed_by_our_farm,
                       self.gl.runners.list())
 
