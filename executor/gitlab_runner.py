@@ -129,7 +129,19 @@ class GitlabConfig:
         self.config = GitlabConfig.DEFAULT_CONFIG
         self._save()
 
-    def add_runner(self, name, token):
+    def add_runner(self, name, token, cpus=None, memory=None, swap=None, memory_reservation=None):
+        if cpus is None:
+            cpus = 1
+
+        if memory is None:
+            memory = "1GB"
+
+        if swap is None:
+            swap = "0MB"
+
+        if memory_reservation is None:
+            memory_reservation = "768MB"
+
         volumes = [
             'local-container-volume:/var/lib/containers',
             '/var/run/docker.sock:/var/run/docker.sock',
@@ -153,7 +165,11 @@ class GitlabConfig:
                 'disable_cache': False,
                 'volumes': volumes,
                 'network_mode': 'host',
-                'shm_size': 0
+                'shm_size': 0,
+                'cpus': str(cpus),
+                'memory': str(memory),
+                'memory_swap': str(swap),
+                'memory_reservation': str(memory_reservation),
             }
         }
         logger.info(f"GitlabConfig: adding a new runner:\n{pformat(config)}")
@@ -183,10 +199,11 @@ class GitlabRunnerAPI:
         self.remote_config.unregister_machine(machine_name)
         self.local_config.remove_machine(machine_name)
 
-    def expose(self, name, tags):
+    def expose(self, name, tags, cpus=None, memory=None, swap=None, memory_reservation=None):
         def register(machine_name, machine_tags):
             resp = self.remote_config.register(machine_name, machine_tags)
-            self.local_config.add_runner(machine_name, resp.token)
+            self.local_config.add_runner(machine_name, resp.token, cpus=cpus, memory=memory,
+                                         swap=swap, memory_reservation=memory_reservation)
 
         local_runner = self.local_config.find_by_name(name)
         remote_runner = self.remote_config.find_by_name(name)

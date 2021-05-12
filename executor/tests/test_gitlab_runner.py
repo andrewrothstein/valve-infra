@@ -159,7 +159,9 @@ class GitlabRunnerAPITests(unittest.TestCase):
         self.remote_config.register.assert_called_with(self.machine_name,
                                                        self.machine_tags)
         self.local_config.add_runner.assert_called_with(self.machine_name,
-                                                        42)
+                                                        42, cpus=None,
+                                                        memory=None, swap=None,
+                                                        memory_reservation=None)
 
     def test_remoteRunnerNoLocalNoActiveJobs(self):
         pm = PropertyMock(return_value=42)
@@ -169,13 +171,17 @@ class GitlabRunnerAPITests(unittest.TestCase):
         type(self.remote_config.register.return_value).token = \
             PropertyMock(return_value=42)
 
-        self.runner_api.expose(self.machine_name, self.machine_tags)
+        self.runner_api.expose(self.machine_name, self.machine_tags,
+                               cpus=2, memory="memory", swap="swap",
+                               memory_reservation="reservation")
 
         self.remote_config.unregister.assert_called_with(pm)
         self.remote_config.register.assert_called_with(self.machine_name,
                                                        self.machine_tags)
         self.local_config.add_runner.assert_called_with(self.machine_name,
-                                                        42)
+                                                        42, cpus=2,
+                                                        memory="memory", swap="swap",
+                                                        memory_reservation="reservation")
 
     def test_remoteRunnerNoLocalActiveJobs(self):
         self.remote_config.find_by_name = MagicMock()
