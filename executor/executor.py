@@ -601,21 +601,24 @@ class Executor(Thread):
                 deployment = self.job_config.deployment_continue
 
         while not self.stop_event.is_set():
-            # Wait for the machine to have an assigned PDU port
-            if self.machine.pdu_port is None:
-                time.sleep(1)
-                continue
-
             try:
-                if not session_init():
-                    # No jobs for us to run!
+                # Wait for the machine to have an assigned PDU port
+                if self.machine.pdu_port is None:
+                    time.sleep(1)
                     continue
 
-                self.log(f"Starting the job: {self.job_config}\n\n", LogLevel.DEBUG)
-                execute_job()
-            except Exception:
-                self.log(f"An exception got caught: {traceback.format_exc()}\n", LogLevel.ERROR)
+                try:
+                    if not session_init():
+                        # No jobs for us to run!
+                        continue
 
-            session_end()
+                    self.log(f"Starting the job: {self.job_config}\n\n", LogLevel.DEBUG)
+                    execute_job()
+                except Exception:
+                    self.log(f"An exception got caught: {traceback.format_exc()}\n", LogLevel.ERROR)
+
+                session_end()
+            except Exception:
+                traceback.print_exc()
 
             # TODO: Keep the state of the job in memory for later querying
