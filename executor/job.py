@@ -2,9 +2,10 @@ from enum import Enum
 from datetime import datetime, timedelta
 from marshmallow import Schema, fields, post_load
 from marshmallow.exceptions import ValidationError
-
+from jinja2 import Template
 import yaml
 import re
+import settings
 
 
 class Target:
@@ -353,6 +354,24 @@ class Job:
             return schema.load(j)
         except ValidationError as e:
             raise ValueError(str(e))
+
+    @classmethod
+    def render_with_machine(cls, job_str, machine):
+        template_params = {
+            "ready_for_service": machine.ready_for_service,
+            "machine_id": machine.id,
+            "machine_tags": set(machine.tags),
+            "local_tty_device": machine.local_tty_device,
+            **{k.lower(): v for k, v in settings.job_environment_vars().items()},
+        }
+        rendered_job_str = Template(job_str).render(**template_params)
+        return cls.from_job(rendered_job_str)
+
+    @classmethod
+    def from_path(cls, job_template_path, machine):
+        with open(job_template_path, "r") as f_template:
+            template_str = f_template.read()
+            return Job.render_with_machine(template_str, machine)
 
     def __str__(self):
         return f"""<Job:

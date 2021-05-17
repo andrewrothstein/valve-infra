@@ -4,7 +4,6 @@ from datetime import datetime
 from threading import Thread, Event
 from collections import defaultdict
 from urllib.parse import urlparse, urlsplit
-from jinja2 import Template
 from enum import Enum, IntEnum
 
 from pdu import PDUState
@@ -249,21 +248,6 @@ class SergentHartman:
         self.cur_loop = 0
         self.statuses = defaultdict(int)
 
-    def create_job(self, job_template_path):
-        with open(job_template_path, "r") as f_template:
-            template_str = f_template.read()
-
-            # Instantiate the template, and write in the temporary file
-            template_params = {
-                "ready_for_service": self.machine.ready_for_service,
-                "machine_id": self.machine.id,
-                "machine_tags": set(self.machine.tags),
-                "local_tty_device": self.machine.local_tty_device,
-            }
-            template = Template(template_str).render(**template_params)
-
-            return Job(template)
-
     def next_task(self):
         mid = self.machine.id
 
@@ -277,7 +261,7 @@ class SergentHartman:
 
             self.is_active = True
 
-            return self.create_job(self.register_template)
+            return Job.from_path(self.register_template, self.machine)
         else:
             # Check that we got the expected amount of reports
             if self.cur_loop != sum(self.statuses.values()):
@@ -294,7 +278,7 @@ class SergentHartman:
                         self.boot_loop_counts,
                         statuses_str)
 
-            return self.create_job(self.bootloop_template)
+            return Job.from_path(self.bootloop_template, self.machine)
 
     def report(self, job_status):
         mid = self.machine.id
@@ -494,16 +478,10 @@ class Executor(Thread):
             return True
 
         def set_boot_config(deployment):
-            # Allow the kernel cmdline to reference some machine attributes
-            template = Template(deployment.kernel_cmdline)
-            kernel_cmdline = template.render(machine_id=self.machine.id,
-                                             tags=self.machine.tags,
-                                             local_tty_device=self.machine.local_tty_device)
-
             BootsClient.set_config(mac_addr=self.machine.id,
                                    kernel_path=self.remote_url_to_local_cache_mapping.get(deployment.kernel_url),
                                    initramfs_path=self.remote_url_to_local_cache_mapping.get(deployment.initramfs_url),
-                                   kernel_cmdline=kernel_cmdline)
+                                   kernel_cmdline=deployment.kernel_cmdline)
 
         def session_end():
             cooldown_delay_s = 0

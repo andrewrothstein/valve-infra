@@ -9,6 +9,7 @@ from gitlab_runner import GitlabRunnerAPI
 from mars import MarsClient, Machine
 from client import JobStatus
 from job import Job
+from logger import logger
 
 
 class CustomJSONEncoder(flask.json.JSONEncoder):
@@ -106,14 +107,20 @@ def post_job():
                 return None, 406, f"No machines found matching the tags {wanted_tags}"
 
     job_params = flask.request.json
-
     metadata = job_params["metadata"]
-
     job = Job.from_job(job_params["job"])
-
+    logger.debug("raw job:\n%s", job)
     machine, error_code, reason = find_suitable_machine(job.target)
     if machine is not None:
         endpoint = (flask.request.remote_addr, metadata.get("callback_port"))
+        # Bit nasty to render twice, but better than duplicating
+        # template render in the various call-sites within
+        # executor. Rendering it up front reduces the chances for
+        # mistakes. (Meta-point: using an HTTP query to specify the
+        # "target" could avoid this duplication of work, and might
+        # actually make more sense)
+        job = Job.render_with_machine(job_params["job"], machine)
+        logger.debug("renderered job:\n%s", job)
         machine.executor.start_job(job, endpoint)
 
     response = {

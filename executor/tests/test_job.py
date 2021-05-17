@@ -397,7 +397,7 @@ deployment:
 
 
 def test_Job__sample():
-    with open("job/sample_job.yml", 'r') as f:
+    with open("sample_job.yml", 'r') as f:
         job = Job.from_job(f.read())
         print(str(job))
 
