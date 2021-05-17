@@ -3,17 +3,12 @@
 import traceback
 import click
 import flask
-import sys
-import os
 
-# Add the parent folder to the python path
-sys.path.append(os.path.abspath('{}/../'.format(os.path.dirname(__file__))))
-
-from executor import SergentHartman, MachineState            # noqa
-from job import Job                                          # noqa
-from client import JobStatus                                 # noqa
-from mars import MarsClient, Machine                         # noqa
-from gitlab_runner import GitlabRunnerAPI                    # noqa
+from executor import SergentHartman, MachineState
+from gitlab_runner import GitlabRunnerAPI
+from mars import MarsClient, Machine
+from client import JobStatus
+from job import Job
 
 
 class CustomJSONEncoder(flask.json.JSONEncoder):

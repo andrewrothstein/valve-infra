@@ -1,5 +1,3 @@
-#!/usr/bin/env python3
-
 from enum import Enum
 from datetime import datetime, timedelta
 
@@ -8,7 +6,7 @@ import re
 
 
 class Target:
-    def __init__(self, target_id:str=None, tags:list[str]=[]):
+    def __init__(self, target_id: str = None, tags: list[str] = []):
         self.target_id = target_id
         self.tags = tags
 
@@ -22,6 +20,7 @@ class Target:
 
         return cls(target_id=data.get('id'),
                    tags=data.get('tags', []))
+
 
 class Timeout:
     def __init__(self, name: str, timeout: timedelta, retries: int) -> None:
@@ -100,11 +99,11 @@ class Timeouts:
 
     @property
     def expired_list(self):
-        l = []
+        expired = []
         for timeout in self:
             if timeout.has_expired:
-                l.append(timeout)
-        return l
+                expired.append(timeout)
+        return expired
 
     @property
     def has_expired(self):
@@ -114,7 +113,7 @@ class Timeouts:
     def from_job(cls, data, defaults={}):
         timeouts = dict(defaults)
 
-        for t_type, t_data  in data.items():
+        for t_type, t_data in data.items():
             timeouts[t_type] = Timeout.from_job(t_type, t_data)
 
         return cls(timeouts)
@@ -183,7 +182,7 @@ class ConsoleState:
     @classmethod
     def from_job(cls, data):
         session_end = data.get("session_end", {}).get('regex',
-                                                      b"^\\[[\d \\.]{12}\\] reboot: Power Down$")
+                                                      b"^\\[[\\d \\.]{12}\\] reboot: Power Down$")
         session_reboot = data.get("session_reboot", {}).get('regex')
         job_success = data.get("job_success", {}).get('regex')
         job_warn = data.get("job_warn", {}).get('regex')
