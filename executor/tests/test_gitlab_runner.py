@@ -275,7 +275,9 @@ def test_config_default_configuration(tmpfile):
     assert config.find_by_name("Johnson") is None
 
 
-def test_config_add_runner(tmpfile):
+@patch('settings.job_environment_vars')
+def test_config_add_runner(job_env, tmpfile):
+    job_env.return_value = {'MINIO_URL': 'testing-url'}
     config = GitlabConfig(tmpfile.name)
     pop = range(1, 10)
     for i in pop:
@@ -290,7 +292,9 @@ def test_config_add_runner(tmpfile):
         assert len(added_runner['docker']['volumes']) == 3
 
 
-def test_config_remove_runner(tmpfile):
+@patch('settings.job_environment_vars')
+def test_config_remove_runner(job_env, tmpfile):
+    job_env.return_value = {'MINIO_URL': 'testing-url'}
     config = GitlabConfig(tmpfile.name)
     for i in range(1, 10):
         config.add_runner(f'test-runner-{i}', f'token-{i}')

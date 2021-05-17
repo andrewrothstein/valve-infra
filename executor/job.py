@@ -1,6 +1,7 @@
+import settings
 from enum import Enum
 from datetime import datetime, timedelta
-
+from jinja2 import Template
 import yaml
 import re
 
@@ -229,8 +230,13 @@ class Deployment:
 
 class Job:
     def __init__(self, job_yml):
-        j = yaml.safe_load(job_yml)
-
+        rendered_yml = Template(job_yml).render(
+            **{
+                k.lower(): v
+                for k, v in settings.job_environment_vars().items()
+            }
+        )
+        j = yaml.safe_load(rendered_yml)
         self.version = j.get("version", 1)
 
         deadline_str = j.get("deadline")

@@ -11,6 +11,7 @@ from pdu import PDUState
 from client import JobStatus
 from job import Job
 from logger import logger
+import settings
 
 import traceback
 import requests
@@ -259,6 +260,7 @@ class SergentHartman:
                 "machine_id": self.machine.id,
                 "machine_tags": set(self.machine.tags),
                 "local_tty_device": self.machine.local_tty_device,
+                **{k.lower(): v for k, v in settings.job_environment_vars().items()},
             }
             template = Template(template_str).render(**template_params)
 
