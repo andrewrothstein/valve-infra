@@ -98,3 +98,24 @@ services:
     command: server /data
     ports:
       - 9000:9000/tcp
+
+  minioprovisioner:
+    image: minio/mc
+    depends_on:
+      # Practically useless, and hence the loop in the entrypoint, but
+      # semantically useful.
+      - minio
+    environment:
+      - MINIO_ROOT_USER=minioadmin
+      - MINIO_ROOT_PASSWORD=$MINIO_ROOT_PASSWORD
+      - MINIO_URL=$MINIO_URL
+    entrypoint: >
+      /bin/sh -c "
+      while ! /usr/bin/mc alias set minio ${MINIO_URL} minioadmin $MINIO_ROOT_PASSWORD; do
+         sleep 0.1;
+      done;
+      /usr/bin/mc mb --ignore-existing minio/jobs minio/boot/;
+      /usr/bin/mc policy set public minio/boot;
+      /usr/bin/mc policy set public minio/jobs;
+      exit 0;
+      "
