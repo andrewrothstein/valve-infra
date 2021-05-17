@@ -194,7 +194,7 @@ timeouts:
     minutes: 5
     retries: 0
   console_activity:  # Reset every time we receive a message from the logs
-    minutes: 1
+    minutes: 2
     retries: 0
   overall:           # Maximum time the job can take, not overrideable by the "continue" deployment
     hours: 4
