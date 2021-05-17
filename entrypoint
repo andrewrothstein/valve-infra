@@ -15,9 +15,9 @@ REGISTRY_MOUNT=${REGISTRY_MOUNT:-/mnt/tmp/registry}
 PRIVATE_INTERFACE=${PRIVATE_INTERFACE:-private}
 MINIO_ROOT_PASSWORD=`tr -dc _A-Z-a-z-0-9 < /dev/urandom | head -c 32`
 FARM_NAME=${FARM_NAME:?Must be defined as an environment variable - think of something unique to your farm!}
+GITLAB_REGISTRATION_TOKEN=${GITLAB_REGISTRATION_TOKEN:?Must be defined as an environment variable}
+GITLAB_ACCESS_TOKEN=${GITLAB_ACCESS_TOKEN:?Must be defined as an environment variable}
 " > ./config/prod.env
-touch ./config/private.env
-cat ./config/private.env >> ./config/prod.env
 
 . ./config/prod.env
 
