@@ -15,7 +15,8 @@ def _is_int(s):
 def retry_on_known_errors(func):
     retriable_errors = [
         "<built-in function set> returned NULL without setting an error",
-        "<built-in function get> returned NULL without setting an error"
+        "<built-in function get> returned NULL without setting an error",
+        "<built-in function walk> returned NULL without setting an error",
     ]
 
     def retry(*args, **kwargs):
@@ -116,9 +117,9 @@ class BaseSnmpPDU(PDU):
     def get_port_state(self, port_spec):
         port_id = self._port_spec_to_int(port_spec)
         vs = snmp_get(self.port_oid(port_id),
-                        hostname=self.hostname,
-                        version=1,
-                        community=self.community)
+                      hostname=self.hostname,
+                      version=1,
+                      community=self.community)
         return self.raw_value_to_state(int(vs.value))
 
     def __eq__(self, other):

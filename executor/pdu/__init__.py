@@ -4,6 +4,7 @@ from enum import IntEnum
 import time
 from logging import getLogger, getLevelName, Formatter, StreamHandler
 
+
 logger = getLogger(__name__)
 logger.setLevel(getLevelName('DEBUG'))
 log_formatter = \
@@ -65,6 +66,7 @@ class PDUPort:
             if getattr(self, attr, None) != getattr(other, attr, None):
                 return False
         return True
+
 
 class PDU:
     def __init__(self, name):

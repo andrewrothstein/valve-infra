@@ -1,28 +1,163 @@
 from unittest.mock import MagicMock
 import pytest
 import copy
-import sys
+import time
 
-from pdu import PDUState
-from drivers.apc import ApcMasterswitchPDU
-from drivers.cyberpower import PDU41004
-from drivers.dummy import DummyPDU
-from drivers.snmp import BaseSnmpPDU, SnmpPDU, snmp_get, snmp_set, snmp_walk
+from pdu import PDUState, PDUPort, PDU
+from pdu.drivers.apc import ApcMasterswitchPDU
+from pdu.drivers.cyberpower import PDU41004
+from pdu.drivers.dummy import DummyPDU
+from pdu.drivers.snmp import retry_on_known_errors, BaseSnmpPDU, SnmpPDU, snmp_get, snmp_set, snmp_walk
 
+
+def test_PDUState_UNKNOW_is_invalid_action():
+    assert PDUState.UNKNOWN not in PDUState.valid_actions()
+    assert PDUState.UNKNOWN.is_valid_action is False
+
+
+def test_PDUState_valid_actions_contain_basics():
+    for action in ["ON", "OFF", "REBOOT"]:
+        assert action in [s.name for s in PDUState.valid_actions()]
+        assert getattr(PDUState, action).is_valid_action is True
+
+
+def test_PDUPort_get_set():
+    pdu = MagicMock(get_port_state=MagicMock(return_value=PDUState.OFF))
+    port = PDUPort(pdu, 42, label="My Port")
+    assert port.label == "My Port"
+
+    last_shutdown = port.last_shutdown
+
+    pdu.set_port_state.assert_not_called()
+    pdu.get_port_state.assert_not_called()
+
+    assert pdu.set_port_state.call_count == 0
+    port.set(PDUState.ON)
+    pdu.set_port_state.assert_called_with(42, PDUState.ON)
+    assert pdu.set_port_state.call_count == 1
+    assert port.last_shutdown == last_shutdown
+
+    assert port.state == PDUState.OFF
+    pdu.get_port_state.assert_called_with(42)
+
+    # Check that setting the port to the same value does not change anything
+    port.set(PDUState.OFF)
+    assert pdu.set_port_state.call_count == 1
+    assert port.last_shutdown == last_shutdown
+
+    # Check that whenever we set the PDU state to OFF, we update last_shutdown
+    pdu.get_port_state.return_value = PDUState.ON
+    port.set(PDUState.OFF)
+    assert port.last_shutdown > last_shutdown
+
+
+def test_PDUPort_eq():
+    params = {
+        "pdu": "pdu",
+        "port_id": 42,
+        "label": "label",
+        "min_off_time": "min_off_time"
+    }
+
+    assert PDUPort(**params) == PDUPort(**params)
+    for param in params:
+        n_params = dict(params)
+        n_params[param] = "modified"
+        assert PDUPort(**params) != PDUPort(**n_params)
+
+
+def test_PDU_defaults():
+    pdu = PDU("MyPDU")
+
+    assert pdu.name == "MyPDU"
+    assert pdu.ports == []
+    assert pdu.set_port_state(42, PDUState.ON) is False
+    assert pdu.get_port_state(42) == PDUState.UNKNOWN
+
+
+def test_PDU_supported_pdus():
+    pdus = PDU.supported_pdus()
+    assert "dummy" in pdus
+
+
+def test_PDU_create():
+    pdu = PDU.create("dummy", "name", {})
+    assert pdu.name == "name"
+
+    with pytest.raises(ValueError):
+        PDU.create("invalid", "name", {})
+
+
+# Drivers
 
 @pytest.fixture(autouse=True)
 def reset_easysnmp_mock(monkeypatch):
-    import drivers.snmp
-    global snmp_get, snmp_set, snmp_walk
-    m1, m2, m3 = MagicMock(), MagicMock(), MagicMock()
+    import pdu.drivers.snmp
+    global snmp_get, snmp_set, snmp_walk, time_sleep
+    m1, m2, m3, m4 = MagicMock(), MagicMock(), MagicMock(), MagicMock()
     # REVIEW: I wonder if there's a clever way of covering the
     # difference in import locations between here and snmp.py
-    monkeypatch.setattr(drivers.snmp, "snmp_walk", m1)
-    monkeypatch.setattr(drivers.snmp, "snmp_get", m2)
-    monkeypatch.setattr(drivers.snmp, "snmp_set", m3)
+    monkeypatch.setattr(pdu.drivers.snmp, "snmp_walk", m1)
+    monkeypatch.setattr(pdu.drivers.snmp, "snmp_get", m2)
+    monkeypatch.setattr(pdu.drivers.snmp, "snmp_set", m3)
+    monkeypatch.setattr(time, "sleep", m4)
     snmp_walk = m1
     snmp_get = m2
     snmp_set = m3
+    time_sleep = m4
+
+
+def test_driver_BaseSnmpPDU_retry_on_known_errors__known_error():
+    global retriable_error_call_count
+    retriable_error_call_count = 0
+
+    @retry_on_known_errors
+    def retriable_error():
+        global retriable_error_call_count
+
+        assert time_sleep.call_count == retriable_error_call_count
+
+        retriable_error_call_count += 1
+        raise SystemError("<built-in function set> returned NULL without setting an error")
+
+    with pytest.raises(ValueError):
+        retriable_error()
+
+    time_sleep.assert_called_with(1)
+    assert time_sleep.call_count == retriable_error_call_count
+    assert retriable_error_call_count == 3
+
+
+def test_driver_BaseSnmpPDU_retry_on_known_errors__unknown_error():
+    global unretriable_error_call_count
+    unretriable_error_call_count = 0
+
+    @retry_on_known_errors
+    def unretriable_error():
+        global unretriable_error_call_count
+        unretriable_error_call_count += 1
+        raise SystemError("Unknown error")
+
+    with pytest.raises(SystemError):
+        unretriable_error()
+
+    time_sleep.assert_not_called()
+    assert unretriable_error_call_count == 1
+
+
+def test_driver_BaseSnmpPDU_eq():
+    params = {
+        "name": "name",
+        "hostname": "hostname",
+        "oid_outlets_label_base": "oid_outlets_label_base",
+        "community": "community"
+    }
+
+    assert BaseSnmpPDU(**params) == BaseSnmpPDU(**params)
+    for param in params:
+        n_params = dict(params)
+        n_params[param] = "modified"
+        assert BaseSnmpPDU(**params) != BaseSnmpPDU(**n_params)
 
 
 def test_driver_BaseSnmpPDU_listing_ports():
@@ -39,7 +174,7 @@ def test_driver_BaseSnmpPDU_listing_ports():
         assert ports[i].port_id == i+1
         assert ports[i].label == f"P{i+1}"
 
-    snmp_walk.side_effect = SystemError("An error")
+    snmp_walk.side_effect = SystemError("<built-in function walk> returned NULL without setting an error")
     with pytest.raises(ValueError):
         pdu.ports
 
@@ -83,7 +218,7 @@ def test_driver_BaseSnmpPDU_get_port():
                                 hostname=pdu.hostname, community=pdu.community,
                                 version=1)
 
-    snmp_get.side_effect = SystemError("An error")
+    snmp_get.side_effect = SystemError("<built-in function get> returned NULL without setting an error")
     with pytest.raises(ValueError):
         pdu.get_port_state(2)
 
@@ -101,7 +236,7 @@ def test_driver_BaseSnmpPDU_set_port():
                                 hostname=pdu.hostname, community=pdu.community,
                                 version=1)
 
-    snmp_set.side_effect = SystemError("An error")
+    snmp_set.side_effect = SystemError("<built-in function set> returned NULL without setting an error")
     with pytest.raises(ValueError):
         pdu.set_port_state(2, PDUState.REBOOT)
 
