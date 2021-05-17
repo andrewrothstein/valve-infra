@@ -206,8 +206,6 @@ console_patterns:
         regex: "^.*It's now safe to turn off your computer\r$"
     job_success:
         regex: $B2C_JOB_SUCCESS_REGEX
-    job_warn:
-      regex: $B2C_JOB_WARN_REGEX
 
 # Environment to deploy
 deployment:
