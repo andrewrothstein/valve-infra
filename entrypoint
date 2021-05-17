@@ -25,9 +25,23 @@ GITLAB_ACCESS_TOKEN=${GITLAB_ACCESS_TOKEN:?Must be defined as an environment var
 [ -d "$PERMANENT_MOUNT" ] || mkdir "$PERMANENT_MOUNT"
 [ -d "$REGISTRY_MOUNT" ] || mkdir "$REGISTRY_MOUNT"
 
-[ -e /sys/class/net/$PRIVATE_INTERFACE ] || die "PRIVATE_INTERFACE ($PRIVATE_INTERFACE) does not exist"
+[ -e /sys/class/net/$PRIVATE_INTERFACE ] || ( echo "PRIVATE_INTERFACE ($PRIVATE_INTERFACE) does not exist" && exit 1 )
 
 D=$(dirname $(readlink -f $0))
+PRIVATE_IP=$(ip -f inet addr show $PRIVATE_INTERFACE | awk '/inet / {print $2}')
+# Strip off the subnet
+PRIVATE_HOST=${PRIVATE_IP%%/*}
+# Todo, abstract 10.42.0.1
+# Not trivial, because of externals like gitlab-trigger (how to
+# pass the config to that container?)
+if [ "$PRIVATE_HOST" != "10.42.0.1" ]; then
+    echo "WARNING: The private interface ($PRIVATE_INTERFACE) has an unexpected IP address"
+    echo "Assigned address: ${PRIVATE_HOST}"
+    echo "Expected 10.42.0.1"
+    echo "Adding 10.42.0.1"
+    ip addr add 10.42.0.1/24 dev ${PRIVATE_INTERFACE}
+fi
+
 MARS_SECRET_KEYFILE=$PERMANENT_MOUNT/mars_secret_key
 if [ ! -e $MARS_SECRET_KEYFILE ]; then
     python3 -c "import secrets ; print(secrets.token_urlsafe())" > $MARS_SECRET_KEYFILE
