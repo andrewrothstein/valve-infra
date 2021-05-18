@@ -102,6 +102,7 @@ class GitlabConfig:
             logger.warning("GitlabConfig: Encountered an exception reloading "
                            "configuration: %s\nLoading the default configuration", err)
             self.config = GitlabConfig.DEFAULT_CONFIG
+            self._save()
 
     def runners(self):
         self._reload_config()
