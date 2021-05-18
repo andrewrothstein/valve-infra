@@ -92,4 +92,4 @@ mcli cp minio/boot/default_kernel_2021_04_23 minio/boot/default_kernel
 
 docker-compose logs --tail=0 -f || /bin/true
 
-stop_infra()
+stop_infra
