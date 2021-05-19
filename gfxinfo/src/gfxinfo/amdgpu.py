@@ -1,5 +1,6 @@
 import requests
 import re
+import sys
 
 class AMDGPU:
     def __init__(self, pciid_line):
