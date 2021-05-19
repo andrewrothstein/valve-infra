@@ -44,13 +44,6 @@ app = flask.Flask(__name__)
 app.json_encoder = CustomJSONEncoder
 
 
-def get_machine_or_fail(machine_id):
-    machine = MarsClient.get_machine_by_id(machine_id)
-    if machine is None:
-        raise ValueError(f"Unknown machine ID '{machine_id}'")
-    return machine
-
-
 @app.errorhandler(ValueError)
 def handle_valueError_exception(error):
     traceback.print_exc()

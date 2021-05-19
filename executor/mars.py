@@ -141,8 +141,11 @@ class MarsClient(Thread):
     def known_machines(self):
         return list(self._machines.values())
 
-    def get_machine_by_id(self, machine_id):
-        return self._machines.get(machine_id)
+    def get_machine_by_id(self, machine_id, raise_if_missing=False):
+        machine = self._machines.get(machine_id)
+        if machine is None and raise_if_missing:
+            raise ValueError(f"Unknown machine ID '{machine_id}'")
+        return machine
 
     def _machine_update_or_create(self, machine_id, fields):
         machine = self._machines.get(machine_id)
