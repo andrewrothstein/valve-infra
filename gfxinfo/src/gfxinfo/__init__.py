@@ -77,5 +77,3 @@ class GFXInfo:
 
         return tags
 
-if __name__ == '__main__':
-    print(GFXInfo().machine_tags())
