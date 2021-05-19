@@ -1,15 +1,20 @@
-FROM alpine:edge
-
-RUN set -ex \
-        && apk add --no-cache py3-netifaces py3-psutil py3-requests py3-pip \
-        && apk add --no-cache -X http://dl-cdn.alpinelinux.org/alpine/edge/testing py3-pyserial
+FROM python:3.9-slim
 
 WORKDIR /app
 
-RUN pip install gfxinfo-mupuf
+COPY machine_registration /app/machine_registration
+COPY gfxinfo /app/gfxinfo
 
-COPY machine_registration.py /app/machine_registration
-RUN python3 /app/machine_registration -a /app/amdgpu_drv.c cache_dbs
+RUN set -ex \
+	 && apt-get update -qyy && apt-get install -qyy gcc libvulkan-dev \
+	 && pip install --no-cache-dir -r /app/machine_registration/requirements.txt \
+         && pip install --no-cache-dir /app/gfxinfo \
+	 && apt-get remove -y gcc && apt-get autoremove -y && apt-get clean -y \
+	 && find /var/cache/apt/ -type f -exec rm -v {} \; \
+	 && find /var/lib/apt/lists -type f -exec rm -v {} \; \
+	 && rm -rf  /var/lib/dpkg  /var/lib/apt/lists
 
-ENTRYPOINT ["/app/machine_registration", "-a", "/app/amdgpu_drv.c"]
+RUN python3 /app/machine_registration/machine_registration.py -a /app/amdgpu_drv.c cache_dbs
+ENTRYPOINT ["/app/machine_registration/machine_registration.py", "-a", "/app/amdgpu_drv.c"]
+
 CMD ["register"]

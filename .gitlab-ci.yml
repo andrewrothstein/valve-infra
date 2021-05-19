@@ -68,9 +68,10 @@ machine_registration:
   rules:
     - changes:
       - machine_registration/**
+      - gfxinfo/**
       - .gitlab-ci.yml
   script:
-    - docker build -t $IMAGE_NAME machine_registration
+    - docker build -t $IMAGE_NAME -f machine_registration/Dockerfile .
 
 gitlab-trigger:
   extends:
