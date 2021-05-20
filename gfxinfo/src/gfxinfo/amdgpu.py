@@ -1,24 +1,92 @@
-import requests
+from functools import cache
+from typing import Dict, Tuple
+import json
+import os
 import re
+import requests
 import sys
+try:
+    from functools import cached_property
+except:
+    from backports.cached_property import cached_property
+
+
+def build_cache_filename(cache_directory):
+    return os.path.join(cache_directory, 'amdgpu_drv.c')
+
+
+@cache
+def download_supported_pci_devices(cache_directory):
+    cache_filename = build_cache_filename(cache_directory)
+    try:
+        with open(cache_filename, 'r') as f:
+            return f.read()
+    except:
+        # Fetch from the network below in case the cache isn't prepared.
+        pass
+
+    url = "https://gitlab.freedesktop.org/agd5f/linux/-/raw/amd-staging-drm-next/drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c"
+    r = requests.get(url)
+    r.raise_for_status()
+
+    drv = r.text
+    # It would be nice to cache the the results of parsing as well,
+    # but that requires more changes to the class designs, since
+    # they're not JSON serializable currently, and pickling is
+    # documented as unsafe for untrusted inputs.
+    with open(cache_filename, 'w') as f:
+        f.write(drv)
+    return drv
+
+
+def parse_pci_devices(cache_directory):
+    pci_devices: Dict[Tuple[str, str], AMDGPU] = dict()
+
+    drv = download_supported_pci_devices(cache_directory)
+
+    comp_re = re.compile(
+        r"^\s*{(?P<vendor_id>0x[\da-fA-F]+),\s*(?P<product_id>0x[\da-fA-F]+),"
+        r"\s*PCI_ANY_ID,\s*PCI_ANY_ID,\s*0,\s*0,\s*(?P<flags>.*)},\s*$")
+
+    started = False
+    for line in drv.splitlines():
+        if not started:
+            if line == "static const struct pci_device_id pciidlist[] = {":
+                started = True
+                continue
+        else:
+            if line == "	{0, 0, 0}":
+                break
+
+            if m := comp_re.match(line):
+                try:
+                    vendor_id = int(m.group('vendor_id'), 0)
+                    product_id = int(m.group('product_id'), 0)
+                    flags = m.group('flags') or None
+                    key = vendor_id << 16 | product_id
+                    pci_devices[key] = \
+                        AMDGPU(vendor_id, product_id, flags)
+                except ValueError:
+                    continue
+
+    return pci_devices
+
 
 class AMDGPU:
-    def __init__(self, pciid_line):
-        m = re.match(r"^\s*{(?P<vendor_id>0x[\da-fA-F]+),\s*(?P<product_id>0x[\da-fA-F]+),\s*PCI_ANY_ID,\s*PCI_ANY_ID,\s*0,\s*0,\s*(?P<flags>.*)},\s*$", pciid_line)
+    @classmethod
+    def from_pciids(cls, pci_vendor_id, pci_device_id, cache_directory):
+        if pci_vendor_id != 0x1002:
+            return None
+        supported_devices = parse_pci_devices(cache_directory)
+        return supported_devices.get(pci_vendor_id << 16 | pci_device_id, None)
 
-        if m is None:
-            raise ValueError("The line is not a valid PCIID line")
-
-        groups = m.groupdict()
-        self.vendor_id = int(groups['vendor_id'], 0)
-        self.product_id = int(groups['product_id'], 0)
+    def __init__(self, vendor_id: int, product_id: int, flags: str):
+        self.vendor_id = vendor_id
+        self.product_id = product_id
         self.codename = "UNKNOWN"
         self.is_APU = False
         self.is_Mobility = False
-
-        # Parse the codename and flags
-        flags = [f.strip() for f in groups['flags'].split('|')]
-        for flag in flags:
+        for flag in [f.strip() for f in flags.split('|')]:
             if flag.startswith("CHIP_"):
                 self.codename = flag[5:]
             elif flag == "AMD_IS_APU":
@@ -149,6 +217,10 @@ class AMDGPU:
         return architectures.get(self.codename)
 
     @property
+    def base_name(self):
+        return self.gfx_version
+
+    @property
     def gfx_version(self):
         versions = {
             # GFX7
@@ -173,49 +245,25 @@ class AMDGPU:
 
         return versions.get(self.architecture)
 
+    def tags(self):
+        tags = set()
+
+        tags.add(f"amdgpu:pciid:{self.pciid}")
+        tags.add(f"amdgpu:family:{self.family}")
+        tags.add(f"amdgpu:codename:{self.codename}")
+        tags.add(f"amdgpu:architecture:{self.architecture}")
+        tags.add(f"amdgpu:gfxversion:{self.gfx_version}")
+        if self.is_APU:
+            tags.add("amdgpu:APU")
+
+        return tags
+
     @property
     def pciid(self):
         return f"{hex(self.vendor_id)}:{hex(self.product_id)}"
 
     def __str__(self):
-        return f"<PCIID {self.pciid} - {self.codename} - {self.family} - {self.architecture} - {self.gfx_version.lower()}>"
+        return f"<AMDGPU: PCIID {self.pciid} - {self.codename} - {self.family} - {self.architecture} - {self.gfx_version.lower()}>"
 
     def __repr__(self):
         return f"{self.__class__}({self.__dict__})"
-
-    @classmethod
-    def download_pciid_db(self):
-        url = "https://gitlab.freedesktop.org/agd5f/linux/-/raw/amd-staging-drm-next/drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c"
-        r = requests.get(url)
-        r.raise_for_status()
-        return r.text
-
-    @classmethod
-    def supported_gpus(cls, amdgpu_drv_path=None):
-        pciids = dict()
-
-        if amdgpu_drv_path:
-            drv = open(amdgpu_drv_path, 'r').read()
-        else:
-            drv = cls.download_pciid_db()
-
-        started = False
-        for line in drv.splitlines():
-            if not started:
-                if line == "static const struct pci_device_id pciidlist[] = {":
-                    started = True
-                    continue
-            else:
-                if line == "	{0, 0, 0}":
-                    break
-
-                try:
-                    pciid = cls(line)
-                    pciids[(pciid.vendor_id, pciid.product_id)] = pciid
-                except ValueError:
-                    continue
-
-        return pciids
-
-if __name__ == '__main__':
-    print(AMDGPU.supported_gpus())

@@ -1,10 +1,10 @@
 from . import find_gpu, VulkanInfo
 
-if gpu := find_gpu():
+if gpu := find_gpu('/tmp'):
     print(gpu.tags())
     if info := VulkanInfo.construct():
-        print(f"amdgpu:vram_size:{info.VRAM_heap.GiB_size}_GiB")
-        print(f"amdgpu:gtt_size:{info.GTT_heap.GiB_size}_GiB")
+        print(f"vk:vram_size:{info.VRAM_heap.GiB_size}_GiB")
+        print(f"vk:gtt_size:{info.GTT_heap.GiB_size}_GiB")
 
         if info.mesa_version is not None:
             print(f"mesa:version:{info.mesa_version}")

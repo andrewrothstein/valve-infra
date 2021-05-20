@@ -93,10 +93,10 @@ class VulkanInfo:
             try:
                 instance = get_vk_instance(app_info)
             except Exception as err:
-                print('Exception creating Vulkan instance: ', type(err))
+                print('Exception creating Vulkan instance:', type(err))
                 return
         except Exception as err:
-            print('Exception creating Vulkan instance: ', type(err))
+            print('Exception creating Vulkan instance:', type(err))
             return
 
         try:
@@ -256,6 +256,5 @@ class VulkanInfo:
 
 
 if __name__ == '__main__':
-    info = VulkanInfo()
-
-    print(f"The device {info.device} (VRAM={info.VRAM_heap.GiB_size} GiB, GTT={info.GTT_heap.GiB_size} GiB) implements {len(info.extensions)} extensions")
+    if info := VulkanInfo.construct():
+        print(f"The device {info.device} (VRAM={info.VRAM_heap.GiB_size} GiB, GTT={info.GTT_heap.GiB_size} GiB) implements {len(info.extensions)} extensions")

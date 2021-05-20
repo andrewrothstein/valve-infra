@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
 
 from serial.tools import list_ports as serial_list_port
-from functools import cached_property
+from functools import cached_property, cache
 from collections import namedtuple
-from gfxinfo import GFXInfo, AMDGPU
+from gfxinfo import find_gpu, VulkanInfo
+from gfxinfo import amdgpu
 import multiprocessing
 import netifaces
 import argparse
 import requests
-import psutil
 import serial
 import time
 import sys
@@ -19,21 +19,41 @@ import os
 NetworkConf = namedtuple("NetworkConf", ['mac', 'ipv4', 'ipv6'])
 
 
-class MachineInfo(GFXInfo):
+class MachineInfo():
+    def __init__(self, cache_directory):
+        self.gpu = find_gpu(cache_directory)
+        if not self.gpu:
+            raise Exception('No suitable GPU in this machine')
+        else:
+            print(self.gpu)
+
     @property
     def machine_base_name(self):
-        return self.amdgpu.gfx_version.lower()
+        return self.gpu.base_name.lower()
 
     @cached_property
     def machine_tags(self):
-        tags = set()
+        tags = self.gpu.tags()
 
-        tags.add(f"amdgpu:family:{self.amdgpu.family}")
-        tags.add(f"amdgpu:codename:{self.amdgpu.codename}")
-        tags.add(f"amdgpu:gfxversion:{self.amdgpu.gfx_version}")
+        if info := VulkanInfo.construct():
+            tags.add(f"vk:vram:{info.VRAM_heap.GiB_size}_GiB")
+            tags.add(f"vk:GTT:{info.GTT_heap.GiB_size}_GiB")
+            if info.mesa_version is not None:
+                tags.add(f"mesa:version:{info.mesa_version}")
+            if info.mesa_git_version is not None:
+                tags.add(f"mesa:git:version:{info.mesa_git_version}")
 
-        if self.amdgpu.is_APU:
-            tags.add("amdgpu:APU")
+            if info.device_name is not None:
+                tags.add(f"vk:device:name:{info.device_name}")
+
+            if info.device_type is not None:
+                tags.add(f"vk:device:type:{info.device_type.name}")
+
+            if info.api_version is not None:
+                tags.add(f"vk:api:version:{info.driver_name}")
+
+            if info.driver_name is not None:
+                tags.add(f"vk:driver:name:{info.driver_name}")
 
         return tags
 
@@ -134,6 +154,7 @@ class MachineInfo(GFXInfo):
 
         return ret
 
+
 def serial_console_works():
     def check_serial_console():
         # stdin is closed by multiprocessing, re-open it!
@@ -159,19 +180,21 @@ def serial_console_works():
 
     return False
 
+
 parser = argparse.ArgumentParser()
-parser.add_argument('-a', dest='amdgpu_drv_path', default=None,
-                    help='Path to an up-to-date amdgpu_drv.c file')
+parser.add_argument('-a', dest='cache_directory', default='/tmp',
+                    help='Directory into which GPU-specific PCI ID databases are cached')
 parser.add_argument('-m', '--mars_host', dest='mars_host', default="10.42.0.1",
                     help='URL to the machine registration service MaRS')
 parser.add_argument('--no-tty', dest="no_tty", action="store_true",
                     help="Do not discover/check the existence of a serial connection to SALAD")
 parser.add_argument('action', help='Action this script should do',
-                    choices=['register', 'cache_dbs', 'check'])
+                    choices=['register', 'check', 'cache'])
 args = parser.parse_args()
 
-info = MachineInfo(amdgpu_drv_path=args.amdgpu_drv_path)
+
 if args.action == "register":
+    info = MachineInfo(args.cache_directory)
     params = info.to_machine_registration_request(ignore_local_tty_device=args.no_tty)
 
     r = requests.post(f"http://{args.mars_host}/api/v1/machine/", json=params)
@@ -184,15 +207,12 @@ if args.action == "register":
 
     sys.exit(0 if r.status_code == 200 else 1)
 
-elif args.action == "cache_dbs":
-    if args.amdgpu_drv_path is None:
-        print("ERROR: Please set the amdgpu_drv_path (-a)", file=sys.stderr)
-        sys.exit(1)
-
-    with open(args.amdgpu_drv_path, 'w') as f:
-        f.write(AMDGPU.download_pciid_db())
+elif args.action == "cache":
+    drv_file = amdgpu.download_supported_pci_devices(args.cache_directory)
+    print("Cached %d bytes of AMDGPU PCI IDs" % len(drv_file))
 
 elif args.action == "check":
+    info = MachineInfo(args.cache_directory)
     mac_addr = info.default_gateway_nif_addrs.mac
 
     # Get the expected configuration
