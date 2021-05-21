@@ -91,7 +91,7 @@ class VulkanInfo:
             return
         except vk.VkErrorExtensionNotPresent:
             physical_device_properties_2_supported = False
-            print('The {} extension is not supported. '
+            print('WARNING: The {} extension is not supported. '
                   'Some information is not available.'.format(
                 vk.VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME))
             try:
