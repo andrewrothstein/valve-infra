@@ -91,12 +91,14 @@ class PDU:
         from .drivers.apc import ApcMasterswitchPDU
         from .drivers.cyberpower import PDU41004
         from .drivers.dummy import DummyPDU
+        from .drivers.virtual import VirtualPDU
         from .drivers.snmp import SnmpPDU
 
         return {
             "apc_masterswitch": ApcMasterswitchPDU,
             "cyberpower_pdu41004": PDU41004,
             "dummy": DummyPDU,
+            "vpdu": VirtualPDU,
             "snmp": SnmpPDU,
         }
 
