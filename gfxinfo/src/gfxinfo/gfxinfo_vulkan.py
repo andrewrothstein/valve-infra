@@ -52,27 +52,23 @@ class VulkanDeviceType(Enum):
     CPU =  vk.VK_PHYSICAL_DEVICE_TYPE_CPU
 
 
+def get_vk_instance(app_info, enabled_extensions=None):
+    if enabled_extensions is None:
+        enabled_extensions = []
+    create_info = vk.VkInstanceCreateInfo(
+        sType=vk.VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO,
+        flags=0,
+        pApplicationInfo=app_info,
+        enabledExtensionCount=len(enabled_extensions),
+        ppEnabledExtensionNames=enabled_extensions,
+        enabledLayerCount=0,
+        ppEnabledLayerNames=[])
+    return vk.vkCreateInstance(create_info, None)
+
+
 class VulkanInfo:
-    def __init__(self, device_index=0):
-        self._physical_device_properties = None
-        self._physical_device_memory_properties = None
-        self._enumerate_device_extension_properties = None
-        self._physical_device_driver_properties = None
-
-        def get_vk_instance(app_info, enabled_extensions=None):
-            if enabled_extensions is None:
-                enabled_extensions = []
-            create_info = vk.VkInstanceCreateInfo(
-                sType=vk.VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO,
-                flags=0,
-                pApplicationInfo=app_info,
-                enabledExtensionCount=len(enabled_extensions),
-                ppEnabledExtensionNames=enabled_extensions,
-                enabledLayerCount=0,
-                ppEnabledLayerNames=[])
-            return vk.vkCreateInstance(create_info, None)
-
-
+    @classmethod
+    def construct(cls, device_index=0):
         app_info = vk.VkApplicationInfo(
             sType=vk.VK_STRUCTURE_TYPE_APPLICATION_INFO,
             pApplicationName='gfxinfo',
@@ -96,11 +92,11 @@ class VulkanInfo:
                 vk.VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME))
             try:
                 instance = get_vk_instance(app_info)
-            except:
-                print('Exception creating Vulkan instance.')
+            except Exception as err:
+                print('Exception creating Vulkan instance: ', type(err))
                 return
-        except:
-            print('Exception creating Vulkan instance.')
+        except Exception as err:
+            print('Exception creating Vulkan instance: ', type(err))
             return
 
         try:
@@ -109,26 +105,27 @@ class VulkanInfo:
             print('No physical Vulkan capables devices found.')
             vk.vkDestroyInstance(instance, None)
             return
-        except:
-            print('Exception getting the physical Vulkan devices.')
+        except Exception as err:
+            print('Exception getting the physical Vulkan devices.', type(err))
             vk.vkDestroyInstance(instance, None)
             return
 
         if not physical_devices or (device_index + 1) > len(physical_devices):
             vk.vkDestroyInstance(instance, None)
+            print("No physical devices or bad device index: "
+                  f"device_index={device_index} len(physical_devices)={len(physical_devices)}")
             return
 
         physical_device = physical_devices[device_index]
+        return cls(instance, physical_device, physical_device_properties_2_supported)
 
+    def __init__(self, instance, physical_device, physical_device_properties_2_supported=False):
         self._physical_device_properties = vk.vkGetPhysicalDeviceProperties(
             physical_device)
-
         self._physical_device_memory_properties = vk.vkGetPhysicalDeviceMemoryProperties(
             physical_device)
-
         self._enumerate_device_extension_properties = vk.vkEnumerateDeviceExtensionProperties(
             physicalDevice=physical_device, pLayerName=None)
-
         if physical_device_properties_2_supported:
             vkGetPhysicalDeviceProperties2KHR = vk.vkGetInstanceProcAddr(
                 instance, 'vkGetPhysicalDeviceProperties2KHR')
@@ -137,7 +134,6 @@ class VulkanInfo:
                 pNext=self._physical_device_driver_properties)
             physical_device_properties2 = vkGetPhysicalDeviceProperties2KHR(
                 physical_device, physical_device_properties2)
-
         vk.vkDestroyInstance(instance, None)
 
     @property
