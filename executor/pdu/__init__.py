@@ -102,9 +102,9 @@ class PDU:
 
     @classmethod
     def create(cls, model_name, pdu_name, config):
-        Driver = cls.supported_pdus().get(model_name)
+        driver = cls.supported_pdus().get(model_name)
 
-        if Driver is None:
+        if driver is None:
             raise ValueError(f"Unknown model name '{model_name}'")
 
-        return Driver(pdu_name, config)
+        return driver(pdu_name, config)
