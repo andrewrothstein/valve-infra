@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import traceback
+import requests
 import click
 import flask
 
@@ -60,6 +61,25 @@ def get_machine_list():
     return {
         "machines": dict([(m.id, m) for m in mars.known_machines])
     }
+
+
+def proxy_request_to_mars(url):
+    r = requests.request(flask.request.method, url, json=flask.request.json)
+    return r.content, r.status_code, {'Content-Type': r.headers['content-type']}
+
+
+@app.route('/api/v1/machine/', methods=['GET', 'POST'])
+def machine_proxy():
+    with app.app_context():
+        mars = flask.current_app.mars
+    return proxy_request_to_mars(f"{mars.mars_base_url}/api/v1/machine/")
+
+
+@app.route('/api/v1/machine/<machine_id>/', methods=['GET', 'PATCH'])
+def machine_detail_proxy(machine_id):
+    with app.app_context():
+        mars = flask.current_app.mars
+    return proxy_request_to_mars(f"{mars.mars_base_url}/api/v1/machine/{machine_id}")
 
 
 @app.route('/api/v1/jobs', methods=['POST'])
