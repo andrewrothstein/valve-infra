@@ -106,8 +106,11 @@ class MachineInfo(GFXInfo):
         # Complete the association on the other side
         if first_port_found is not None:
             mac_addr = info.default_gateway_nif_addrs.mac
+            print("Found a tty device at", first_port_found)
             self.send_through_local_tty_device(f"SALAD.machine_id={mac_addr}\n",
                                                tty_device=first_port_found)
+        else:
+            print("WARNING: Found no serial port!")
 
         return first_port_found
 
