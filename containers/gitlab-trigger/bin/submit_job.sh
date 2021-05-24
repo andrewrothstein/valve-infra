@@ -158,7 +158,7 @@ eval $(
 
 # Setup the entrypoint based on the job variables
 $BUILDAH config \
-	--cmd '['\"$B2C_TEST_SCRIPT\"']' \
+	--cmd '["/usr/local/bin/hang-detection", '\"$B2C_TEST_SCRIPT\"']' \
 	$test_container || exit 1
 
 if [ -z "$CONTAINER_EXISTS" ]; then
@@ -168,6 +168,16 @@ if [ -z "$CONTAINER_EXISTS" ]; then
     $BUILDAH_RUN $test_container env DEBIAN_FRONTEND=noninteractive apt-get update
     $BUILDAH_RUN $test_container env DEBIAN_FRONTEND=noninteractive apt-get install -y curl
     $BUILDAH_RUN $test_container bash -c "curl $MESA_URL | tar xzf -"
+
+    # Compile the hang-detection tool from parallel-deqp-runner
+    $BUILDAH_RUN $test_container bash -c "curl https://gitlab.freedesktop.org/mesa/parallel-deqp-runner/-/archive/master/parallel-deqp-runner-master.tar.gz | tar xzf -"
+    $BUILDAH_RUN $test_container env DEBIAN_FRONTEND=noninteractive apt-get install -y g++ meson pkg-config libvulkan-dev
+    $BUILDAH_RUN $test_container meson parallel-deqp-runner-master parallel-deqp-runner-master/build
+    $BUILDAH_RUN $test_container ninja -C parallel-deqp-runner-master/build hang-detection
+    $BUILDAH_RUN $test_container cp parallel-deqp-runner-master/build/hang-detection /usr/local/bin/
+    $BUILDAH_RUN $test_container env DEBIAN_FRONTEND=noninteractive apt-get remove -y g++ meson libvulkan-dev
+    $BUILDAH_RUN $test_container env DEBIAN_FRONTEND=noninteractive apt-get autoremove -y
+    $BUILDAH_RUN $test_container env DEBIAN_FRONTEND=noninteractive apt-get autoclean -y
 fi
 
 $BUILDAH_COMMIT $test_container $LOCAL_CONTAINER || exit 1
@@ -196,6 +206,9 @@ timeouts:
   console_activity:  # Reset every time we receive a message from the logs
     minutes: 2
     retries: 0
+  boot_cycle:
+    hours: 4
+    retries: 2
   overall:           # Maximum time the job can take, not overrideable by the "continue" deployment
     hours: 4
     retries: 0
@@ -206,6 +219,8 @@ console_patterns:
         regex: "^.*It's now safe to turn off your computer\r$"
     job_success:
         regex: $B2C_JOB_SUCCESS_REGEX
+    reboot:
+        regex: "GPU hang detected!"
 
 # Environment to deploy
 deployment:
