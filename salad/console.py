@@ -1,5 +1,6 @@
 from logger import logger
 
+import socket
 import serial
 import re
 
@@ -86,3 +87,34 @@ class SerialConsoleStream(ConsoleStream):
 
     def close(self):
         self.device.close()
+
+
+class UnixDomainSocketConsoleStream(ConsoleStream):
+    def __init__(self, path):
+        super().__init__(path)
+
+        self.sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+        self.sock.connect(path)
+        self.ping_re = re.compile(b"SALAD.ping$")
+        self._line_buffer = b""
+
+    def fileno(self):
+        return self.sock.fileno()
+
+    def _send(self, data):
+        try:
+            self.sock.sendall(data)
+        except BrokenPipeError:
+            logger.error("Sending %s failed, broken pipe", data)
+            raise
+
+    def recv(self):
+        data = self.sock.recv(4096)
+        lines = re.split(rb'\r?\n', self._line_buffer + data)
+        self._line_buffer = lines.pop()
+        for line in lines:
+            self.process_input_line(line)
+        return data
+
+    def close(self):
+        self.sock.close()

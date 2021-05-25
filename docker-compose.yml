@@ -68,6 +68,8 @@ services:
     environment:
      - SALAD_PORT=8005
     restart: unless-stopped
+    volumes:
+      - /run/salad_socks:/run/salad_socks
   ntpd:
     image: ermaker/chrony
     cap_add:
