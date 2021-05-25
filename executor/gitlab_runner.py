@@ -160,8 +160,8 @@ class GitlabConfig:
                 'tls_verify': False,
                 'image':
                 'registry.freedesktop.org/mupuf/valve-infra/gitlab-trigger',
-                'privileged': False,
-                'security_opt': 'seccomp=/usr/share/containers/seccomp.json',
+                'privileged': True,  # Buildah still fails without a privileged runner. Not sure how it worked before :s
+                'security_opt': ['seccomp:unconfined'],  # https://gitlab.com/gitlab-org/gitlab-runner/-/issues/2597
                 'disable_entrypoint_overwrite': False,
                 'oom_kill_disable': False,
                 'disable_cache': False,
