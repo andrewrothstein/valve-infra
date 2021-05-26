@@ -1,7 +1,9 @@
 from pdu import PDU, PDUPort, PDUState
 from easysnmp import snmp_get, snmp_set, snmp_walk
-import time
 from .. import logger
+
+import random
+import time
 
 
 def _is_int(s):
@@ -28,7 +30,9 @@ def retry_on_known_errors(func):
             except SystemError as e:
                 if str(e) in retriable_errors:
                     logger.warning(f"Caught the re-triable error '{str(e)}', retrying ({i+1}/{retries})")
-                    time.sleep(1)
+
+                    # Wait a minimum of 1 second, plus a random delay to reduce the chances of concurrent requests
+                    time.sleep(1 + random.random())
                     continue
                 raise e
 

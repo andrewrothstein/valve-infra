@@ -1,4 +1,4 @@
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 import pytest
 import copy
 import time
@@ -107,7 +107,8 @@ def reset_easysnmp_mock(monkeypatch):
     time_sleep = m4
 
 
-def test_driver_BaseSnmpPDU_retry_on_known_errors__known_error():
+@patch("random.random", return_value=0.42)
+def test_driver_BaseSnmpPDU_retry_on_known_errors__known_error(random_mock):
     global retriable_error_call_count
     retriable_error_call_count = 0
 
@@ -123,7 +124,7 @@ def test_driver_BaseSnmpPDU_retry_on_known_errors__known_error():
     with pytest.raises(ValueError):
         retriable_error()
 
-    time_sleep.assert_called_with(1)
+    time_sleep.assert_called_with(1.42)
     assert time_sleep.call_count == retriable_error_call_count
     assert retriable_error_call_count == 3
 
