@@ -219,7 +219,7 @@ console_patterns:
         regex: "^.*It's now safe to turn off your computer\r$"
     job_success:
         regex: $B2C_JOB_SUCCESS_REGEX
-    reboot:
+    session_reboot:
         regex: "GPU hang detected!"
 
 # Environment to deploy
