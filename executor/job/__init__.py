@@ -10,6 +10,8 @@ class Target:
         self.target_id = target_id
         self.tags = tags
 
+        # FIXME: Check that the tags are a list of strings
+
     def __str__(self):
         return f"<Target: id={self.target_id}, tags={self.tags}>"
 
@@ -70,6 +72,7 @@ class Timeout:
                             minutes=data.get("minutes", 0),
                             seconds=data.get("seconds", 0),
                             milliseconds=data.get("milliseconds", 0))
+        # TODO: Make sure there are no unexpected fields
         return cls(name, timeout, data.get("retries", 0))
 
 
