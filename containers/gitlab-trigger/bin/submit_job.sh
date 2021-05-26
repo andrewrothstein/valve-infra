@@ -8,6 +8,10 @@ shopt -s extglob
 
 D="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
+# TODO: Expose better through the environment?
+export PULL_THRU_REGISTRY=10.42.0.1:8002
+export REGISTRY=10.42.0.1:8004
+
 # runtime panics have happened within buildah, very rarely, try and catch one for a bit,
 # https://github.com/containers/buildah/issues/3130
 export BUILDAH="buildah"
@@ -38,7 +42,7 @@ export MESA_IMAGE_NAME=${MESA_IMAGE#registry.freedesktop.org/}
 # multiple jobs for the same commit will overwrite the environment
 # variables.
 export LOCAL_CONTAINER_NAME=${MESA_IMAGE_NAME/%${MESA_TEMPLATES_COMMIT}/${CI_JOB_ID}}
-export LOCAL_CONTAINER="${LOCAL_REGISTRY}/${LOCAL_CONTAINER_NAME}"
+export LOCAL_CONTAINER="10.42.0.1:8004/${LOCAL_CONTAINER_NAME}"
 
 # The built Mesa artifact is uploaded to the upstream Minio instance,
 # since it's in a previous stage and wasn't carried as an artifact to
@@ -223,16 +227,17 @@ deployment:
   # Initial boot
   start:
     kernel:
-      url: "{{ minio_url }}/boot/default_kernel"
+      url: "http://10.42.0.1:9000/boot/default_kernel"
       cmdline:
-        - b2c.container="-ti --tls-verify=false docker://{{ fdo_proxy_registry }}/mupuf/valve-infra/machine_registration:latest check"
+        - b2c.container="-ti --tls-verify=false docker://${PULL_THRU_REGISTRY}/mupuf/valve-infra/machine_registration:latest check"
         - b2c.ntp_peer="10.42.0.1" b2c.pipefail b2c.cache_device=auto b2c.poweroff_delay=15
-        - b2c.container="-v ${CI_JOB_ID}-results:${CI_PROJECT_DIR}/results --tls-verify=false docker://{{ local_registry }}/$LOCAL_CONTAINER_NAME"
-        - b2c.post_container="-v ${CI_JOB_ID}-results:/results -e CI_JOB_ID=${CI_JOB_ID} --tls-verify=false docker://{{ fdo_proxy_registry }}/mupuf/valve-infra/artifact-reaper:latest"
+        - b2c.container="-v ${CI_JOB_ID}-results:${CI_PROJECT_DIR}/results --tls-verify=false docker://$LOCAL_CONTAINER"
+        - b2c.post_container="-v ${CI_JOB_ID}-results:/results -e CI_JOB_ID=${CI_JOB_ID} --tls-verify=false docker://${PULL_THRU_REGISTRY}/mupuf/valve-infra/artifact-reaper:latest"
         - console={{ local_tty_device }},115200 earlyprintk=vga,keep SALAD.machine_id={{ machine_id }}
         - loglevel=6
+
     initramfs:
-      url: "{{ minio_url }}/boot/default_boot2container.cpio.xz"
+      url: "http://10.42.0.1:9000/boot/default_boot2container.cpio.xz"
 EOF
 
 set +x

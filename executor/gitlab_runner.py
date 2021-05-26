@@ -1,7 +1,6 @@
 from pprint import pformat
 from gitlab import Gitlab
 from logger import logger
-import settings
 
 import toml
 
@@ -155,7 +154,6 @@ class GitlabConfig:
             'url': 'https://gitlab.freedesktop.org/',
             'token': token,
             'executor': 'docker',
-            'environment': [f"{k}={v}" for k, v in settings.job_environment_vars().items()],
             'custom_build_dir': {},
             'cache': {'s3': {}, 'gcs': {}, 'azure': {}},
             'docker': {
