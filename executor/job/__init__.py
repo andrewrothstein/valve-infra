@@ -144,7 +144,7 @@ class ConsoleState:
     def process_line(self, line):
         matched = set()
         for name, regex in self._regexs.items():
-            if regex.match(line):
+            if regex.search(line):
                 matched.add(name)
 
         # Extend the list of matched regex
