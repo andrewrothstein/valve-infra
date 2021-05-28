@@ -182,7 +182,7 @@ class ConsoleState:
     @classmethod
     def from_job(cls, data):
         session_end = data.get("session_end", {}).get('regex',
-                                                      b"^\\[[\\d \\.]{12}\\] reboot: Power Down$")
+                                                      "^\\[[\\d \\.]{12}\\] reboot: Power Down$")
         session_reboot = data.get("session_reboot", {}).get('regex')
         job_success = data.get("job_success", {}).get('regex')
         job_warn = data.get("job_warn", {}).get('regex')
