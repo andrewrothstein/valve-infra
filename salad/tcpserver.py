@@ -53,8 +53,7 @@ class SerialConsoleTCPServer:
                 buf = self.client.recv(size)
                 if len(buf) == 0:
                     self.close_client()
-
-                    return buf
+                return buf
             except (ConnectionResetError, BrokenPipeError, OSError):
                 self.close_client()
 
