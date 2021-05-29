@@ -115,7 +115,7 @@ class JobConsole(Thread):
             idx = to_process.find(b'\n', cur)
             if idx > 0:
                 line = to_process[cur:idx+1]
-                logger.info(f"-> {line}")
+                logger.info(f"{self.machine_id} -> {line}")
                 patterns_matched |= self.console_patterns.process_line(line)
                 cur = idx + 1
             else:
