@@ -1,0 +1,35 @@
+version: 1
+
+# Rules to match for a machine to qualify
+target:
+  id: 52:54:00:11:22:0f
+
+timeouts:
+  first_console_activity:  # This limits the time it can take to receive the first console log
+    minutes: 2
+    retries: 0
+  console_activity:  # Reset every time we receive a message from the logs
+    hours: 20
+    retries: 0
+  overall:           # Maximum time the job can take, not overrideable by the "continue" deployment
+    hours: 20
+    retries: 0
+    # no retries possible here
+
+console_patterns:
+    session_end:
+        regex: "^IT WOULD BE NICE IF THIS WAS OPTIONAL$"
+    job_success:
+        regex: "^IT WOULD BE NICE IF THIS WAS OPTIONAL$"
+
+# Environment to deploy
+deployment:
+  # Initial boot
+  start:
+    kernel:
+      url: "{{ minio_url }}/boot/default_kernel"
+      cmdline:
+        - b2c.container="-ti --tls-verify=false --entrypoint=bash docker://{{ fdo_proxy_registry }}/chturne/radv-infra/machine_registration:latest" console=ttyS1,115200 SALAD.machine_id=52:54:00:11:22:0f
+        - b2c.ntp_peer="10.42.0.1" b2c.cache_device=none loglevel=6
+    initramfs:
+      url: "{{ minio_url }}/boot/default_boot2container.cpio.xz"
