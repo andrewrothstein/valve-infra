@@ -1,5 +1,6 @@
 from unittest.mock import MagicMock, patch, call
 from datetime import datetime, timedelta
+from freezegun import freeze_time
 import pytest
 
 from job import Target, Timeout, Timeouts, ConsoleState, _multiline_string, Deployment, Job
@@ -54,25 +55,40 @@ def test_Target_from_job__both_id_and_tags():
 
 
 def test_Timeout__expiration_test():
-    timeout = Timeout(name="name", timeout=timedelta(), retries=0)
+    start_time = datetime(2021, 1, 1, 12, 0, 0)
+    with freeze_time(start_time.isoformat()):
+        timeout = Timeout(name="name", timeout=timedelta(minutes=1), retries=0)
+        assert timeout.started_at is None
+        assert timeout.active_for is None
 
-    assert timeout.started_at is None
-    assert timeout.active_for is None
+        # Start the timeout and check the state
+        timeout.start()
+        assert timeout.started_at == start_time
+        assert timeout.active_for == timedelta()
+        assert not timeout.has_expired
 
-    timeout.start()
-    assert timeout.started_at is not None
-    assert timeout.active_for > timedelta()
-    assert timeout.has_expired
+        # Go right to the limit of the timeout
+        delta = timedelta(seconds=60)
+        with freeze_time((start_time + delta).isoformat()):
+            assert timeout.started_at == start_time
+            assert timeout.active_for == delta
+            assert not timeout.has_expired
 
-    timeout.stop()
-    assert timeout.started_at is None
-    assert timeout.active_for is None
+        # And check that an extra millisecond trip it
+        delta = timedelta(seconds=60, milliseconds=1)
+        with freeze_time((start_time + delta).isoformat()):
+            assert timeout.started_at == start_time
+            assert timeout.active_for == delta
+            assert timeout.has_expired
+
+        # Stop the timeout and check the state
+        timeout.stop()
+        assert timeout.started_at is None
+        assert timeout.active_for is None
 
 
 def test_Timeout__retry_lifecycle():
-    start_time = datetime.now()
-
-    timeout = Timeout(name="name", timeout=timedelta(seconds=42), retries=1)
+    timeout = Timeout(name="timeout name", timeout=timedelta(seconds=42), retries=1)
 
     # Check the default state
     assert timeout.started_at is None
@@ -80,21 +96,24 @@ def test_Timeout__retry_lifecycle():
     assert timeout.retried == 0
 
     # Start the timeout
-    timeout.start()
-    assert timeout.started_at > start_time and timeout.started_at < datetime.now()
-    assert timeout.retried == 0
-    assert timeout.active_for > timedelta(seconds=0) and timeout.active_for < datetime.now() - start_time
-    assert not timeout.has_expired
+    start_time = datetime(2021, 1, 1, 12, 0, 0)
+    with freeze_time(start_time.isoformat()):
+        timeout.start()
+        assert timeout.started_at == start_time
+        assert timeout.retried == 0
+        assert timeout.active_for == timedelta()
+        assert not timeout.has_expired
 
     # Check that the default reset sets started_at to now()
-    start_time = datetime.now()
-    timeout.reset()
-    assert timeout.started_at > start_time and timeout.started_at < datetime.now()
+    start_time = datetime(2021, 1, 1, 12, 0, 1)
+    with freeze_time(start_time.isoformat()):
+        timeout.reset()
+        assert timeout.started_at == start_time
 
-    # Check that a resetting to a certain time does as it should
-    new_start = start_time - timedelta(seconds=1)
-    timeout.reset(new_start)
-    assert timeout.started_at == new_start
+        # Check that a resetting to a certain time does as it should
+        new_start = start_time - timedelta(seconds=1)
+        timeout.reset(new_start)
+        assert timeout.started_at == new_start
 
     # Do the first retry
     assert timeout.retry()
@@ -107,12 +126,12 @@ def test_Timeout__retry_lifecycle():
 
 def test_Timeout_from_job():
     delay = timedelta(days=5, hours=6, minutes=7, seconds=8, milliseconds=9)
-    timeout = Timeout.from_job("NaMe", {"days": 5, "hours": 6, "minutes": 7,
-                                        "seconds": 8, "milliseconds": 9, "retries": 42})
+    timeout = Timeout.from_job("Yeeepeee", {"days": 5, "hours": 6, "minutes": 7,
+                                            "seconds": 8, "milliseconds": 9, "retries": 42})
 
     assert timeout.timeout == delay
     assert timeout.retries == 42
-    assert str(timeout) == f"<Timeout NaMe: value={delay}, retries=0/42>"
+    assert str(timeout) == f"<Timeout Yeeepeee: value={delay}, retries=0/42>"
 
 
 # Timeouts

@@ -34,6 +34,23 @@ class Target:
 
 
 class Timeout:
+    class Schema(Schema):
+        days = fields.Float(missing=0)
+        hours = fields.Float(missing=0)
+        minutes = fields.Float(missing=0)
+        seconds = fields.Float(missing=0)
+        milliseconds = fields.Float(missing=0)
+        retries = fields.Int(strict=True, missing=0)
+
+        @post_load
+        def make(self, data, **kwargs):
+            timeout = timedelta(days=data.get("days", 0),
+                                hours=data.get("hours", 0),
+                                minutes=data.get("minutes", 0),
+                                seconds=data.get("seconds", 0),
+                                milliseconds=data.get("milliseconds", 0))
+            return Timeout(self.context.get('name'), timeout=timeout, retries=data.get('retries'))
+
     def __init__(self, name: str, timeout: timedelta, retries: int) -> None:
         self.name = name
         self.timeout = timeout
@@ -76,13 +93,8 @@ class Timeout:
 
     @classmethod
     def from_job(cls, name, data):
-        timeout = timedelta(days=data.get("days", 0),
-                            hours=data.get("hours", 0),
-                            minutes=data.get("minutes", 0),
-                            seconds=data.get("seconds", 0),
-                            milliseconds=data.get("milliseconds", 0))
-        # TODO: Make sure there are no unexpected fields
-        return cls(name, timeout, data.get("retries", 0))
+        schema = Timeout.Schema(context={"name": name})
+        return schema.load(data)
 
 
 class Timeouts:
