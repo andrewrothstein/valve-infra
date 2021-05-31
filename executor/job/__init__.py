@@ -154,6 +154,31 @@ class Timeouts:
 
 
 class ConsoleState:
+    class Schema(Schema):
+        class PatternSchema(Schema):
+            regex = fields.Str()
+
+        session_end = fields.Nested(PatternSchema(), missing=None)
+        session_reboot = fields.Nested(PatternSchema(), missing=None)
+        job_success = fields.Nested(PatternSchema(), missing=None)
+        job_warn = fields.Nested(PatternSchema(), missing=None)
+
+        @post_load
+        def make(self, data, **kwargs):
+            patterns = {
+                "session_end": "^\\[[\\d \\.]{12}\\] reboot: Power Down$",
+                "session_reboot": None,
+                "job_success": None,
+                "job_warn": None
+            }
+
+            for name, pattern in data.items():
+                if pattern is not None:
+                    if regex := pattern.get('regex', None):
+                        patterns[name] = regex
+
+            return ConsoleState(**patterns)
+
     def __init__(self, session_end, session_reboot, job_success, job_warn):
         self.session_end = session_end
         self.session_reboot = session_reboot
@@ -215,14 +240,8 @@ class ConsoleState:
 
     @classmethod
     def from_job(cls, data):
-        session_end = data.get("session_end", {}).get('regex',
-                                                      "^\\[[\\d \\.]{12}\\] reboot: Power Down$")
-        session_reboot = data.get("session_reboot", {}).get('regex')
-        job_success = data.get("job_success", {}).get('regex')
-        job_warn = data.get("job_warn", {}).get('regex')
-
-        return cls(session_end=session_end, session_reboot=session_reboot,
-                   job_success=job_success, job_warn=job_warn)
+        schema = cls.Schema()
+        return schema.load(data)
 
 
 def _multiline_string(lines):

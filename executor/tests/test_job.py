@@ -1,4 +1,3 @@
-from unittest.mock import MagicMock, patch
 from datetime import datetime, timedelta
 from freezegun import freeze_time
 import pytest
@@ -246,8 +245,7 @@ def test_ConsoleState__lifecycle_with_extended_support():
     assert not state.needs_reboot
 
 
-@patch("job.ConsoleState", return_value=MagicMock())
-def test_ConsoleState_from_job__default(console_state_mocked):
+def test_ConsoleState_from_job__default():
     console_state = ConsoleState.from_job({})
 
     assert console_state.session_end == "^\\[[\\d \\.]{12}\\] reboot: Power Down$"
@@ -256,8 +254,7 @@ def test_ConsoleState_from_job__default(console_state_mocked):
     assert console_state.job_warn is None
 
 
-@patch("job.ConsoleState", return_value=MagicMock())
-def test_ConsoleState_from_job__full(console_state_mocked):
+def test_ConsoleState_from_job__full():
     console_state = ConsoleState.from_job({
         "session_end": {
             "regex": "session_end"
@@ -323,7 +320,9 @@ def test_Job__simple():
 version: 1
 target:
   id: "b4:2e:99:f0:76:c5"
-
+console_patterns:
+  session_end:
+    regex: "session_end"
 deployment:
   start:
     kernel:
@@ -360,6 +359,9 @@ deadline: "2021-03-31 00:00:00"
 target:
   id: "b4:2e:99:f0:76:c6"
   tags: ["amdgpu:gfxversion::gfx10"]
+console_patterns:
+  session_end:
+    regex: "session_end"
 deployment:
   start:
     kernel:
