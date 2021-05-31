@@ -78,16 +78,16 @@ def post_job():
 
         wanted_tags = set(target.tags)
 
-        # If the target_id is specified, check the tags
-        if target.target_id is not None:
-            machine = mars.get_machine_by_id(target.target_id)
+        # If the target id is specified, check the tags
+        if target.id is not None:
+            machine = mars.get_machine_by_id(target.id)
             if machine is None:
-                return None, 404, f"Unknown machine with ID {target.target_id}"
+                return None, 404, f"Unknown machine with ID {target.id}"
             elif not wanted_tags.issubset(machine.tags):
-                return None, 406, (f"The machine {target.target_id} does not matching tags "
+                return None, 406, (f"The machine {target.id} does not matching tags "
                                    f"(asked: {wanted_tags}, actual: {machine.tags})")
             elif machine.executor.state != MachineState.IDLE:
-                return None, 409, (f"The machine {target.target_id} is unavailable: "
+                return None, 409, (f"The machine {target.id} is unavailable: "
                                    f"Current state is {machine.state.name}")
             return machine, 200, None
         else:

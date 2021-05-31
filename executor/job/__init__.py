@@ -1,27 +1,36 @@
 from enum import Enum
 from datetime import datetime, timedelta
+from marshmallow import Schema, fields, post_load
 
 import yaml
 import re
 
 
 class Target:
-    def __init__(self, target_id: str = None, tags: list[str] = []):
-        self.target_id = target_id
+    class Schema(Schema):
+        id = fields.Str()
+        tags = fields.List(fields.Str())
+
+        @post_load
+        def make(self, data, **kwargs):
+            if 'id' not in data and 'tags' not in data:
+                raise ValueError("The target is neither identified by tags or id. "
+                                 "Use empty tags to mean 'any machines'.")
+
+            return Target(**data)
+
+    def __init__(self, id: str = None, tags: list[str] = []):
+        self.id = id
         self.tags = tags
 
-        # FIXME: Check that the tags are a list of strings
-
     def __str__(self):
-        return f"<Target: id={self.target_id}, tags={self.tags}>"
+        return f"<Target: id={self.id}, tags={self.tags}>"
 
     @classmethod
     def from_job(cls, data):
-        if 'id' not in data and 'tags' not in data:
-            raise ValueError("The target is neither identified by tags or id. Use empty tags to mean 'any machines'.")
 
-        return cls(target_id=data.get('id'),
-                   tags=data.get('tags', []))
+        schema = cls.Schema()
+        return schema.load(data)
 
 
 class Timeout:

@@ -22,9 +22,9 @@ def test_Target_from_job__id_only():
     }
 
     target = Target.from_job(target_job)
-    assert target.target_id == target_job['id']
+    assert target.id == target_job['id']
     assert target.tags == []
-    assert str(target) == f"<Target: id={target.target_id}, tags={target.tags}>"
+    assert str(target) == f"<Target: id={target.id}, tags={target.tags}>"
 
 
 def test_Target_from_job__tags_only():
@@ -33,9 +33,9 @@ def test_Target_from_job__tags_only():
     }
 
     target = Target.from_job(target_job)
-    assert target.target_id is None
+    assert target.id is None
     assert target.tags == target_job['tags']
-    assert str(target) == f"<Target: id={target.target_id}, tags={target.tags}>"
+    assert str(target) == f"<Target: id={target.id}, tags={target.tags}>"
 
 
 def test_Target_from_job__both_id_and_tags():
@@ -45,9 +45,9 @@ def test_Target_from_job__both_id_and_tags():
     }
 
     target = Target.from_job(target_job)
-    assert target.target_id == target_job['id']
+    assert target.id == target_job['id']
     assert target.tags == target_job['tags']
-    assert str(target) == f"<Target: id={target.target_id}, tags={target.tags}>"
+    assert str(target) == f"<Target: id={target.id}, tags={target.tags}>"
 
 
 # Timeout
@@ -324,7 +324,7 @@ deployment:
     assert job.version == 1
     assert job.deadline == datetime.max
 
-    assert job.target.target_id == "b4:2e:99:f0:76:c5"
+    assert job.target.id == "b4:2e:99:f0:76:c5"
     assert job.target.tags == []
 
     assert job.deployment_start.kernel_url == "kernel_url"
@@ -366,7 +366,7 @@ deployment:
     assert job.version == 1
     assert job.deadline == datetime.fromisoformat("2021-03-31 00:00:00")
 
-    assert job.target.target_id == "b4:2e:99:f0:76:c6"
+    assert job.target.id == "b4:2e:99:f0:76:c6"
     assert job.target.tags == ["amdgpu:gfxversion::gfx10"]
 
     assert job.deployment_start.kernel_url == "kernel_url"
