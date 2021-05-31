@@ -1,4 +1,4 @@
-from unittest.mock import MagicMock, patch, call
+from unittest.mock import MagicMock, patch
 from datetime import datetime, timedelta
 from freezegun import freeze_time
 import pytest
@@ -166,8 +166,7 @@ def test_Timeouts__expired():
     assert timeouts.expired_list == [boot_cycle]
 
 
-@patch("job.Timeout", return_value=MagicMock(retries=0))
-def test_Timeouts__from_job(timeout_mock):
+def test_Timeouts__from_job():
     job_timeouts = {
         "first_console_activity": {
             "seconds": 45
@@ -177,13 +176,10 @@ def test_Timeouts__from_job(timeout_mock):
         }
     }
 
-    Timeouts.from_job(job_timeouts)
+    timeouts = Timeouts.from_job(job_timeouts)
 
-    assert call(Timeouts.Type.FIRST_CONSOLE_MSG.value,
-                {"seconds": 45}) in timeout_mock.from_job.mock_calls
-
-    assert call(Timeouts.Type.CONSOLE.value,
-                {"seconds": 13}) in timeout_mock.from_job.mock_calls
+    assert timeouts.first_console_activity.timeout == timedelta(seconds=45)
+    assert timeouts.console_activity.timeout == timedelta(seconds=13)
 
 
 # ConsoleState

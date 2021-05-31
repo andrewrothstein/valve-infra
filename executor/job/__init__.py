@@ -105,6 +105,20 @@ class Timeouts:
         CONSOLE = "console_activity"
         FIRST_CONSOLE_MSG = "first_console_activity"
 
+    class Schema(Schema):
+        overall = fields.Nested(Timeout.Schema(context={"name": "overall"}))
+        infra_setup = fields.Nested(Timeout.Schema(context={"name": "infra_setup"}))
+        boot_cycle = fields.Nested(Timeout.Schema(context={"name": "boot_cycle"}))
+        console_activity = fields.Nested(Timeout.Schema(context={"name": "console_activity"}))
+        first_console_activity = fields.Nested(Timeout.Schema(context={"name": "first_console_activity"}))
+
+        @post_load
+        def make(self, data, **kwargs):
+            timeouts = dict(self.context.get('default_timeouts'))
+            for t_type, t_data in data.items():
+                timeouts[t_type] = t_data
+            return Timeouts(timeouts)
+
     def __init__(self, timeouts):
         for t_type in Timeouts.Type:
             timeout = timeouts.get(t_type.value)
@@ -134,13 +148,9 @@ class Timeouts:
         return len(self.expired_list) > 0
 
     @classmethod
-    def from_job(cls, data, defaults={}):
-        timeouts = dict(defaults)
-
-        for t_type, t_data in data.items():
-            timeouts[t_type] = Timeout.from_job(t_type, t_data)
-
-        return cls(timeouts)
+    def from_job(cls, data, defaults=None):
+        schema = cls.Schema(context={"default_timeouts": defaults if defaults is not None else {}})
+        return schema.load(data)
 
 
 class ConsoleState:
