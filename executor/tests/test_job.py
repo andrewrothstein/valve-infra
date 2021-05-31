@@ -333,7 +333,7 @@ deployment:
     initramfs:
       url: "initramfs_url"
 """
-    job = Job(simple_job)
+    job = Job.from_job(simple_job)
 
     assert job.version == 1
     assert job.deadline == datetime.max
@@ -349,6 +349,7 @@ deployment:
     assert job.deployment_continue.initramfs_url == job.deployment_start.initramfs_url
     assert job.deployment_continue.kernel_cmdline == job.deployment_start.kernel_cmdline
 
+    # Make sure the job's __str__ method does not crash
     str(job)
 
 
@@ -378,7 +379,7 @@ deployment:
     initramfs:
       url: "initramfs_url 2"
 """
-    job = Job(override_job)
+    job = Job.from_job(override_job)
 
     assert job.version == 1
     assert job.deadline == datetime.fromisoformat("2021-03-31 00:00:00")
@@ -393,3 +394,36 @@ deployment:
     assert job.deployment_continue.kernel_url == "kernel_url 2"
     assert job.deployment_continue.initramfs_url == "initramfs_url 2"
     assert job.deployment_continue.kernel_cmdline == "my continue cmdline"
+
+
+def test_Job__sample():
+    with open("job/sample_job.yml", 'r') as f:
+        job = Job.from_job(f.read())
+        print(str(job))
+
+
+def test_Job__invalid_format():
+    job = """
+version: 1
+target:
+  id: "b4:2e:99:f0:76:c6"
+console_patterns:
+  session_end:
+    regex: "session_end"
+  reboot:
+    regex: "toto"
+deployment:
+  start:
+    kernel:
+      url: "kernel_url"
+      cmdline:
+        - my
+        - start cmdline
+    initramfs:
+      url: "initramfs_url"
+"""
+
+    with pytest.raises(ValueError) as exc:
+        Job.from_job(job)
+
+    assert str(exc.value) == "{'console_patterns': {'reboot': ['Unknown field.']}}"

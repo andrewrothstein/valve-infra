@@ -1,6 +1,7 @@
 from enum import Enum
 from datetime import datetime, timedelta
 from marshmallow import Schema, fields, post_load
+from marshmallow.exceptions import ValidationError
 
 import yaml
 import re
@@ -254,22 +255,19 @@ def _multiline_string(lines):
 
 
 class Deployment:
-    def __init__(self):
-        self.kernel_url = None
-        self.initramfs_url = None
-        self.kernel_cmdline = None
+    def __init__(self, kernel_url=None, initramfs_url=None, kernel_cmdline=None):
+        self.kernel_url = kernel_url
+        self.kernel_cmdline = kernel_url
+        self.initramfs_url = initramfs_url
 
     def update(self, data):
-        kernel_url = data.get("kernel", {}).get("url")
-        if kernel_url is not None:
+        if (kernel_url := data.get('kernel', {}).get('url')) is not None:
             self.kernel_url = kernel_url
 
-        kernel_cmdline = data.get("kernel", {}).get('cmdline')
-        if kernel_cmdline is not None:
-            self.kernel_cmdline = _multiline_string(kernel_cmdline)
+        if (kernel_cmdline := data.get('kernel', {}).get('cmdline')) is not None:
+            self.kernel_cmdline = kernel_cmdline
 
-        initramfs_url = data.get("initramfs", {}).get("url")
-        if initramfs_url is not None:
+        if (initramfs_url := data.get('initramfs', {}).get('url')) is not None:
             self.initramfs_url = initramfs_url
 
     def __str__(self):
@@ -281,31 +279,80 @@ class Deployment:
 
 
 class Job:
-    def __init__(self, job_yml):
+    class Schema(Schema):
+        class DeploymentsSchema(Schema):
+            class DeploymentSchema(Schema):
+                class KernelSchema(Schema):
+                    url = fields.Str()
+                    cmdline = fields.Method("get_cmdline", deserialize="load_cmdline")
+
+                    def get_cmdline(self, obj):  # pragma: nocover
+                        return obj.kernel_cmdline
+
+                    def load_cmdline(self, value):
+                        return _multiline_string(value)
+
+                class InitramfsSchema(Schema):
+                    url = fields.Str()
+
+                kernel = fields.Nested(KernelSchema())
+                initramfs = fields.Nested(InitramfsSchema())
+
+            start = fields.Nested(DeploymentSchema(), required=True)
+            cont = fields.Nested(DeploymentSchema(), data_key="continue", attribute="continue")
+
+        version = fields.Int(strict=True, missing=1)
+        deadline = fields.DateTime(missing=datetime.max)
+        target = fields.Nested(Target.Schema(), required=True)
+        timeouts = fields.Nested(Timeouts.Schema(), missing=None)
+        console_patterns = fields.Nested(ConsoleState.Schema(), required=True)
+        deployment = fields.Nested(DeploymentsSchema(), required=True)
+
+        @post_load
+        def make(self, data, **kwargs):
+            # Timeouts
+            if data.get('timeouts') is None:
+                data['timeouts'] = Timeouts(self.context.get('default_timeouts'))
+
+            # Deployments
+            deployment = data.pop('deployment', {})
+
+            deployment_start = Deployment()
+            deployment_start.update(deployment['start'])
+            data['deployment_start'] = deployment_start
+
+            # Source the default 'continue' deployment from the start one, then
+            # update with the continue one.
+            deployment_continue = Deployment()
+            deployment_continue.update(deployment['start'])
+            deployment_continue.update(deployment.get('continue', {}))
+            data['deployment_continue'] = deployment_continue
+
+            return Job(**data)
+
+    def __init__(self, version=None, deadline=None, target=None, timeouts=None,
+                 console_patterns=None, deployment_start=None, deployment_continue=None):
+        self.version = version
+        self.deadline = deadline
+        self.target = target
+        self.timeouts = timeouts
+        self.console_patterns = console_patterns
+        self.deployment_start = deployment_start
+        self.deployment_continue = deployment_continue
+
+    @classmethod
+    def from_job(cls, job_yml):
         j = yaml.safe_load(job_yml)
-
-        self.version = j.get("version", 1)
-
-        deadline_str = j.get("deadline")
-        self.deadline = datetime.fromisoformat(deadline_str) if deadline_str else datetime.max
-
-        self.target = Target.from_job(j.get('target', {}))
 
         default_timeouts = {
             "overall": Timeout(name="overall", timeout=timedelta(hours=6), retries=0),
         }
-        self.timeouts = Timeouts.from_job(j.get('timeouts', {}), defaults=default_timeouts)
 
-        self.console_patterns = ConsoleState.from_job(j.get('console_patterns', {}))
-
-        self.deployment_start = Deployment()
-        self.deployment_start.update(j['deployment']['start'])
-
-        # Source the default 'continue' deployment from the start one, then
-        # update with the continue one.
-        self.deployment_continue = Deployment()
-        self.deployment_continue.update(j['deployment']['start'])
-        self.deployment_continue.update(j['deployment'].get('continue', {}))
+        try:
+            schema = cls.Schema(context={'default_timeouts': default_timeouts})
+            return schema.load(j)
+        except ValidationError as e:
+            raise ValueError(str(e))
 
     def __str__(self):
         return f"""<Job:

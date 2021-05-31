@@ -108,7 +108,8 @@ def post_job():
     job_params = flask.request.json
 
     metadata = job_params["metadata"]
-    job = Job(job_params["job"])
+
+    job = Job.from_job(job_params["job"])
 
     machine, error_code, reason = find_suitable_machine(job.target)
     if machine is not None:
