@@ -50,7 +50,7 @@ class Job:
         self.job_desc = job_desc
         self.wait_if_busy = wait_if_busy
 
-    def _setup_conection(self):
+    def _setup_connection(self):
         # Set up a TCP server
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as tcp_server:
             tcp_server.bind(('', 0))
@@ -178,7 +178,7 @@ class Job:
         sock = None
 
         try:
-            sock = self._setup_conection()
+            sock = self._setup_connection()
             if sock is None:
                 return JobStatus.SETUP_FAIL
 
