@@ -185,7 +185,7 @@ class AMDGPU:
 
     @classmethod
     def download_pciid_db(self):
-        url = "https://cgit.freedesktop.org/~agd5f/linux/plain/drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c?h=amd-staging-drm-next"
+        url = "https://gitlab.freedesktop.org/agd5f/linux/-/raw/amd-staging-drm-next/drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c"
         r = requests.get(url)
         r.raise_for_status()
         return r.text
