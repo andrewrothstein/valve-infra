@@ -9,7 +9,7 @@ case $container in
 	;;&
     gitlab-trigger|all)
 	echo ">>> Building gitlab-trigger...."
-	docker build -t registry.freedesktop.org/mupuf/valve-infra/gitlab-trigger containers/gitlab-trigger
+	docker build -t registry.freedesktop.org/mupuf/valve-infra/gitlab-trigger -f containers/gitlab-trigger/Dockerfile .
 	;;&
     salad|all)
 	echo ">>> Building salad...."

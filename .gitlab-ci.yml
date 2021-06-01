@@ -81,7 +81,7 @@ gitlab-trigger:
       - containers/gitlab-trigger/**
       - .gitlab-ci.yml
   script:
-    - docker build -t $IMAGE_NAME containers/gitlab-trigger
+    - docker build -t $IMAGE_NAME -f containers/gitlab-trigger/Dockerfile .
 
 salad:
   extends:
