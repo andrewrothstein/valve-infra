@@ -593,6 +593,7 @@ class Executor(Thread):
                     self.log(f"Starting the job: {self.job_config}\n\n", LogLevel.DEBUG)
                     execute_job()
                 except Exception:
+                    logger.debug("Exception caught:\n%s", traceback.format_exc())
                     self.log(f"An exception got caught: {traceback.format_exc()}\n", LogLevel.ERROR)
 
                 session_end()
