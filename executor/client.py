@@ -80,8 +80,7 @@ class Job:
                 else:
                     try:
                         ret = r.json()
-                        reason_msg = ret.get("reason")
-                        print(f"ERROR: Could not queue the work: \"{reason_msg}\"", file=sys.stderr)
+                        print(f"ERROR: Could not queue the work: \"{ret}\"", file=sys.stderr)
                     except Exception:
                         print(f"ERROR: Could not queue the work: \"{r.text}\"", file=sys.stderr)
 
