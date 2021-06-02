@@ -20,9 +20,9 @@ class Target:
 
             return Target(**data)
 
-    def __init__(self, id: str = None, tags: list[str] = []):
+    def __init__(self, id: str = None, tags: list[str] = None):
         self.id = id
-        self.tags = tags
+        self.tags = tags if tags is not None else []
 
     def __str__(self):
         return f"<Target: id={self.id}, tags={self.tags}>"
