@@ -55,11 +55,6 @@ echo "export B2C_PULL_THRU_REGISTRY=${B2C_PULL_THRU_REGISTRY@Q}" > envvars
 echo "export B2C_NTP_PEER=${B2C_NTP_PEER@Q}" >> envvars
 echo "export B2C_LOCAL_CONTAINER=${__JOB_CONTAINER@Q}" >> envvars
 
-# Get the job submit template and generator
-wget --progres=dot:binary "$CI_PROJECT_URL/-/raw/$CI_COMMIT_SHA/.gitlab-ci/b2c/b2c.yml.jinja2.jinja2"
-wget --progres=dot:binary "$CI_PROJECT_URL/-/raw/$CI_COMMIT_SHA/.gitlab-ci/b2c/generate_b2c.py"
-chmod +x generate_b2c.py
-
 
 __SKOPEO_TIMEOUT=15
 
@@ -76,11 +71,21 @@ function check_container() {
 }
 
 function pipeline_container() {
-    # Fetch the Mesa artifacts and place them into the container so
-    # that it becomes a self-contained test-workload.
     mkdir -p "${2}${CI_PROJECT_DIR}"
     pushd "${2}${CI_PROJECT_DIR}"
+
+    # Fetch the Mesa artifacts and place them into the container so
+    # that it becomes a self-contained test-workload.
     wget --progres=dot:mega -O - $__MESA_URL | tar xzf -
+
+    # Fetch the gitlab-trigger specific tools and place them into the
+    # pipeline container so we don't have to do it per job.
+    mkdir -p .gitlab-ci/b2c
+    __COMMIT_FILES=(.gitlab-ci/b2c/b2c.yml.jinja2.jinja2 .gitlab-ci/b2c/generate_b2c.py)
+    for i in "${__COMMIT_FILES[@]}"; do
+        wget --progres=dot:binary -O "$i" "$CI_PROJECT_URL/-/raw/$CI_COMMIT_SHA/$i"
+    done
+
     popd
 }
 
@@ -104,13 +109,18 @@ function job_container() {
     $__BUILDAH config \
 	     --cmd '['\"$B2C_TEST_SCRIPT\"']' \
 	     "$1"
+
+    # Take the job submit template and generator from the container
+    # and place it into the runner
+    rm -rf .gitlab-ci
+    cp -a "${2}${CI_PROJECT_DIR}"/.gitlab-ci .
 }
 
 function build_container() {
     __TEST_CONTAINER=$($__BUILDAH from "docker://$1")
     __TEST_CONTAINER_MOUNT=$($__BUILDAH mount $__TEST_CONTAINER)
 
-    $3 "$__TEST_CONTAINER" "$__TEST_CONTAINER_MOUNT"
+    "$3" "$__TEST_CONTAINER" "$__TEST_CONTAINER_MOUNT"
 
     $__BUILDAH_COMMIT $__TEST_CONTAINER "$2"
 
