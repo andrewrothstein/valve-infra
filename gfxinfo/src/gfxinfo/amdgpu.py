@@ -210,11 +210,11 @@ class AMDGPU:
             "NAVI12": "RDNA1",
             "NAVI14": "RDNA1",
 
-            # RDNA 2amdgpu_supported_gpus
+            # RDNA2
             "SIENNA_CICHLID": "RDNA2",
             "VANGOGH": "RDNA2",
             "NAVY_FLOUNDER": "RDNA2",
-            "DIMGREY_CAVEFISH": "RDNA2",  # WARNING: Based on leaks
+            "DIMGREY_CAVEFISH": "RDNA2",
         }
 
         return architectures.get(self.codename)
