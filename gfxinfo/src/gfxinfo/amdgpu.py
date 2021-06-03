@@ -152,17 +152,16 @@ class AMDGPU:
             "NAVI12": "NV",
             "NAVI14": "NV",
 
-            # Unknowns (not interested in getting a message for them)
-            "MULLINS": "UK",
-            "TOPAZ": "UK",
-            "SIENNA_CICHLID": "UK",
-            "VANGOGH": "UK",
-            "NAVY_FLOUNDER": "UK",
-            "DIMGREY_CAVEFISH": "UK",
+            # Unknowns
+            "MULLINS": "UNK",
+            "TOPAZ": "UNK",
+            "SIENNA_CICHLID": "UNK",
+            "VANGOGH": "UNK",
+            "NAVY_FLOUNDER": "UNK",
+            "DIMGREY_CAVEFISH": "UNK",
         }
 
         return families.get(self.codename)
-
 
     @property
     def architecture(self):
