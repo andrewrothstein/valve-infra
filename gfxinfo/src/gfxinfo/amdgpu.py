@@ -86,6 +86,8 @@ class AMDGPU:
         self.codename = "UNKNOWN"
         self.is_APU = False
         self.is_Mobility = False
+        self.has_experimental_support = False
+
         for flag in [f.strip() for f in flags.split('|')]:
             if flag.startswith("CHIP_"):
                 self.codename = flag[5:]
@@ -93,6 +95,8 @@ class AMDGPU:
                 self.is_APU = True
             elif flag == "AMD_IS_MOBILITY":
                 self.is_Mobility = True
+            elif flag == "AMD_EXP_HW_SUPPORT":
+                self.has_experimental_support = True
             else:
                 print(f"WARNING: Unknown flag '{flag}'")
 
@@ -255,6 +259,8 @@ class AMDGPU:
         tags.add(f"amdgpu:gfxversion:{self.gfx_version}")
         if self.is_APU:
             tags.add("amdgpu:APU")
+        if self.amdgpu.has_experimental_support:
+            tags.add("amdgpu:EXP_HW_SUPPORT")
 
         return tags
 

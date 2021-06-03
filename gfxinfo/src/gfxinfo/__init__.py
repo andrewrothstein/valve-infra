@@ -5,7 +5,6 @@ from .gfxinfo_vulkan import VulkanInfo
 
 SUPPORTED_GPUS = [AMDGPU, IntelGPU, VirtGPU]
 
-
 def pci_devices():
     devices = open('/proc/bus/pci/devices').readlines()
     ids = [line.split('\t')[1] for line in devices]
