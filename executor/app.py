@@ -89,7 +89,7 @@ def post_job():
                                    f"(asked: {wanted_tags}, actual: {machine.tags})")
             elif machine.executor.state != MachineState.IDLE:
                 return None, 409, (f"The machine {target.id} is unavailable: "
-                                   f"Current state is {machine.state.name}")
+                                   f"Current state is {machine.executor.state.name}")
             return machine, 200, None
         else:
             found_a_candidate_machine = False
