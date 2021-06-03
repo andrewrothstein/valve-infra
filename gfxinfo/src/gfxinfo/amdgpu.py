@@ -159,6 +159,7 @@ class AMDGPU:
             "VANGOGH": "UNK",
             "NAVY_FLOUNDER": "UNK",
             "DIMGREY_CAVEFISH": "UNK",
+            "ALDEBARAN": "UNK",
         }
 
         return families.get(self.codename)
@@ -205,6 +206,9 @@ class AMDGPU:
             # CDNA
             "ARCTURUS": "CDNA",
 
+            # CDNA2
+            "ALDEBARAN": "CDNA2",
+
             # Navi / RDNA1
             "NAVI10": "RDNA1",
             "NAVI12": "RDNA1",
@@ -240,6 +244,7 @@ class AMDGPU:
             "GCN5": "gfx9",
             "GCN5.1": "gfx9",
             "CDNA": "gfx9",
+            "CDNA2": "gfx9",
 
             # GFX10
             "RDNA1": "gfx10",
