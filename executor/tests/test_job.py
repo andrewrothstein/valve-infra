@@ -1,6 +1,7 @@
 from datetime import datetime, timedelta
 from freezegun import freeze_time
 import pytest
+from unittest.mock import patch
 
 from job import Target, Timeout, Timeouts, ConsoleState, _multiline_string, Deployment, Job
 
@@ -396,10 +397,46 @@ deployment:
     assert job.deployment_continue.kernel_cmdline == "my continue cmdline"
 
 
-def test_Job__sample():
-    with open("sample_job.yml", 'r') as f:
-        job = Job.from_job(f.read())
-        print(str(job))
+class MockMachine:
+    @property
+    def ready_for_service(self):
+        return True
+
+    @property
+    def id(self):
+        return "b4:2e:99:f0:76:c5"
+
+    @property
+    def tags(self):
+        return ["some", "tags"]
+
+    @property
+    def local_tty_device(self):
+        return "ttyS0"
+
+
+@patch('settings.job_environment_vars')
+def test_Job__sample(job_env):
+    job_env.return_value = {'MINIO_URL': 'testing-url',
+                            'NTP_PEER': '10.42.0.1',
+                            'PULL_THRU_REGISTRY': '10.42.0.1:8001'}
+    m = MockMachine()
+    job = Job.from_path("tests/sample_job.yml", m)
+
+    assert job.version == 1
+    assert job.deadline == datetime.fromisoformat("2021-03-31 00:00:00")
+
+    assert job.target.id == m.id
+    assert job.target.tags == m.tags
+
+    assert job.deployment_start.kernel_url == "testing-url/test-kernel"
+    assert job.deployment_start.initramfs_url == "testing-url/test-initramfs"
+
+    assert job.deployment_start.kernel_cmdline == 'b2c.container="docker://10.42.0.1:8001/infra/machine_registration:latest check" b2c.ntp_peer="10.42.0.1" b2c.pipefail b2c.cache_device=auto b2c.container="-v /container/tmp:/storage docker://10.42.0.1:8002/tests/mesa:12345" console=ttyS0,115200 earlyprintk=vga,keep SALAD.machine_id=b4:2e:99:f0:76:c5'  # noqa: E501
+
+    assert job.deployment_continue.kernel_url == "testing-url/test-kernel"
+    assert job.deployment_continue.initramfs_url == "testing-url/test-initramfs"
+    assert job.deployment_continue.kernel_cmdline == 'b2c.container="docker://10.42.0.1:8001/infra/machine_registration:latest check" b2c.ntp_peer=10.42.0.1 b2c.pipefail b2c.cache_device=auto b2c.container="-v /container/tmp:/storage docker://10.42.0.1:8002/tests/mesa:12345 resume"'  # noqa: E501
 
 
 def test_Job__invalid_format():
@@ -427,3 +464,42 @@ deployment:
         Job.from_job(job)
 
     assert str(exc.value) == "{'console_patterns': {'reboot': ['Unknown field.']}}"
+
+
+@patch('settings.job_environment_vars')
+def test_Job__from_machine(job_env):
+    job_env.return_value = {'MINIO_URL': 'testing-url',
+                            'NTP_PEER': '10.42.0.1'}
+
+    simple_job = """
+version: 1
+target:
+  id: {{ machine_id }}
+console_patterns:
+  session_end:
+    regex: "session_end"
+deployment:
+  start:
+    kernel:
+      url: "kernel_url"
+      cmdline:
+        - my {{ minio_url }}
+        - start cmdline {{ ntp_peer }}
+    initramfs:
+      url: "initramfs_url"
+"""
+    job = Job.render_with_machine(simple_job, MockMachine())
+
+    assert job.version == 1
+    assert job.deadline == datetime.max
+
+    assert job.target.id == "b4:2e:99:f0:76:c5"
+    assert job.target.tags == []
+
+    assert job.deployment_start.kernel_url == "kernel_url"
+    assert job.deployment_start.initramfs_url == "initramfs_url"
+    assert job.deployment_start.kernel_cmdline == "my testing-url start cmdline 10.42.0.1"
+
+    assert job.deployment_continue.kernel_url == job.deployment_start.kernel_url
+    assert job.deployment_continue.initramfs_url == job.deployment_start.initramfs_url
+    assert job.deployment_continue.kernel_cmdline == job.deployment_start.kernel_cmdline

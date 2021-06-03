@@ -5,8 +5,8 @@ deadline: "2021-03-31 00:00:00"
 
 # Rules to match for a machine to qualify
 target:
-  id: "b4:2e:99:f0:76:c5"
-  tags: ["amdgpu:gfxversion::gfx10"]
+  id: "{{ machine_id }}"
+  tags: {{ machine_tags }}
 
 timeouts:
   first_console_activity:  # This limits the time it can take to receive the first console log
@@ -33,31 +33,26 @@ console_patterns:
     job_warn:
         regex: "^The configured console is not connected to SALAD$"
 
-    # TODO: Something like this could bring a machine-readable progress
-    #job_progress:
-    #   regex: "^\\[(?P<cur>[0-9]+)/?P<total>[0-9]+)\\]"
-
 # Environment to deploy
 deployment:
   # Initial boot
   start:
     kernel:
-      url: "https://gitlab.freedesktop.org/mupuf/boot2container/-/releases/v0.6/downloads/bzImage"
+      url: "{{ minio_url }}/test-kernel"
       cmdline:
-        - b2c.container="docker://10.42.0.1:8002/infra/machine_registration:latest check"
+        - b2c.container="docker://{{ pull_thru_registry }}/infra/machine_registration:latest check"
         - b2c.ntp_peer="10.42.0.1" b2c.pipefail b2c.cache_device=auto
         - b2c.container="-v /container/tmp:/storage docker://10.42.0.1:8002/tests/mesa:12345"
-        - console=tty0 console=ttyS0,115200 earlyprintk=vga,keep SALAD.machine_id=b4:2e:99:f0:76:c5
+        - console={{ local_tty_device }},115200 earlyprintk=vga,keep SALAD.machine_id={{ machine_id }}
     initramfs:
-      url: "https://gitlab.freedesktop.org/mupuf/boot2container/-/releases/v0.6/downloads/initramfs.linux_amd64.cpio.xz"
-    #- rootfs:
-      #- url: https://blabla
+      url: "{{ minio_url }}/test-initramfs"
 
   # Subsequent boots, to resume execution after hitting a timeout which triggered
   # a reboot. Inherits the settings from "start", before updating the values.
   continue:
     kernel:
+      url: "{{ minio_url }}/test-kernel"
       cmdline:
-        - b2c.container="docker://10.42.0.1:8002/infra/machine_registration:latest check"
-        - b2c.ntp_peer="10.42.0.1" b2c.pipefail b2c.cache_device=auto
+        - b2c.container="docker://{{ pull_thru_registry }}/infra/machine_registration:latest check"
+        - b2c.ntp_peer={{ ntp_peer }} b2c.pipefail b2c.cache_device=auto
         - b2c.container="-v /container/tmp:/storage docker://10.42.0.1:8002/tests/mesa:12345 resume"

@@ -360,7 +360,7 @@ class Job:
         template_params = {
             "ready_for_service": machine.ready_for_service,
             "machine_id": machine.id,
-            "machine_tags": set(machine.tags),
+            "machine_tags": machine.tags,
             "local_tty_device": machine.local_tty_device,
             **{k.lower(): v for k, v in settings.job_environment_vars().items()},
         }
@@ -376,6 +376,7 @@ class Job:
     def __str__(self):
         return f"""<Job:
     version: {self.version}
+
     deadline: {self.deadline}
     target: {self.target}
 
