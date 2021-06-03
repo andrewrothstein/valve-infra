@@ -599,5 +599,9 @@ class Executor(Thread):
                 session_end()
             except Exception:
                 traceback.print_exc()
+                # If exceptions start firing, throttle the run loop,
+                # since it's very heavy spam if left to run at full
+                # speed.
+                time.sleep(2)
 
             # TODO: Keep the state of the job in memory for later querying
