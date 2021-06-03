@@ -83,7 +83,7 @@ function pipeline_container() {
     mkdir -p .gitlab-ci/b2c
     __COMMIT_FILES=(.gitlab-ci/b2c/b2c.yml.jinja2.jinja2 .gitlab-ci/b2c/generate_b2c.py)
     for i in "${__COMMIT_FILES[@]}"; do
-        wget --progres=dot:binary -O "$i" "$CI_PROJECT_URL/-/raw/$CI_COMMIT_SHA/$i"
+        wget --progres=dot:binary --no-cache -O "$i" "$CI_PROJECT_URL/-/raw/tanty/b2c-traces-runner/$i"
     done
 
     popd
