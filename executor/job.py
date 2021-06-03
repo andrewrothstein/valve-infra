@@ -331,8 +331,7 @@ class Job:
 
             return Job(**data)
 
-    def __init__(self, version=None, deadline=None, target=None, timeouts=None,
-                 console_patterns=None, deployment_start=None, deployment_continue=None):
+    def __init__(self, version, deadline, target, timeouts, console_patterns, deployment_start, deployment_continue):
         self.version = version
         self.deadline = deadline
         self.target = target
