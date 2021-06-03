@@ -56,8 +56,8 @@ echo "export B2C_NTP_PEER=${B2C_NTP_PEER@Q}" >> envvars
 echo "export B2C_LOCAL_CONTAINER=${__JOB_CONTAINER@Q}" >> envvars
 
 # Get the job submit template and generator
-wget "$CI_PROJECT_URL/-/raw/$CI_COMMIT_SHA/.gitlab-ci/b2c/b2c.yml.jinja2.jinja2"
-wget "$CI_PROJECT_URL/-/raw/$CI_COMMIT_SHA/.gitlab-ci/b2c/generate_b2c.py"
+wget --progres=dot:binary "$CI_PROJECT_URL/-/raw/$CI_COMMIT_SHA/.gitlab-ci/b2c/b2c.yml.jinja2.jinja2"
+wget --progres=dot:binary "$CI_PROJECT_URL/-/raw/$CI_COMMIT_SHA/.gitlab-ci/b2c/generate_b2c.py"
 chmod +x generate_b2c.py
 
 
@@ -80,7 +80,7 @@ function pipeline_container() {
     # that it becomes a self-contained test-workload.
     mkdir -p "${2}${CI_PROJECT_DIR}"
     pushd "${2}${CI_PROJECT_DIR}"
-    wget -O - $__MESA_URL | tar xzf -
+    wget --progres=dot:mega -O - $__MESA_URL | tar xzf -
     popd
 }
 
