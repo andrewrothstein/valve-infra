@@ -31,13 +31,13 @@ class VulkanHeap:
     def __init__(self, size, flags):
         self.size = size
         self.flags = flags
-        self.types = []
+        self.types = 0
 
     def add_type(self, flags):
-        self.types.append(flags)
+        self.types |= flags
 
     def has_type(self, flags):
-        return any([flags == t for t in self.types])
+        return self.types & flags
 
     @property
     def GiB_size(self):
@@ -229,12 +229,11 @@ class VulkanInfo:
         if self._physical_device_memory_properties is None:
             return []
 
-        heaps = []
+        num_heaps = self._physical_device_memory_properties.memoryHeapCount
+        heaps = [VulkanHeap(size=heap.size, flags=heap.flags) for heap in
+                 self._physical_device_memory_properties.memoryHeaps[0:num_heaps]]
 
-        for heap in self._physical_device_memory_properties.memoryHeaps:
-            heaps.append(VulkanHeap(size=heap.size, flags=heap.flags))
-
-        for mem_type in self._physical_device_memory_properties.memoryTypes:
+        for mem_type in self._physical_device_memory_properties.memoryTypes[0:num_heaps]:
             heap = heaps[mem_type.heapIndex]
             heap.add_type(mem_type.propertyFlags)
 
@@ -257,4 +256,5 @@ class VulkanInfo:
 
 if __name__ == '__main__':
     if info := VulkanInfo.construct():
-        print(f"The device {info.device} (VRAM={info.VRAM_heap.GiB_size} GiB, GTT={info.GTT_heap.GiB_size} GiB) implements {len(info.extensions)} extensions")
+        print("The device %s (VRAM=%.2f GiB, GTT=%.2f GiB) implements %d extensions" % \
+              (info.device, info.VRAM_heap.GiB_size, info.GTT_heap.GiB_size, len(info.extensions)))
