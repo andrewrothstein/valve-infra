@@ -64,11 +64,7 @@ chmod +x generate_b2c.py
 __SKOPEO_TIMEOUT=15
 
 function check_container() {
-    if skopeo inspect --command-timeout ${__SKOPEO_TIMEOUT}s --tls-verify=false "docker://$1" ; then
-
-        # If we require getting more fancy with the cache checks,
-        # consider something along these lines,
-        #   skopeo inspect "docker://$1" | jq '[.Digest, .Layers]' > local_sha
+    if skopeo inspect --format "Name: {{.Name}} Digest: {{.Digest}}" --command-timeout ${__SKOPEO_TIMEOUT}s --tls-verify=false "docker://$1" ; then
 
         echo "The container $1 has already been built and stored into" \
              "the local registry"
