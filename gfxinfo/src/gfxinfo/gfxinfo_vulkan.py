@@ -102,7 +102,7 @@ class VulkanInfo:
         try:
             physical_devices = vk.vkEnumeratePhysicalDevices(instance)
         except vk.VkErrorInitializationFailed:
-            print('No physical Vulkan capables devices found.')
+            print('No supported physical devices found.')
             vk.vkDestroyInstance(instance, None)
             return
         except Exception as err:
