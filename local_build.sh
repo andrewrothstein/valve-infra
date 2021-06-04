@@ -17,7 +17,7 @@ case $container in
 	;;&
     machine_registration|all)
 	echo ">>> Building machine_registration...."
-	docker build -t registry.freedesktop.org/chturne/radv-infra/machine_registration -f machine_registration/Dockerfile .
+	docker build -t registry.freedesktop.org/mupuf/valve-infra/machine_registration -f machine_registration/Dockerfile .
 	;;&
     valve-infra|all)
 	echo ">>> Building valve-infra...."
