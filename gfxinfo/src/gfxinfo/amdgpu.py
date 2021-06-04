@@ -263,7 +263,7 @@ class AMDGPU:
         tags.add(f"amdgpu:gfxversion:{self.gfx_version}")
         if self.is_APU:
             tags.add("amdgpu:APU")
-        if self.amdgpu.has_experimental_support:
+        if self.has_experimental_support:
             tags.add("amdgpu:EXP_HW_SUPPORT")
 
         return tags
