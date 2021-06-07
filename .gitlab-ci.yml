@@ -1,7 +1,6 @@
 stages:
-- pip
 - containers
-- tests
+- pip
 
 variables:
   GIT_SUBMODULE_STRATEGY: recursive
@@ -102,4 +101,3 @@ valve-infra:
       - .gitlab-ci.yml
   script:
     - docker build -t $IMAGE_NAME .
-
