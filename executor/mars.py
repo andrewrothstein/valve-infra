@@ -205,11 +205,11 @@ class MarsClient(Thread):
         while True:
             try:
                 self.sync_machines()
-
+            except Exception:
+                traceback.print_exc()
+            finally:
                 # Wait for 5 seconds, with the ability to exit every second
                 for i in range(5):
                     time.sleep(1)
                     if self.stop_event.is_set():
                         return
-            except Exception:
-                traceback.print_exc()
