@@ -79,7 +79,7 @@ def machine_proxy():
 def machine_detail_proxy(machine_id):
     with app.app_context():
         mars = flask.current_app.mars
-    return proxy_request_to_mars(f"{mars.mars_base_url}/api/v1/machine/{machine_id}")
+    return proxy_request_to_mars(f"{mars.mars_base_url}/api/v1/machine/{machine_id}/")
 
 
 @app.route('/api/v1/jobs', methods=['POST'])
