@@ -212,7 +212,7 @@ class Job:
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument("-e", '--executor', dest='executor_url',
-                        default="http://localhost:8003",
+                        default="http://localhost",
                         help='URL to the executor service')
     parser.add_argument("-w", "--wait", action="store_true",
                         help="Wait for a machine to become available if all are busy")

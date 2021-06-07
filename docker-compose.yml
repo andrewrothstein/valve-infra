@@ -10,7 +10,7 @@ services:
       - MARS_SQLITE_PATH=${PERMANENT_MOUNT}/mars.sqlite3
       - FARM_NAME=$FARM_NAME
     ports:
-      - "80:80/tcp"
+      - "8000:80/tcp"
     volumes:
       - /mnt:/mnt
   boots:
@@ -21,7 +21,7 @@ services:
       - BOOTS_SERVICE_PORT=8087
       - BOOTS_HTTP_SERVICE_PORT=8088
       - PRIVATE_INTERFACE=$PRIVATE_INTERFACE
-      - MARS_HOST=http://10.42.0.1:80
+      - MARS_HOST=http://10.42.0.1:8000
       - DEFAULT_KERNEL=http://10.42.0.1:9000/boot/default_kernel
       - DEFAULT_INITRD=http://10.42.0.1:9000/boot/default_boot2container.cpio.xz
       - DEFAULT_CMDLINE=b2c.container="-ti --tls-verify=false docker://10.42.0.1:8002/mupuf/valve-infra/machine_registration:latest register" b2c.ntp_peer="10.42.0.1" b2c.cache_device=none loglevel=6
@@ -35,7 +35,7 @@ services:
     network_mode: host
     image: registry.freedesktop.org/mupuf/valve-infra/executor
     environment:
-      - EXECUTOR_PORT=8003
+      - EXECUTOR_PORT=80
       - EXECUTOR_REGISTRATION_JOB=/app/job_templates/register.yml.j2
       - EXECUTOR_BOOTLOOP_JOB=/app/job_templates/bootloop.yml.j2
       - SERGENT_HARTMAN_BOOT_COUNT=100
@@ -45,7 +45,7 @@ services:
       - GITLAB_ACCESS_TOKEN=$GITLAB_ACCESS_TOKEN
       - GITLAB_CONF_FILE=/etc/gitlab-runner/config.toml
       - FARM_NAME=$FARM_NAME
-      - MARS_URL=http://10.42.0.1:80
+      - MARS_URL=http://10.42.0.1:8000
       - SALAD_URL=http://10.42.0.1:8005
       - BOOTS_URL=http://10.42.0.1:8087
       - MINIO_URL=http://10.42.0.1:9000
