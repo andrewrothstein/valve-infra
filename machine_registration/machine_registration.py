@@ -36,24 +36,7 @@ class MachineInfo():
         tags = self.gpu.tags()
 
         if info := VulkanInfo.construct():
-            tags.add(f"vk:vram:{info.VRAM_heap.GiB_size}_GiB")
-            tags.add(f"vk:GTT:{info.GTT_heap.GiB_size}_GiB")
-            if info.mesa_version is not None:
-                tags.add(f"mesa:version:{info.mesa_version}")
-            if info.mesa_git_version is not None:
-                tags.add(f"mesa:git:version:{info.mesa_git_version}")
-
-            if info.device_name is not None:
-                tags.add(f"vk:device:name:{info.device_name}")
-
-            if info.device_type is not None:
-                tags.add(f"vk:device:type:{info.device_type.name}")
-
-            if info.api_version is not None:
-                tags.add(f"vk:api:version:{info.driver_name}")
-
-            if info.driver_name is not None:
-                tags.add(f"vk:driver:name:{info.driver_name}")
+            tags.add(f"vk:VRAM:{info.VRAM_heap.GiB_size}_GiB")
 
         return tags
 
