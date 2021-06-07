@@ -326,10 +326,15 @@ class MinioCache():
         parsed_url = urlparse(url)
         self.url = url
 
+        secret_key = os.environ.get('MINIO_ROOT_PASSWORD')
+        if secret_key is None:
+            secret_key = "random"
+            logger.warning("No password specified, jobs won't be runnable")
+
         self._client = Minio(
             endpoint=parsed_url.netloc,
             access_key="minioadmin",
-            secret_key=os.environ['MINIO_ROOT_PASSWORD'],
+            secret_key=secret_key,
             secure=False,
         )
 
