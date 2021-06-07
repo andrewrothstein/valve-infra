@@ -162,7 +162,7 @@ def cli(ctx, gitlab_url, gitlab_conf_file, gitlab_access_token,
 @click.pass_context
 def run(ctx, mars_url, host, port):  # pragma: nocover
     # Create all the workers based on the machines found in MaRS
-    mars = MarsClient(mars_url, gitlab_runner_api=ctx.obj['GITLAB_RUNNER_API'])
+    mars = MarsClient(mars_url, gitlab_runner_api=ctx.obj.get('GITLAB_RUNNER_API'))
     mars.start()
 
     # Start flask
