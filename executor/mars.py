@@ -16,9 +16,7 @@ class Machine:
         self.pdu_port = self._create_pdu_port(fields)
 
         # Fields from MaRS
-        if fields is None:
-            fields = {}
-        self._fields = fields
+        self._fields = fields or {}
 
         # Executor associated (temporary)
         self.executor = Executor(self)
@@ -87,8 +85,7 @@ class Machine:
         r.raise_for_status()
 
         p = r.json()
-        pdu = PDU.create(p.get('pdu_model'), p.get('name'), p.get('config', {}))
-        if pdu is not None:
+        if pdu := PDU.create(p.get('pdu_model'), p.get('name'), p.get('config', {})):
             for port in pdu.ports:
                 if str(port.port_id) == str(pdu_port):
                     return port
@@ -96,9 +93,7 @@ class Machine:
         return pdu_port
 
     def update(self, fields=None):
-        if fields is not None:
-            fields = fields
-        else:
+        if not fields:
             r = requests.get(self.url)
             r.raise_for_status()
 
