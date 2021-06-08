@@ -89,8 +89,8 @@ class Machine:
             for port in pdu.ports:
                 if str(port.port_id) == str(pdu_port):
                     return port
-
-        return pdu_port
+        raise ValueError('Could not find a matching port for %s on %s' %
+                         (pdu_port, pdu))
 
     def update(self, fields=None):
         if not fields:
