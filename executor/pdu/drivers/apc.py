@@ -1,17 +1,14 @@
-from .snmp import BaseSnmpPDU
+from .snmp import SnmpPDU
+from .. import PDUState
 
 
-class ApcMasterswitchPDU(BaseSnmpPDU):
-    OID_OUTLETS = "SNMPv2-SMI::enterprises.318.1.1.4.4.2.1"
+class ApcMasterswitchPDU(SnmpPDU):
+    system_id = '318.1.1.4'
+    outlet_labels = '4.2.1.4'
+    outlet_status = '4.2.1.3'
 
-    def __init__(self, name, config):
-        hostname = config.get('hostname')
-
-        if hostname is None:
-            raise ValueError("Config: Missing the 'hostname' parameter")
-
-        super().__init__(name, hostname,
-                         oid_outlets_label_base=f"{self.OID_OUTLETS}.4")
-
-    def port_oid(self, port_id):
-        return f"{self.OID_OUTLETS}.3.{port_id}"
+    state_mapping = {
+        PDUState.ON: 1,
+        PDUState.OFF: 2,
+        PDUState.REBOOT: 3,
+    }

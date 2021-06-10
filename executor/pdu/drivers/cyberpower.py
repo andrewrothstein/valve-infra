@@ -1,48 +1,39 @@
-from .snmp import BaseSnmpPDU
+from .snmp import SnmpPDU
+from .. import PDUState
 
 
-class PDU41004(BaseSnmpPDU):
-    OID_OUTLETS = "SNMPv2-SMI::enterprises.3808.1.1.3.3.3.1.1"
+class PDU41004(SnmpPDU):
+    system_id = '3808.1.1.3.3'
+    outlet_labels = '3.1.1.2'
+    outlet_status = '3.1.1.4'
 
-    def __init__(self, name, config):
-        hostname = config.get('hostname')
-        if hostname is None:
-            raise ValueError("Missing the 'hostname' parameter in PDU config")
+    state_mapping = {
+        PDUState.ON: 1,
+        PDUState.OFF: 2,
+        PDUState.REBOOT: 3,
+    }
 
-        super().__init__(name, hostname,
-                         oid_outlets_label_base=f"{self.OID_OUTLETS}.2")
-
-        # This model seemingly has some firmware bugs that require a
-        # fair bit of timing windows between state transitions.
-        self.state_transition_delay_seconds = 5
-
-    def port_oid(self, port_id):
-        return f"{self.OID_OUTLETS}.4.{port_id}"
+    state_transition_delay_seconds = 5
 
 
-class PDU15SWHVIEC12ATNET(BaseSnmpPDU):
-    OID_OUTLETS = "SNMPv2-SMI::enterprises.3808.1.1.5.6.3.1.2"
-    OID_OUTLETS_CTRL = "SNMPv2-SMI::enterprises.3808.1.1.5.6.5.1.3"
+class PDU15SWHVIEC12ATNET(SnmpPDU):
+    system_id = '3808.1.1.5'
+    outlet_labels = '6.3.1.2'
+    outlet_status = '6.3.1.3'
+    outlet_ctrl = '6.5.1.3'
 
-    def __init__(self, name, config):
-        hostname = config.get('hostname')
-        if hostname is None:
-            raise ValueError("Missing the 'hostname' parameter in PDU config")
+    state_mapping = {
+        PDUState.ON: 2,
+        PDUState.OFF: 3,
+        PDUState.REBOOT: 4,
+    }
 
-        super().__init__(name, hostname,
-                         oid_outlets_label_base=self.OID_OUTLETS)
+    # The RMCARD205 management card in this PDU kindly chooses
+    # different ints for control vs status codes.
+    inverse_state_mapping = {
+        1: PDUState.ON,
+        2: PDUState.OFF,
+        3: PDUState.REBOOT,
+    }
 
-        # This model seemingly has some firmware bugs that require a
-        # fair bit of timing windows between state transitions.
-        self.state_transition_delay_seconds = 5
-
-    def port_oid(self, port_id):
-        return f"{self.OID_OUTLETS_CTRL}.{port_id}"
-
-    @property
-    def action_to_snmp_value(self):
-        return {
-            "ON": 2,
-            "OFF": 3,
-            "REBOOT": 4
-        }
+    state_transition_delay_seconds = 5

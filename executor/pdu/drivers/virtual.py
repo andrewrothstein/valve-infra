@@ -9,7 +9,7 @@ from contextlib import contextmanager
 class VirtualPDU(PDU):
     def __init__(self, name, config):
         logger.info("Creating a virtual PDU named %s", name)
-        self.host, self.port = config.get('vpdu_host', 'localhost:9191').split(':')
+        self.host, self.port = config.get('hostname', 'localhost:9191').split(':')
         self.port = int(self.port)
         logger.info("Connecting to %s:%d", self.host, self.port)
         with self.conn() as s:

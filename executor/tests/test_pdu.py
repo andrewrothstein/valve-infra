@@ -1,4 +1,4 @@
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, patch, PropertyMock
 import pytest
 import copy
 import time
@@ -7,7 +7,14 @@ from pdu import PDUState, PDUPort, PDU
 from pdu.drivers.apc import ApcMasterswitchPDU
 from pdu.drivers.cyberpower import PDU41004
 from pdu.drivers.dummy import DummyPDU
-from pdu.drivers.snmp import retry_on_known_errors, BaseSnmpPDU, SnmpPDU, snmp_get, snmp_set, snmp_walk
+from pdu.drivers.snmp import (
+    retry_on_known_errors,
+    SnmpPDU,
+    ManualSnmpPDU,
+    snmp_get,
+    snmp_set,
+    snmp_walk
+)
 
 
 def test_PDUState_UNKNOW_is_invalid_action():
@@ -146,27 +153,39 @@ def test_driver_BaseSnmpPDU_retry_on_known_errors__unknown_error():
     assert unretriable_error_call_count == 1
 
 
-def test_driver_BaseSnmpPDU_eq():
+class MockSnmpPDU(SnmpPDU):
+    system_id = '1234.1.2.3.4'
+    outlet_labels = '4.5.4.5'
+    outlet_status = '4.5.4.6'
+
+    state_mapping = {
+        PDUState.ON: 2,
+        PDUState.OFF: 3,
+        PDUState.REBOOT: 4,
+    }
+
+    state_transition_delay_seconds = 5
+
+
+def test_driver_SnmpPDU_eq():
     params = {
-        "name": "name",
         "hostname": "hostname",
-        "oid_outlets_label_base": "oid_outlets_label_base",
         "community": "community"
     }
 
-    assert BaseSnmpPDU(**params) == BaseSnmpPDU(**params)
+    assert MockSnmpPDU("name", params) == MockSnmpPDU("name", params)
     for param in params:
         n_params = dict(params)
         n_params[param] = "modified"
-        assert BaseSnmpPDU(**params) != BaseSnmpPDU(**n_params)
+        assert MockSnmpPDU("name", params) != MockSnmpPDU("name", n_params)
 
 
-def test_driver_BaseSnmpPDU_listing_ports():
-    pdu = BaseSnmpPDU("MyPDU", "127.0.0.1", "label_base")
+def test_driver_SnmpPDU_listing_ports():
+    pdu = MockSnmpPDU("MyPDU", {"hostname": "127.0.0.1"})
     snmp_walk.return_value = [MagicMock(value="P1"), MagicMock(value="P2")]
     snmp_walk.assert_not_called()
     ports = pdu.ports
-    snmp_walk.assert_called_with(pdu.oid_outlets_label_base,
+    snmp_walk.assert_called_with(pdu.outlet_labels_oid,
                                  hostname=pdu.hostname, community=pdu.community,
                                  version=1)
 
@@ -181,23 +200,20 @@ def test_driver_BaseSnmpPDU_listing_ports():
 
 
 def test_driver_BaseSnmpPDU_port_label_mapping():
-    pdu = BaseSnmpPDU("MyPDU", "127.0.0.1", "label_base")
-    pdu.port_oid = MagicMock(return_value="oid_port_1")
+    pdu = MockSnmpPDU("MyPDU", {"hostname": "127.0.0.1"})
     snmp_walk.return_value = [
         MagicMock(value="P1"),
         MagicMock(value="P2")
     ]
     snmp_set.return_value = True
     assert pdu.set_port_state("P1", PDUState.REBOOT) is True
-    pdu.port_oid.assert_called_with(1)
-    snmp_set.assert_called_with(pdu.port_oid.return_value,
-                                pdu.state_to_raw_value(PDUState.REBOOT), 'i',
+    snmp_set.assert_called_with(pdu.outlet_ctrl_oid(1),
+                                pdu.state_mapping[PDUState.REBOOT], 'i',
                                 hostname=pdu.hostname, community=pdu.community,
                                 version=1)
     assert pdu.set_port_state("P2", PDUState.REBOOT) is True
-    pdu.port_oid.assert_called_with(2)
-    snmp_set.assert_called_with(pdu.port_oid.return_value,
-                                pdu.state_to_raw_value(PDUState.REBOOT), 'i',
+    snmp_set.assert_called_with(pdu.outlet_ctrl_oid(2),
+                                pdu.state_mapping[PDUState.REBOOT], 'i',
                                 hostname=pdu.hostname, community=pdu.community,
                                 version=1)
     with pytest.raises(ValueError):
@@ -205,17 +221,13 @@ def test_driver_BaseSnmpPDU_port_label_mapping():
 
 
 def test_driver_BaseSnmpPDU_get_port():
-    pdu = BaseSnmpPDU("MyPDU", "127.0.0.1", "label_base")
-
-    with pytest.raises(ValueError):
-        pdu.port_oid(2)
-    pdu.port_oid = MagicMock(return_value="oid_port_2")
-
-    snmp_get.return_value = pdu.raw_value_to_state(PDUState.REBOOT)
+    pdu = MockSnmpPDU("MyPDU", {"hostname": "127.0.0.1"})
+    type(snmp_get.return_value).value = \
+        PropertyMock(return_value=pdu.state_mapping[PDUState.REBOOT])
     snmp_get.assert_not_called()
-    assert pdu.get_port_state(2)
-    pdu.port_oid.assert_called_with(2)
-    snmp_get.assert_called_with(pdu.port_oid.return_value,
+    pdu_state = pdu.get_port_state(2)
+    assert pdu_state == PDUState.REBOOT
+    snmp_get.assert_called_with(pdu.outlet_status_oid(2),
                                 hostname=pdu.hostname, community=pdu.community,
                                 version=1)
 
@@ -225,15 +237,14 @@ def test_driver_BaseSnmpPDU_get_port():
 
 
 def test_driver_BaseSnmpPDU_set_port():
-    pdu = BaseSnmpPDU("MyPDU", "127.0.0.1", "label_base")
-
-    pdu.port_oid = MagicMock(return_value="oid_port_2")
+    pdu = MockSnmpPDU("MyPDU", {"hostname": "127.0.0.1"})
+    type(snmp_get.return_value).value = \
+        PropertyMock(return_value=pdu.state_mapping[PDUState.REBOOT])
     snmp_set.return_value = True
     snmp_set.assert_not_called()
     assert pdu.set_port_state(2, PDUState.REBOOT) is True
-    pdu.port_oid.assert_called_with(2)
-    snmp_set.assert_called_with(pdu.port_oid.return_value,
-                                pdu.state_to_raw_value(PDUState.REBOOT), 'i',
+    snmp_set.assert_called_with(pdu.outlet_ctrl_oid(2),
+                                pdu.state_mapping[PDUState.REBOOT], 'i',
                                 hostname=pdu.hostname, community=pdu.community,
                                 version=1)
 
@@ -243,46 +254,29 @@ def test_driver_BaseSnmpPDU_set_port():
 
 
 def test_driver_BaseSnmpPDU_action_translation():
-    pdu = BaseSnmpPDU("MyPDU", "127.0.0.1", "label_base")
+    pdu = MockSnmpPDU("MyPDU", {"hostname": "127.0.0.1"})
 
     # Check the state -> SNMP value translation
     for action in PDUState.valid_actions():
-        assert pdu.state_to_raw_value(action) == pdu.action_to_snmp_value[action.name]
+        assert pdu.inverse_state_mapping[pdu.state_mapping[action]] == action
 
-    with pytest.raises(ValueError):
-        pdu.state_to_raw_value(PDUState.UNKNOWN)
-
-    # Check the SNMP value -> state translation
-    for state in PDUState.valid_actions():
-        raw = pdu.state_to_raw_value(state)
-        assert pdu.raw_value_to_state(raw) == state
-
-    with pytest.raises(AttributeError):
-        pdu.state_to_raw_value(42)
+    with pytest.raises(KeyError):
+        pdu.state_mapping[PDUState.UNKNOWN]
 
 
 def test_driver_ApcMasterswitchPDU_check_OIDs():
-    pdu = ApcMasterswitchPDU("MyPDU", config={"hostname": "127.0.0.1"})
+    pdu = ApcMasterswitchPDU("MyPDU", {"hostname": "127.0.0.1"})
 
-    assert pdu.oid_outlets_label_base == "SNMPv2-SMI::enterprises.318.1.1.4.4.2.1.4"
-    assert pdu.port_oid(10) == "SNMPv2-SMI::enterprises.318.1.1.4.4.2.1.3.10"
-
-
-def test_driver_ApcMasterswitchPDU_invalid_config():
-    with pytest.raises(ValueError):
-        ApcMasterswitchPDU("MyPDU", config={})
+    assert pdu.outlet_labels_oid == f"{pdu.oid_enterprise}.318.1.1.4.4.2.1.4"
+    assert pdu.outlet_status_oid(10) == f"{pdu.oid_enterprise}.318.1.1.4.4.2.1.3.10"
+    assert pdu.outlet_ctrl_oid(10) == f"{pdu.oid_enterprise}.318.1.1.4.4.2.1.3.10"
 
 
 def test_driver_PDU41004_check_OIDs():
-    pdu = PDU41004("MyPDU", config={"hostname": "127.0.0.1"})
-
-    assert pdu.oid_outlets_label_base == "SNMPv2-SMI::enterprises.3808.1.1.3.3.3.1.1.2"
-    assert pdu.port_oid(10) == "SNMPv2-SMI::enterprises.3808.1.1.3.3.3.1.1.4.10"
-
-
-def test_driver_PDU41004_invalid_config():
-    with pytest.raises(ValueError):
-        PDU41004("MyPDU", config={})
+    pdu = PDU41004("MyPDU", {"hostname": "127.0.0.1"})
+    assert pdu.outlet_labels_oid == f"{pdu.oid_enterprise}.3808.1.1.3.3.3.1.1.2"
+    assert pdu.outlet_status_oid(10) == f"{pdu.oid_enterprise}.3808.1.1.3.3.3.1.1.4.10"
+    assert pdu.outlet_ctrl_oid(10) == f"{pdu.oid_enterprise}.3808.1.1.3.3.3.1.1.4.10"
 
 
 def test_driver_DummyPDU():
@@ -295,85 +289,102 @@ def test_driver_DummyPDU():
     assert pdu.get_port_state(0) == PDUState.OFF
 
 
-def test_driver_SnmpPDU_check_OIDs_and_default_actions():
-    pdu = SnmpPDU("MyPDU", config={
+def test_driver_ManualSnmpPDU_check_OIDs_and_default_actions():
+    pdu = ManualSnmpPDU("MyPDU", config={
         "hostname": "127.0.0.1",
-        "oid_outlets_label_base": "label_base",
-        "oid_outlets_base": "outlet_base",
+        "system_id": "1.2.3.4",
+        "outlet_labels": "5.6.7.8",
+        "outlet_status": "5.6.7.9",
+        "outlet_ctrl": "5.6.7.10",
+        "state_mapping": {
+            "on": 1,
+            "off": 2,
+            "reboot": 3,
+        },
     })
 
     assert pdu.community == "private"
-    assert pdu.oid_outlets_label_base == "label_base"
-    assert pdu.port_oid(10) == "outlet_base.10"
-    assert pdu.action_to_snmp_value == super(SnmpPDU, pdu).action_to_snmp_value
+    assert pdu.outlet_labels == "5.6.7.8"
+    assert pdu.outlet_status_oid(10) == "1.3.6.1.4.1.1.2.3.4.5.6.7.9.10"
+    assert pdu.outlet_ctrl_oid(10) == "1.3.6.1.4.1.1.2.3.4.5.6.7.10.10"
+    assert pdu.state_mapping.keys() == set([PDUState.ON, PDUState.OFF, PDUState.REBOOT])
+    assert pdu.inverse_state_mapping.keys() == set([1, 2, 3])
+    for k, _ in pdu.state_mapping.items():
+        assert pdu.inverse_state_mapping[pdu.state_mapping[k]] == k
 
 
-def test_driver_SnmpPDU_actions():
-    pdu = SnmpPDU("MyPDU", config={
-        "hostname": "127.0.0.1",
-        "oid_outlets_label_base": "label_base",
-        "oid_outlets_base": "outlet_base",
-        "community": "public",
-        "action_to_snmp_value": {
-            "ON": 42,
-            "OFF": 43,
-            "REBOOT": 44
-        }
-    })
-
-    assert pdu.community == "public"
-    assert pdu.action_to_snmp_value == {
-        "ON": 42,
-        "OFF": 43,
-        "REBOOT": 44
-    }
-
-
-def test_driver_SnmpPDU_invalid_actions():
+def test_driver_ManualSnmpPDU_invalid_actions():
     with pytest.raises(ValueError):
-        SnmpPDU("MyPDU", config={
+        ManualSnmpPDU("MyPDU", config={
             "hostname": "127.0.0.1",
-            "oid_outlets_label_base": "label_base",
-            "oid_outlets_base": "outlet_base",
-            "community": "public",
-            "action_to_snmp_value": {
-                "ON": "TOTO",
-                "OFF": 43,
-                "REBOOT": 44
-            }
+            "system_id": "1.2.3.4",
+            "outlet_labels": "5.6.7.8",
+            "outlet_status": "5.6.7.9",
+            "outlet_ctrl": "5.6.7.10",
+            "state_mapping": {
+                "on": "FUDGE",
+                "off": 2,
+                "reboot": 3,
+            },
         })
 
 
-def test_driver_SnmpPDU_missing_actions():
-    with pytest.raises(ValueError):
-        SnmpPDU("MyPDU", config={
+def test_driver_ManualSnmpPDU_missing_actions():
+    with pytest.raises(AssertionError):
+        ManualSnmpPDU("MyPDU", config={
             "hostname": "127.0.0.1",
-            "oid_outlets_label_base": "label_base",
-            "oid_outlets_base": "outlet_base",
-            "community": "public",
-            "action_to_snmp_value": {
-                "OFF": 43,
-                "REBOOT": 44
-            }
+            "system_id": "1.2.3.4",
+            "outlet_labels": "5.6.7.8",
+            "outlet_status": "5.6.7.9",
+            "outlet_ctrl": "5.6.7.10",
+            "state_mapping": {
+                "off": 2,
+                "reboot": 3,
+            },
         })
 
 
-def test_driver_SnmpPDU_missing_parameters():
+def test_driver_ManualSnmpPDU_missing_parameters():
     valid_config = {
         "hostname": "127.0.0.1",
-        "oid_outlets_label_base": "label_base",
-        "oid_outlets_base": "outlet_base",
-        "community": "public",
-        "action_to_snmp_value": {
-            "ON": 42,
-            "OFF": 43,
-            "REBOOT": 44
-        }
+        "system_id": "1.2.3.4",
+        "outlet_labels": "5.6.7.8",
+        "outlet_status": "5.6.7.9",
+        "outlet_ctrl": "5.6.7.10",
+        "state_mapping": {
+            "on": 1,
+            "off": 2,
+            "reboot": 3,
+        },
     }
 
-    SnmpPDU("MyPDU", config=valid_config)
-    for required_param in ["hostname", "oid_outlets_label_base", "oid_outlets_base"]:
+    ManualSnmpPDU("MyPDU", config=valid_config)
+    for required_param in ["hostname", "system_id", "outlet_labels", "outlet_status", "state_mapping"]:
         new_config = copy.deepcopy(valid_config)
         del new_config[required_param]
-        with pytest.raises(ValueError):
-            SnmpPDU("MyPDU", config=new_config)
+        with pytest.raises((ValueError, AssertionError)):
+            ManualSnmpPDU("MyPDU", config=new_config)
+
+
+def test_driver_ManualSnmpPDU_weird_inverses():
+    valid_config = {
+        "hostname": "127.0.0.1",
+        "system_id": "1.2.3.4",
+        "outlet_labels": "5.6.7.8",
+        "outlet_status": "5.6.7.9",
+        "outlet_ctrl": "5.6.7.10",
+        "state_mapping": {
+            "on": 1,
+            "off": 2,
+            "reboot": 3,
+        },
+        "inverse_state_mapping": {
+            "on": 2,
+            "off": 3,
+            "reboot": 4,
+        },
+    }
+
+    pdu = ManualSnmpPDU("MyPDU", config=valid_config)
+    for k, _ in pdu.state_mapping.items():
+        assert pdu.inverse_state_mapping[pdu.state_mapping[k]] == k + 1

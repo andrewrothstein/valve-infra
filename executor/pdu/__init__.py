@@ -82,7 +82,8 @@ class PDU:
         #  delays of their own, and these come with defaults that we
         #  need to wait *at least* that long for. We should do a
         #  better job of provisioning these values to suit our needs.
-        self.state_transition_delay_seconds = 1
+        if not hasattr(self, 'state_transition_delay_seconds'):
+            self.state_transition_delay_seconds = 1
 
     @property
     def ports(self):
