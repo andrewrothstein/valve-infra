@@ -71,6 +71,17 @@ class PDUPort:
 class PDU:
     def __init__(self, name):
         self.name = name
+        # FIXME: It would be better to poll on state changes than wait
+        # arbitrary amounts of time. Abstracting state transitions
+        # into a method, so that subclasses can do more intelligent
+        # things (in SNMP, a better thing can be done, for instance),
+        # would be a start. There's a couple things in play for these pauses,
+        #  1. The firmware on different PDUs needs differing amounts
+        #  of time to settle in state transitions.  2. SNMP PDUs
+        #  typically offer a way for the user to add state transition
+        #  delays of their own, and these come with defaults that we
+        #  need to wait *at least* that long for. We should do a
+        #  better job of provisioning these values to suit our needs.
         self.state_transition_delay_seconds = 1
 
     @property
