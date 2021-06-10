@@ -100,7 +100,7 @@ class PDU:
     @classmethod
     def supported_pdus(cls):
         from .drivers.apc import ApcMasterswitchPDU
-        from .drivers.cyberpower import PDU41004
+        from .drivers.cyberpower import PDU41004, PDU15SWHVIEC12ATNET
         from .drivers.dummy import DummyPDU
         from .drivers.virtual import VirtualPDU
         from .drivers.snmp import SnmpPDU
@@ -108,6 +108,7 @@ class PDU:
         return {
             "apc_masterswitch": ApcMasterswitchPDU,
             "cyberpower_pdu41004": PDU41004,
+            "cyberpower_pdu15swhviec12atnet": PDU15SWHVIEC12ATNET,
             "dummy": DummyPDU,
             "vpdu": VirtualPDU,
             "snmp": SnmpPDU,
