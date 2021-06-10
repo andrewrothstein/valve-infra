@@ -100,6 +100,7 @@ class JobConsole(Thread):
 
     def start(self):
         if not self.clientless:
+            logger.info(f"Connecting to the client endpoint {self.client_endpoint}")
             self.client_sock = socket.create_connection(self.client_endpoint)
         self.start_time = datetime.now()
 

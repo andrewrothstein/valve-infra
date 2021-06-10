@@ -125,16 +125,22 @@ def post_job():
     logger.debug("raw job:\n%s", job)
     machine, error_code, reason = find_suitable_machine(job.target)
     if machine is not None:
-        endpoint = (flask.request.remote_addr, metadata.get("callback_port"))
-        # Bit nasty to render twice, but better than duplicating
-        # template render in the various call-sites within
-        # executor. Rendering it up front reduces the chances for
-        # mistakes. (Meta-point: using an HTTP query to specify the
-        # "target" could avoid this duplication of work, and might
-        # actually make more sense)
-        job = Job.render_with_machine(job_params["job"], machine)
-        logger.debug("renderered job:\n%s", job)
-        machine.executor.start_job(job, endpoint)
+        # Use the client-provided host callback if available, or default to the remote addr
+        remote_addr = metadata.get("callback_host", flask.request.remote_addr)
+        if remote_addr is not None:
+            endpoint = (remote_addr, metadata.get("callback_port"))
+            # Bit nasty to render twice, but better than duplicating
+            # template render in the various call-sites within
+            # executor. Rendering it up front reduces the chances for
+            # mistakes. (Meta-point: using an HTTP query to specify the
+            # "target" could avoid this duplication of work, and might
+            # actually make more sense)
+            job = Job.render_with_machine(job_params["job"], machine)
+            logger.debug("renderered job:\n%s", job)
+            machine.executor.start_job(job, endpoint)
+        else:
+            reason = "Invalid argument: callback_host cannot be None. Leave empty to get the default value"
+            error_code = 400
 
     response = {
         # TODO: Store the job in memory, and show the ID here

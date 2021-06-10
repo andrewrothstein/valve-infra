@@ -45,10 +45,11 @@ class JobStatus(Enum):
 
 
 class Job:
-    def __init__(self, executor_url, job_desc, wait_if_busy=False):
+    def __init__(self, executor_url, job_desc, wait_if_busy=False, callback_host=None):
         self.executor_url = executor_url
         self.job_desc = job_desc
         self.wait_if_busy = wait_if_busy
+        self.callback_host = callback_host
 
     def _setup_connection(self):
         # Set up a TCP server
@@ -64,6 +65,9 @@ class Job:
                 },
                 "job": self.job_desc
             }
+
+            if self.callback_host is not None:
+                data['metadata']['callback_host'] = self.callback_host
 
             first_wait = True
             while True:
@@ -202,11 +206,13 @@ class Job:
         return status
 
     @classmethod
-    def from_file(cls, executor_url, path, wait_if_busy=False):
+    def from_file(cls, executor_url, path, wait_if_busy=False,
+                  callback_host=None):
         with open(path) as f:
             job_desc = f.read()
 
-        return cls(executor_url, job_desc, wait_if_busy=wait_if_busy)
+        return cls(executor_url, job_desc, wait_if_busy=wait_if_busy,
+                   callback_host=callback_host)
 
 
 if __name__ == '__main__':
@@ -216,11 +222,15 @@ if __name__ == '__main__':
                         help='URL to the executor service')
     parser.add_argument("-w", "--wait", action="store_true",
                         help="Wait for a machine to become available if all are busy")
+    parser.add_argument("-c", "--callback",
+                        help=("Hostname that the executor will use to connect back to this client, "
+                              "useful for non-trivial routing to the test device"))
     parser.add_argument('action', help='Action this script should do',
                         choices=['run'])
     parser.add_argument("job", help='Job that should be run')
     args = parser.parse_args()
 
-    job = Job.from_file(args.executor_url, args.job, args.wait)
+    job = Job.from_file(args.executor_url, args.job, args.wait,
+                        callback_host=args.callback)
     status = job.start()
     sys.exit(status.status_code)
