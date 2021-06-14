@@ -52,7 +52,7 @@ executor:
     - .container base
   rules:
     - changes:
-      - executor/**
+      - executor/**/*
       - .gitlab-ci.yml
   script:
     - docker build -t $IMAGE_NAME -f executor/Dockerfile .
@@ -66,8 +66,8 @@ machine_registration:
     - .container base
   rules:
     - changes:
-      - machine_registration/**
-      - gfxinfo/**
+      - machine_registration/**/*
+      - gfxinfo/**/*
       - .gitlab-ci.yml
   script:
     - docker build -t $IMAGE_NAME -f machine_registration/Dockerfile .
@@ -77,7 +77,7 @@ gitlab-trigger:
     - .container base
   rules:
     - changes:
-      - containers/gitlab-trigger/**
+      - containers/gitlab-trigger/**/*
       - .gitlab-ci.yml
   script:
     - docker build -t $IMAGE_NAME -f containers/gitlab-trigger/Dockerfile .
@@ -87,7 +87,7 @@ salad:
     - .container base
   rules:
     - changes:
-      - salad/**
+      - salad/**/*
       - .gitlab-ci.yml
   script:
     - docker build -t $IMAGE_NAME salad/
