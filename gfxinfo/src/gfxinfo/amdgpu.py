@@ -83,14 +83,14 @@ class AMDGPU:
     def __init__(self, vendor_id: int, product_id: int, flags: str):
         self.vendor_id = vendor_id
         self.product_id = product_id
-        self.codename = "UNKNOWN"
+        self.amdgpu_codename = "UNKNOWN"
         self.is_APU = False
         self.is_Mobility = False
         self.has_experimental_support = False
 
         for flag in [f.strip() for f in flags.split('|')]:
             if flag.startswith("CHIP_"):
-                self.codename = flag[5:]
+                self.amdgpu_codename = flag[5:]
             elif flag == "AMD_IS_APU":
                 self.is_APU = True
             elif flag == "AMD_IS_MOBILITY":
@@ -101,11 +101,21 @@ class AMDGPU:
                 print(f"WARNING: Unknown flag '{flag}'")
 
         if self.architecture is None:
-            print(f"{self.codename}: Unknown architecture", file=sys.stderr)
+            print(f"{self.amdgpu_codename}: Unknown architecture", file=sys.stderr)
         if self.family is None:
-            print(f"{self.codename}: Unknown family", file=sys.stderr)
+            print(f"{self.amdgpu_codename}: Unknown family", file=sys.stderr)
         if self.gfx_version is None:
-            print(f"{self.codename}: Unknown GFX version", file=sys.stderr)
+            print(f"{self.amdgpu_codename}: Unknown GFX version", file=sys.stderr)
+
+    @property
+    def codename(self):
+        codenames = {
+            "SIENNA_CICHLID": "NAVI21",
+            "NAVY_FLOUNDER": "NAVI22",
+            "DIMGREY_CAVEFISH": "NAVI23",
+        }
+
+        return codenames.get(self.amdgpu_codename, self.amdgpu_codename)
 
     @property
     def family(self):
@@ -155,10 +165,10 @@ class AMDGPU:
             # Unknowns
             "MULLINS": "UNK",
             "TOPAZ": "UNK",
-            "SIENNA_CICHLID": "UNK",
+            "NAVI21": "UNK",
             "VANGOGH": "UNK",
-            "NAVY_FLOUNDER": "UNK",
-            "DIMGREY_CAVEFISH": "UNK",
+            "NAVI22": "UNK",
+            "NAVI23": "UNK",
             "ALDEBARAN": "UNK",
         }
 
@@ -215,10 +225,10 @@ class AMDGPU:
             "NAVI14": "RDNA1",
 
             # RDNA2
-            "SIENNA_CICHLID": "RDNA2",
+            "NAVI21": "RDNA2",
+            "NAVI22": "RDNA2",
+            "NAVI23": "RDNA2",
             "VANGOGH": "RDNA2",
-            "NAVY_FLOUNDER": "RDNA2",
-            "DIMGREY_CAVEFISH": "RDNA2",
         }
 
         return architectures.get(self.codename)
