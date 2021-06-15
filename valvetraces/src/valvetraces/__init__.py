@@ -328,7 +328,7 @@ class Client:
 
         return self._upload_blob(filepath, name, data_checksum)
 
-    def upload_frames(self, trace_id, frames, machine_tags):
+    def upload_frames(self, trace_id, frames, job_id, machine_tags):
         if not machine_tags:
             machine_tags = list(self.machine_tags)
 
@@ -341,6 +341,11 @@ class Client:
                 print(f"Couldn't identify \"{frame}\" 's frame id. "
                       "Skipping ...")
                 continue
+            r = self._post(
+                "/api/v1/trace_execs",
+                params={"trace_exec": {"trace_id": trace_id,
+                "job_id": job_id}})
+            trace_exec_id = r.get('id')
             frame_id = int(m.groupdict({}).get('frame_id'))
             blob = self._upload_frame_blob(frame, file_name)
             r = self._post(
@@ -350,7 +355,17 @@ class Client:
                         {"upload": blob.signed_id,
                          "trace_id": trace_id,
                          "metadata": {"machine_tags": machine_tags},
-                         "trace_frame_id": frame_id}})
+                         "trace_frame_id": frame_id,
+                         "trace_exec_id": trace_exec_id}})
+
+    def create_job(self):
+        machine_tags = list(self.machine_tags)
+        r = self._post("/api/v1/jobs",
+        params={"job": {"metadata": {"machine_tags": machine_tags}}})
+        return(r.get('id'))
+
+    def complete_job(self, job_id):
+        self._get("/api/v1/jobs/{}/complete".format(job_id))
 
 
 @click.group()
@@ -467,6 +482,28 @@ def upload_frames(ctx, trace_id, frames, job_id, machine_tags):
     """Upload FRAMES to the service."""
     client = ctx.obj['client']
     client.upload_frames(trace_id, frames, job_id, machine_tags)
+
+@cli.group()
+@click.pass_context
+def job(ctx):
+    """Interact with jobs in the service."""
+    ctx.ensure_object(dict)
+
+@job.command('create')
+@click.pass_context
+def create_job(ctx):
+    """Create a job in the service."""
+    client = ctx.obj['client']
+    r = client.create_job()
+    return r
+
+@job.command('complete')
+@click.argument('job-id', nargs=1, type=click.INT)
+@click.pass_context
+def complete_job(ctx, job_id):
+    """Complete the JOB_ID in the service."""
+    client = ctx.obj['client']
+    client.complete_job(job_id)
 
 if __name__ == '__main__':
     cli()
