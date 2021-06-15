@@ -17,7 +17,7 @@ import click
 
 from enum import Enum
 from PIL import Image
-from gfxinfo import GFXInfo
+from gfxinfo import find_gpu, VulkanInfo
 
 class App:
     def __init__(self, app_blob):
@@ -134,7 +134,32 @@ class Client:
 
     @cached_property
     def machine_tags(self):
-        return GFXInfo().machine_tags()
+        tags = set()
+
+        if gpu := find_gpu('/tmp'):
+            tags = gpu.tags()
+            if info := VulkanInfo.construct():
+                tags.add(f'vk:vram_size:{info.VRAM_heap.GiB_size}_GiB')
+                tags.add(f'vk:gtt_size:{info.GTT_heap.GiB_size}_GiB')
+
+                if info.mesa_version is not None:
+                    tags.add(f'mesa:version:{info.mesa_version}')
+                if info.mesa_git_version is not None:
+                    tags.add(f'mesa:git:version:{info.mesa_git_version}')
+
+                if info.device_name is not None:
+                    tags.add(f'vk:device:name:{info.device_name}')
+
+                if info.device_type is not None:
+                    tags.add(f'vk:device:type:{info.device_type.name}')
+
+                if info.api_version is not None:
+                    tags.add(f'vk:api:version:{info.driver_name}')
+
+                if info.driver_name is not None:
+                    tags.add(f'vk:driver:name:{info.driver_name}')
+
+        return tags
 
     def login(self):
         if self._login_cookie is None:
