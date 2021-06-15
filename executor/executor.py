@@ -354,26 +354,6 @@ class MinioCache():
             self._client.fput_object(minio_bucket_name, minio_object_name, temp_download_area.name)
 
 
-class BootsClient:
-    @classmethod
-    def url(cls, path):
-        boots_url = os.getenv('BOOTS_URL', "http://localhost:8087")
-        return f"{boots_url}{path}"
-
-    @classmethod
-    def set_config(cls, mac_addr, kernel_path, initramfs_path, kernel_cmdline):
-        params = {
-            "initrd_path": initramfs_path,
-            "kernel_path": kernel_path,
-            "cmdline": kernel_cmdline,
-        }
-
-        r = requests.post(cls.url(f"/duts/{mac_addr}/boot"), json=params)
-        if r.status_code != 200:
-            logger.error(f"Setting the BOOTS config failed: {r.json()}")
-        return r.status_code
-
-
 class Executor(Thread):
     def __init__(self, machine):
         super().__init__(name=f'ExecutorThread-{machine.id}')
@@ -483,12 +463,6 @@ class Executor(Thread):
 
             return True
 
-        def set_boot_config(deployment):
-            BootsClient.set_config(mac_addr=self.machine.id,
-                                   kernel_path=self.remote_url_to_local_cache_mapping.get(deployment.kernel_url),
-                                   initramfs_path=self.remote_url_to_local_cache_mapping.get(deployment.initramfs_url),
-                                   kernel_cmdline=deployment.kernel_cmdline)
-
         def session_end():
             cooldown_delay_s = 0
 
@@ -532,7 +506,12 @@ class Executor(Thread):
 
                 # Set up the deployment
                 self.log("Setting up the boot configuration\n")
-                set_boot_config(deployment)
+                self.machine.boots.write_pxelinux_config(
+                    mac_addr=self.machine.id,
+                    kernel_path=self.remote_url_to_local_cache_mapping.get(deployment.kernel_url),
+                    cmdline=deployment.kernel_cmdline,
+                    initrd_path=self.remote_url_to_local_cache_mapping.get(deployment.initramfs_url))
+
                 self.log(f"Power up the machine, enforcing {self.machine.pdu_port.min_off_time} seconds of down time\n")
                 self.machine.pdu_port.set(PDUState.ON)
 

@@ -1,0 +1,7 @@
+DEFAULT default
+label default
+  KERNEL {{ kernel_path }}
+  {% if initrd_path is not none %}
+  INITRD {{ initrd_path }}
+  {% endif %}
+  APPEND {{ cmdline }}

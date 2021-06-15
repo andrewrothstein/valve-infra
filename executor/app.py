@@ -8,6 +8,7 @@ import flask
 from executor import SergentHartman, MachineState
 from gitlab_runner import GitlabRunnerAPI
 from mars import MarsClient, Machine
+from boots import BootService
 from client import JobStatus
 from job import Job
 from logger import logger
@@ -180,8 +181,11 @@ def cli(ctx, gitlab_url, gitlab_conf_file, gitlab_access_token,
 @click.option('--port', envvar='EXECUTOR_PORT', type=int, default=8003)
 @click.pass_context
 def run(ctx, mars_url, host, port):  # pragma: nocover
+    # Start the network boot service
+    boots = BootService()
+
     # Create all the workers based on the machines found in MaRS
-    mars = MarsClient(mars_url, gitlab_runner_api=ctx.obj.get('GITLAB_RUNNER_API'))
+    mars = MarsClient(mars_url, boots, gitlab_runner_api=ctx.obj.get('GITLAB_RUNNER_API'))
     mars.start()
 
     # Start flask
@@ -191,6 +195,7 @@ def run(ctx, mars_url, host, port):  # pragma: nocover
 
     # Shutdown
     mars.stop(wait=True)
+    boots.stop()
 
 
 @cli.group()

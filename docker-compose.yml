@@ -13,23 +13,6 @@ services:
       - "8000:80/tcp"
     volumes:
       - /mnt:/mnt
-  boots:
-    privileged: true
-    network_mode: host
-    image: registry.freedesktop.org/chturne/boots
-    environment:
-      - BOOTS_SERVICE_PORT=8087
-      - BOOTS_HTTP_SERVICE_PORT=8088
-      - PRIVATE_INTERFACE=$PRIVATE_INTERFACE
-      - MARS_HOST=http://10.42.0.1:8000
-      - DEFAULT_KERNEL=http://10.42.0.1:9000/boot/default_kernel
-      - DEFAULT_INITRD=http://10.42.0.1:9000/boot/default_boot2container.cpio.xz
-      - DEFAULT_CMDLINE=b2c.container="-ti --tls-verify=false docker://10.42.0.1:8002/mupuf/valve-infra/machine_registration:latest register" b2c.ntp_peer="10.42.0.1" b2c.cache_device=none loglevel=6
-    volumes:
-      - ${TMP_MOUNT}/boots:/boots
-      - ${TMP_MOUNT}/boots/nfs-roots:/nfs
-      - ${TMP_MOUNT}/boots/nfs-roots:/boots/tftp/nfs
-      - /lib/modules:/lib/modules
   executor:
     privileged: true
     network_mode: host
@@ -52,8 +35,13 @@ services:
       - MINIO_ROOT_PASSWORD=$MINIO_ROOT_PASSWORD
       - FDO_PROXY_REGISTRY=10.42.0.1:8002
       - LOCAL_REGISTRY=10.42.0.1:8004
+      - PRIVATE_INTERFACE=$PRIVATE_INTERFACE
+      - BOOTS_DEFAULT_KERNEL=http://10.42.0.1:9000/boot/default_kernel
+      - BOOTS_DEFAULT_INITRD=http://10.42.0.1:9000/boot/default_boot2container.cpio.xz
+      - BOOTS_DEFAULT_CMDLINE=b2c.container="-ti --tls-verify=false docker://10.42.0.1:8002/mupuf/valve-infra/machine_registration:latest register" b2c.ntp_peer="10.42.0.1" b2c.cache_device=none loglevel=6
     volumes:
       - ${TMP_MOUNT}/gitlab-runner:/etc/gitlab-runner
+      - ${TMP_MOUNT}/boots:/boots
     restart: unless-stopped
   gitlab-runner:
     image: gitlab/gitlab-runner:alpine-v13.12.0

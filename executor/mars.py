@@ -8,9 +8,10 @@ import time
 
 
 class Machine:
-    def __init__(self, mars_base_url, machine_id, fields=None, gitlab_runner_api=None):
+    def __init__(self, mars_base_url, machine_id, boots, fields=None, gitlab_runner_api=None):
         self.mars_base_url = mars_base_url
         self._machine_id = machine_id
+        self.boots = boots
         self.gitlab_runner_api = gitlab_runner_api
 
         self.pdu_port = self._create_pdu_port(fields)
@@ -20,6 +21,15 @@ class Machine:
 
         # Executor associated (temporary)
         self.executor = Executor(self)
+
+        # Make sure the test machines are assigned a static IP address
+        # to facilitate testing services hosted on the test
+        # machines themselves.
+        if 'ip_address' in self._fields:
+            self.boots.write_network_config(
+                self.mac_address,
+                self._fields['ip_address'],
+                self.full_name)
 
         # Make sure the updates are reflected in the runner's state
         self.update_runner_state()
@@ -99,14 +109,19 @@ class Machine:
 
             fields = r.json()
 
-        # Check if the PDU port changed
-        if (fields.get('pdu') != self._fields.get('pdu') or
-           fields.get('pdu_port_id') != self._fields.get('pdu_port_id')):
+        def is_changed(field_name):
+            return fields.get(field_name) != self._fields.get(field_name)
+
+        if is_changed('pdu') or is_changed('pdu_port_id'):
             self.pdu_port = self._create_pdu_port(fields)
 
         if self.pdu_port is not None:
             self.pdu_port.min_off_time = fields.get('pdu_off_delay', 5)
 
+        if is_changed('ip_address') or is_changed('full_name'):
+            self.boots.write_pxelinux_config(self.mac_address,
+                                             fields['ip_address'],
+                                             fields['full_name'])
         self._fields = fields
 
         # Make sure the updates are reflected in the runner's state
@@ -123,10 +138,11 @@ class Machine:
 
 
 class MarsClient(Thread):
-    def __init__(self, base_url, gitlab_runner_api=None):
-        super().__init__()
+    def __init__(self, base_url, boots, gitlab_runner_api=None):
+        super().__init__(name='MarsClient')
 
         self.mars_base_url = base_url
+        self.boots = boots
         self.gitlab_runner_api = gitlab_runner_api
 
         self.stop_event = Event()
@@ -145,7 +161,7 @@ class MarsClient(Thread):
     def _machine_update_or_create(self, machine_id, fields):
         machine = self._machines.get(machine_id)
         if machine is None:
-            machine = Machine(self.mars_base_url, machine_id, fields, self.gitlab_runner_api)
+            machine = Machine(self.mars_base_url, machine_id, self.boots, fields, self.gitlab_runner_api)
         else:
             machine.update(fields)
 
