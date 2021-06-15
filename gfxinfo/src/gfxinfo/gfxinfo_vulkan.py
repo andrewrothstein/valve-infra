@@ -192,7 +192,7 @@ class VulkanInfo:
         if self.driver_info is None:
             return None
 
-        m = re.search(r"Mesa (?P<version>[\w\.\d -]+)", self.driver_info)
+        m = re.search(r"Mesa (?P<version>[\w\.\d -]+)\b", self.driver_info)
         if m:
             return m.groupdict({}).get('version')
 
