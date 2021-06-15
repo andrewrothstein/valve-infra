@@ -6,7 +6,6 @@ except:
     from backports.cached_property import cached_property
 from getpass import getpass
 
-import argparse
 import base64
 import hashlib
 import humanize
@@ -14,6 +13,7 @@ import os
 import re
 import requests
 import sys
+import click
 
 from enum import Enum
 from PIL import Image
@@ -185,7 +185,7 @@ class Client:
 
         return App(r)
 
-    def list_traces(self, filter_machine_tags=[]):
+    def list_traces(self, filter_machine_tags):
         tags = [re.compile(t) for t in filter_machine_tags]
 
         traces = list()
@@ -198,7 +198,7 @@ class Client:
         return traces
 
     def get_trace(self, trace_name):
-        for trace in self.list_traces():
+        for trace in self.list_traces([]):
             if trace.filename == trace_name:
                 return trace
 
@@ -273,8 +273,8 @@ class Client:
 
         return self._upload_blob(filepath, name, data_checksum)
 
-    def upload_trace(self, app_id, filepath, frame_ids, machine_tags=None):
-        if machine_tags is None:
+    def upload_trace(self, app_id, filepath, frame_ids, machine_tags):
+        if not machine_tags:
             confirmation_message = ('I confirm the trace is uploaded from '
                                     'the same computer that produced the trace')
             machine_tags = list(self.machine_tags)
@@ -328,8 +328,8 @@ class Client:
 
         return self._upload_blob(filepath, name, data_checksum)
 
-    def upload_frames(self, trace_id, frames, machine_tags=None):
-        if machine_tags is None:
+    def upload_frames(self, trace_id, frames, machine_tags):
+        if not machine_tags:
             machine_tags = list(self.machine_tags)
 
         pattern = re.compile('(?P<frame_id>\d+$)')
@@ -352,85 +352,121 @@ class Client:
                          "metadata": {"machine_tags": machine_tags},
                          "trace_frame_id": frame_id}})
 
-def entrypoint():
-    parser = argparse.ArgumentParser(prog='valvetraces')
-    parser.add_argument('--username', help='Username you want to use in the service')
-    parser.add_argument('-u', '--url', default="https://linux-perf.steamos.cloud", help='URL to the service')
 
-    subparsers = parser.add_subparsers(dest='cmd')
-    login_parser = subparsers.add_parser('login', help='Log in the valve traces service')
+@click.group()
+@click.option('-u', '--url', envvar='VALVETRACES_SERVER',
+              default='https://linux-perf.steamos.cloud',
+              help='URL to the service')
+@click.option('--username', envvar='VALVETRACES_USERNAME',
+              help='Username you want to use in the service')
+@click.pass_context
+def cli(ctx, url, username):
+    """Script to interact with Valve traces servers."""
+    ctx.ensure_object(dict)
+    ctx.obj['client'] = client = Client(url=url, username=username)
 
-    list_app_parser = subparsers.add_parser('list_apps', help='List the applications defined in the service')
+@cli.command()
+@click.pass_context
+def login(ctx):
+    """Log in the valve traces service."""
+    client = ctx.obj['client']
+    client.login()
 
-    create_app_parser = subparsers.add_parser('create_app', help='Create a new application in the service')
-    create_app_parser.add_argument("name", help="Name of the application you want to create")
-    create_app_parser.add_argument("--steamappid", help="Steam's appid associated to this application")
+@cli.group()
+@click.pass_context
+def app(ctx):
+    """Interact with applications in the service."""
+    ctx.ensure_object(dict)
 
-    list_parser = subparsers.add_parser('list', help='List the traces available in the service')
-    list_parser.add_argument('-t', '--tag', dest="machine_tags", action='append',
-                             help='Limit results to traces that have machine tags matching this regular expression (can be repeated)')
+@app.command('list')
+@click.pass_context
+def app_list(ctx):
+    """List the applications defined in the service."""
+    client = ctx.obj['client']
 
-    download_parser = subparsers.add_parser('download', help='Download a trace from the service')
-    download_parser.add_argument('-o', '--output_folder', default="./", help='Folder where to output the trace')
-    download_parser.add_argument('trace',
-                                 help='Path to the trace you want to download')
+    for app in client.list_apps():
+        print(str(app))
 
-    add_tags_parser = argparse.ArgumentParser(add_help=False)
-    add_tags_parser.add_argument('-t',
-                                 '--tag',
-                                 dest="machine_tags",
-                                 action='append',
-                                 help=('If none provided, the machine tags '
-                                       'attached to the file(s) to be uploaded '
-                                       'will be generated in the machine '
-                                       'running this command. If provided, '
-                                       'just attach the specified machine tag '
-                                       'to the trace to be uploaded (can be '
-                                       'repeated).'))
+@app.command('create')
+@click.option('--steamappid',
+              help="Steam's appid associated to this application")
+@click.argument('application')
+@click.pass_context
+def app_create(ctx, application, steamappid):
+    """Create the APPLICATION in the service."""
+    client = ctx.obj['client']
+    app = client.create_app(application, steamappid)
+    print(f'Successfully created the app {str(app)}')
 
-    upload_trace_parser = subparsers.add_parser('upload_trace',
-                                                parents=[add_tags_parser],
-                                                help='Upload a trace')
-    upload_trace_parser.add_argument('-f', '--frame', action='append', required=True, dest="frames", type=int,
-                                     help='ID of the frame that should be captured from this trace (can be repeated)')
-    upload_trace_parser.add_argument('app_id',
-                                     help='Name/steam app ID of the application/game/benchmark you want to upload a trace for')
-    upload_trace_parser.add_argument('trace', help='Path to the trace you want to upload')
+@cli.group()
+@click.pass_context
+def trace(ctx):
+    """Interact with traces in the service."""
+    ctx.ensure_object(dict)
 
-    upload_frames_parser = subparsers.add_parser('upload_frames',
-                                                 parents=[add_tags_parser],
-                                                 help='Upload frames')
-    upload_frames_parser.add_argument('--trace-id', required=True, type=int,
-                                      help='ID of the trace')
-    upload_frames_parser.add_argument('frames', nargs='+',
-                                      help=('Path(s) to the frame(s) '
-                                            'you want to upload'))
+@trace.command('list')
+@click.option('-t', '--tag', 'tags', multiple=True,
+              help=('Limit results to traces that have machine tags matching '
+                    'this regular expression (can be repeated)'))
+@click.pass_context
+def trace_list(ctx, tags):
+    """List the traces available in the service."""
+    client = ctx.obj['client']
+    for trace in client.list_traces(tags):
+        print(trace)
 
-    args = parser.parse_args()
+@trace.command('download')
+@click.option('-o', '--output-folder', default='./',
+              type=click.Path(exists=True, file_okay=False,
+                              writable=True, resolve_path=True),
+              help='Folder where to output the trace')
+@click.argument('trace')
+@click.pass_context
+def trace_download(ctx, trace, output_folder):
+    """Download a TRACE from the service."""
+    client = ctx.obj['client']
+    path = client.download_trace(trace, output_folder)
+    print(f'The trace got saved at "{path}"')
 
-    # Execute the right command
-    client = Client(url=args.url, username=args.username)
-    if args.cmd == "login":
-        client.login()
-    elif args.cmd == "list_apps":
-        for app in client.list_apps():
-            print(str(app))
-    elif args.cmd == "create_app":
-        app = client.create_app(args.name, args.steamappid)
-        print(f"Successfully created the app {str(app)}")
-    elif args.cmd == "list":
-        for trace in client.list_traces(filter_machine_tags=args.machine_tags or []):
-            print(trace)
-    elif args.cmd == "download":
-        path = client.download_trace(args.trace, args.output_folder)
-        print(f"The trace got saved at '{path}'")
-    elif args.cmd == "upload_trace":
-        client.upload_trace(args.app_id, args.trace, args.frames, args.machine_tags)
-    elif args.cmd == "upload_frames":
-        client.upload_frames(args.trace_id, args.frames, args.machine_tags)
-    else:
-        parser.print_help(sys.stderr)
+def common_machine_tags(function):
+    function = click.option('-t', '--tag', 'machine_tags', multiple=True,
+                            help=('If none provided, the machine tags '
+                                  'attached to the file(s) to be uploaded '
+                                  'will be generated in the machine '
+                                  'running this command. If provided, '
+                                  'just attach the specified machine tag '
+                                  'to the trace to be uploaded (can be '
+                                  'repeated).'))(function)
+    return function
 
+@trace.command('upload')
+@common_machine_tags
+@click.option('-f', '--frame', 'frames',
+              type=click.INT, multiple=True, required=True,
+              help=('ID of the frame that should be captured from this trace '
+                    '(can be repeated)'))
+@click.argument('app-id')
+@click.argument('trace',
+                type=click.Path(exists=True, dir_okay=False, resolve_path=True))
+@click.pass_context
+def trace_upload(ctx, app_id, trace, frames, machine_tags):
+    """Upload TRACE belonging to APP_ID to the service."""
+    client = ctx.obj['client']
+    client.upload_trace(app_id, trace, frames, machine_tags)
+
+@trace.command('upload-frames')
+@common_machine_tags
+@click.option('--trace-id', type=click.INT, required=True,
+              help='ID of the trace owning these frames')
+@click.option('--job-id', type=click.INT, required=True,
+              help='ID of the job owning the generation of these frames')
+@click.argument('frames', nargs=-1,
+                type=click.Path(exists=True, dir_okay=False, resolve_path=True))
+@click.pass_context
+def upload_frames(ctx, trace_id, frames, job_id, machine_tags):
+    """Upload FRAMES to the service."""
+    client = ctx.obj['client']
+    client.upload_frames(trace_id, frames, job_id, machine_tags)
 
 if __name__ == '__main__':
-    entrypoint()
+    cli()
