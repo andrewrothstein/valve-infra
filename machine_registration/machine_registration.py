@@ -68,7 +68,7 @@ class MachineInfo():
             ser.reset_input_buffer()
 
             # Send a ping, and wait for the pong
-            ser.write(b"SALAD.ping\n")
+            ser.write(b"\nSALAD.ping\n")
             is_answer_pong = (ser.readline() == b"SALAD.pong\n")
 
             sys.exit(0 if is_answer_pong else 42)
@@ -140,12 +140,17 @@ class MachineInfo():
 
 def serial_console_works():
     def check_serial_console():
+        import termios
+
         # stdin is closed by multiprocessing, re-open it!
         sys.stdin = os.fdopen(0)
-        sys.stdin.flush()
+
+        # Remove any input we might have received thus far
+        termios.tcflush(sys.stdin, termios.TCIFLUSH)
 
         # Send the ping
-        print("SALAD.ping")
+        sys.stdout.write("\nSALAD.ping\n")
+        sys.stdout.flush()
 
         # Wait for the pong!
         is_answer_pong = re.match(r"^SALAD.pong\r?\n$", sys.stdin.readline())
