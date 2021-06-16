@@ -269,6 +269,12 @@ class BootService():
         with open(pxelinux_filename, 'w') as config:
             config.write(result)
 
+    def remove_pxelinux_config(self, mac_addr):
+        pxelinux_filename = self.pxelinux_filename_from_mac(mac_addr)
+        if os.path.exists(pxelinux_filename):
+            logger.info("%s", pxelinux_filename)
+            os.remove(pxelinux_filename)
+
 
 if __name__ == '__main__':  # pragma: nocover
     if len(sys.argv) == 2:

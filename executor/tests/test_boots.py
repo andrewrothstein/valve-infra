@@ -190,3 +190,29 @@ label default
     config_files = \
         glob.glob(os.path.join(paths['PXELINUX_CONFIG_DIR'], '01-*'))
     assert len(config_files) == 0
+
+
+@patch("boots.Dnsmasq", autospec=True)
+@patch("boots.provision_network_boot_service")
+def test_bootservice_remove_config(mock_provisioner, mock_dnsmasq, tmp_path):
+    paths = {
+        'BOOTS_ROOT': tmp_path,
+        'TFTP_DIR': f'{tmp_path}/tftp',
+        'PXELINUX_CONFIG_DIR': f'{tmp_path}/pxelinux.cfg',
+    }
+    os.makedirs(paths['PXELINUX_CONFIG_DIR'])
+    service = BootService(private_interface='br0',
+                          default_kernel='default_kernel',
+                          default_initrd='default_initrd',
+                          default_cmdline='default_cmdline',
+                          config_paths=paths)
+
+    service.write_pxelinux_config('00:11:22:33:44:55',
+                                  'kernel_path',
+                                  'cmdline',
+                                  'initrd_path')
+    p = Path(paths['PXELINUX_CONFIG_DIR']) / "01-00-11-22-33-44-55"
+    assert p.exists()
+
+    service.remove_pxelinux_config('00:11:22:33:44:55')
+    assert not p.exists()

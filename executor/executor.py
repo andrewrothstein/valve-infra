@@ -431,6 +431,7 @@ class Executor(Thread):
             # Reset the state
             self.job_config = None
             self.job_console = None
+            self.machine.boots.remove_pxelinux_config(self.machine.mac_address)
 
             # Pick a job
             if self.sergent_hartman.is_available and not self.machine.ready_for_service:
@@ -477,6 +478,7 @@ class Executor(Thread):
                 time.sleep(CONSOLE_DRAINING_DELAY)  # Delay to make sure messages are read before the end of the job
                 self.job_console.close()
                 self.job_console = None
+                self.machine.boots.remove_pxelinux_config(self.machine.mac_address)
 
             # Interruptible sleep
             for i in range(cooldown_delay_s):
