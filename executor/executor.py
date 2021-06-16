@@ -484,6 +484,13 @@ class Executor(Thread):
                     return
                 time.sleep(1)
 
+        def log_exception():
+            logger.debug("Exception caught:\n%s", traceback.format_exc())
+            self.log(f"An exception got caught: {traceback.format_exc()}\n", LogLevel.ERROR)
+            # If exceptions start firing, throttle the parent loop, since it's
+            # very heavy spam if left to run at full speed.
+            time.sleep(2)
+
         def execute_job():
             # Start the overall timeout
             timeouts = self.job_config.timeouts
@@ -569,7 +576,6 @@ class Executor(Thread):
                 if self.machine.pdu_port is None:
                     time.sleep(1)
                     continue
-
                 try:
                     if not session_init():
                         # No jobs for us to run!
@@ -578,15 +584,12 @@ class Executor(Thread):
                     self.log(f"Starting the job: {self.job_config}\n\n", LogLevel.DEBUG)
                     execute_job()
                 except Exception:
-                    logger.debug("Exception caught:\n%s", traceback.format_exc())
-                    self.log(f"An exception got caught: {traceback.format_exc()}\n", LogLevel.ERROR)
-
-                session_end()
+                    self.log_exception()
+                finally:
+                    session_end()
             except Exception:
-                traceback.print_exc()
-                # If exceptions start firing, throttle the run loop,
-                # since it's very heavy spam if left to run at full
-                # speed.
-                time.sleep(2)
+                # Capture any further exceptions from session_end
+                # TODO: Refactor to avoid the cyclomatic complexity.
+                self.log_exception()
 
             # TODO: Keep the state of the job in memory for later querying
