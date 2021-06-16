@@ -92,11 +92,13 @@ class Salad(Thread):
                         ser = fd_to_ser_console[fd]
                         try:
                             buf = ser.recv()
+                            if len(buf) == 0:
+                                ser.close()
+                                continue
+
+                            self.send_to_console_listener(ser, buf)
                         except serial.SerialException:
-                            buf = b""
-                        if len(buf) == 0:
-                            ser.close()
-                        self.send_to_console_listener(ser, buf)
+                            logger.warning(traceback.format_exc())
                     elif fd in fd_to_unix_console:
                         # DUT's stdout/err: Virtual serial -> Socket
                         console = fd_to_unix_console[fd]
@@ -105,6 +107,8 @@ class Salad(Thread):
                             if len(buf) == 0:
                                 console.close()
                                 del self._external_socket_streams[console.stream_name]
+                                continue
+
                             self.send_to_console_listener(console, buf)
                         except ConnectionResetError:
                             console.close()
@@ -120,6 +124,8 @@ class Salad(Thread):
                         buf = machine.recv(8192)
                         if len(buf) == 0:
                             machine.close_client()
+                            continue
+
                         if console := self.find_console_listener(machine.id):
                             console.send(buf)
                         else:
