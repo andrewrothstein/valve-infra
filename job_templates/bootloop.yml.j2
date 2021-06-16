@@ -8,9 +8,6 @@ timeouts:
   first_console_activity:  # This limits the time it can take to receive the first console log
     minutes: 2
     retries: 0
-  console_activity:  # Reset every time we receive a message from the logs
-    minutes: 1
-    retries: 0
   overall:           # Maximum time the job can take, not overrideable by the "continue" deployment
     minutes: 3
     retries: 0
