@@ -197,7 +197,11 @@ class JobConsole(Thread):
                         except Exception:
                             self.log(traceback.format_exc())
 
-                        self.last_activity_from_machine = datetime.now()
+                        # Update the last console activity if we already had activity,
+                        # or when we get the first newline character as serial
+                        # consoles may sometimes send unwanted characters at power up
+                        if self.last_activity_from_machine is not None or b'\n' in buf:
+                            self.last_activity_from_machine = datetime.now()
 
                         # Forward to the client
                         if not self.clientless:
