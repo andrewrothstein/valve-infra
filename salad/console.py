@@ -86,6 +86,7 @@ class SerialConsoleStream(ConsoleStream):
                 self.line_buffer = b""
 
     def close(self):
+        logger.info("Closing the %s serial port", self.serial_dev)
         self.device.close()
 
 
@@ -117,4 +118,5 @@ class UnixDomainSocketConsoleStream(ConsoleStream):
         return data
 
     def close(self):
+        logger.info("Closing the %s unix socket", self.stream_name)
         self.sock.close()

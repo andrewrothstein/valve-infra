@@ -1,3 +1,5 @@
+from logger import logger
+
 import socket
 
 
@@ -60,6 +62,8 @@ class SerialConsoleTCPServer:
         return b""
 
     def close_client(self):
+        logger.info("Closing the connection for the client of %s", self.id)
+
         client = self.client
 
         self.client = None
