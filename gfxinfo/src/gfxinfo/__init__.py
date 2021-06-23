@@ -3,7 +3,9 @@ from .intel import IntelGPU
 from .virt import VirtGPU
 from .gfxinfo_vulkan import VulkanInfo
 
+
 SUPPORTED_GPUS = [AMDGPU, IntelGPU, VirtGPU]
+
 
 def pci_devices():
     devices = open('/proc/bus/pci/devices').readlines()
