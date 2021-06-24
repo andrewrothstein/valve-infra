@@ -2,7 +2,7 @@
 
 try:
     from functools import cached_property
-except:
+except Exception:
     from backports.cached_property import cached_property
 from getpass import getpass
 
@@ -12,12 +12,12 @@ import humanize
 import os
 import re
 import requests
-import sys
 import click
 
 from enum import Enum
 from PIL import Image
 from gfxinfo import find_gpu, VulkanInfo
+
 
 class App:
     def __init__(self, app_blob):
@@ -33,6 +33,7 @@ class App:
 
     def __repr__(self):
         return str(self)
+
 
 class BlobType(Enum):
     UNKNOWN = 0
@@ -51,6 +52,7 @@ class BlobType(Enum):
             return BlobType.FRAME
         else:
             return BlobType.UNKNOWN
+
 
 class Blob:
     def __init__(self, blob_dict, new=True):
@@ -77,6 +79,7 @@ class Blob:
     def upload(self, f):
         r = requests.put(self.url, headers=self.headers, data=f)
         r.raise_for_status()
+
 
 class Trace:
     def __init__(self, trace_blob):
@@ -330,13 +333,11 @@ class Client:
             print('Trace already exists in the server. Skipping upload.')
             return Trace(blob.record)
 
-
         # Create the trace from the blob
         r = self._post("/api/v1/traces/",
-                    params={"trace": {"upload": blob.signed_id, "game_id": app.id,
-                                      "metadata": {"machine_tags": machine_tags},
-                                      "frames_to_capture": frame_ids
-                                      }})
+                       params={"trace": {"upload": blob.signed_id, "game_id": app.id,
+                                         "metadata": {"machine_tags": machine_tags},
+                                         "frames_to_capture": frame_ids}})
 
         return Trace(r)
 
@@ -386,7 +387,7 @@ class Client:
     def create_job(self):
         machine_tags = list(self.machine_tags)
         r = self._post("/api/v1/jobs",
-        params={"job": {"metadata": {"machine_tags": machine_tags}}})
+                       params={"job": {"metadata": {"machine_tags": machine_tags}}})
         return(r.get('id'))
 
     def complete_job(self, job_id):
@@ -403,7 +404,8 @@ class Client:
 def cli(ctx, url, username):
     """Script to interact with Valve traces servers."""
     ctx.ensure_object(dict)
-    ctx.obj['client'] = client = Client(url=url, username=username)
+    ctx.obj['client'] = Client(url=url, username=username)
+
 
 @cli.command()
 @click.pass_context
@@ -412,11 +414,13 @@ def login(ctx):
     client = ctx.obj['client']
     client.login()
 
+
 @cli.group()
 @click.pass_context
 def app(ctx):
     """Interact with applications in the service."""
     ctx.ensure_object(dict)
+
 
 @app.command('list')
 @click.pass_context
@@ -426,6 +430,7 @@ def app_list(ctx):
 
     for app in client.list_apps():
         print(str(app))
+
 
 @app.command('create')
 @click.option('--steamappid',
@@ -438,11 +443,13 @@ def app_create(ctx, application, steamappid):
     app = client.create_app(application, steamappid)
     print(f'Successfully created the app {str(app)}')
 
+
 @cli.group()
 @click.pass_context
 def trace(ctx):
     """Interact with traces in the service."""
     ctx.ensure_object(dict)
+
 
 @trace.command('list')
 @click.option('-t', '--tag', 'tags', multiple=True,
@@ -454,6 +461,7 @@ def trace_list(ctx, tags):
     client = ctx.obj['client']
     for trace in client.list_traces(tags):
         print(trace)
+
 
 @trace.command('download')
 @click.option('-o', '--output-folder', default='./',
@@ -468,6 +476,7 @@ def trace_download(ctx, trace, output_folder):
     path = client.download_trace(trace, output_folder)
     print(f'The trace got saved at "{path}"')
 
+
 def common_machine_tags(function):
     function = click.option('-t', '--tag', 'machine_tags', multiple=True,
                             help=('If none provided, the machine tags '
@@ -478,6 +487,7 @@ def common_machine_tags(function):
                                   'to the trace to be uploaded (can be '
                                   'repeated).'))(function)
     return function
+
 
 @trace.command('upload')
 @common_machine_tags
@@ -494,6 +504,7 @@ def trace_upload(ctx, app_id, trace, frames, machine_tags):
     client = ctx.obj['client']
     client.upload_trace(app_id, trace, frames, machine_tags)
 
+
 @trace.command('upload-frames')
 @common_machine_tags
 @click.option('--trace-id', type=click.INT, required=True,
@@ -508,11 +519,13 @@ def upload_frames(ctx, trace_id, frames, job_id, machine_tags):
     client = ctx.obj['client']
     client.upload_frames(trace_id, frames, job_id, machine_tags)
 
+
 @cli.group()
 @click.pass_context
 def job(ctx):
     """Interact with jobs in the service."""
     ctx.ensure_object(dict)
+
 
 @job.command('create')
 @click.pass_context
@@ -522,6 +535,7 @@ def create_job(ctx):
     r = client.create_job()
     return r
 
+
 @job.command('complete')
 @click.argument('job-id', nargs=1, type=click.INT)
 @click.pass_context
@@ -529,6 +543,7 @@ def complete_job(ctx, job_id):
     """Complete the JOB_ID in the service."""
     client = ctx.obj['client']
     client.complete_job(job_id)
+
 
 if __name__ == '__main__':
     cli()
