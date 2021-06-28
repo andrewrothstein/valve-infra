@@ -3,7 +3,7 @@
 from datetime import datetime
 from threading import Thread, Event
 from collections import defaultdict
-from urllib.parse import urlparse, urlsplit
+from urllib.parse import urlsplit
 from enum import Enum
 
 from message import LogLevel, JobIOMessage, ControlMessage, SessionEndMessage, Message, MessageType
@@ -11,15 +11,15 @@ from pdu import PDUState
 from message import JobStatus
 from job import Job
 from logger import logger
+from minioclient import MinioClient
 
 import traceback
 import requests
-import tempfile
+
 import select
 import socket
 import time
 import os
-from minio import Minio
 
 
 # Constants
@@ -333,41 +333,6 @@ class SergentHartman:
         return self.register_template is not None or self.bootloop_template is not None
 
 
-class MinioCache():
-    def __init__(self, url=None):
-        if url is None:
-            url = os.environ.get("MINIO_URL", "http://10.42.0.1:9000")
-
-        parsed_url = urlparse(url)
-        self.url = url
-
-        secret_key = os.environ.get('MINIO_ROOT_PASSWORD')
-        if secret_key is None:
-            secret_key = "random"
-            logger.warning("No password specified, jobs won't be runnable")
-
-        self._client = Minio(
-            endpoint=parsed_url.netloc,
-            access_key="minioadmin",
-            secret_key=secret_key,
-            secure=False,
-        )
-
-    def is_local_url(self, url):
-        return url.startswith(f"{self.url}/")
-
-    def save_boot_artifact(self, remote_artifact_url, minio_object_name):
-        minio_bucket_name = 'boot'
-        with tempfile.NamedTemporaryFile("wb") as temp_download_area, \
-             requests.get(remote_artifact_url, stream=True) as r:
-            r.raise_for_status()
-            # Read all the available data, then write to disk
-            for chunk in r.iter_content(None):
-                temp_download_area.write(chunk)
-            temp_download_area.flush()
-            self._client.fput_object(minio_bucket_name, minio_object_name, temp_download_area.name)
-
-
 class Executor(Thread):
     def __init__(self, machine):
         super().__init__(name=f'ExecutorThread-{machine.id}')
@@ -375,7 +340,7 @@ class Executor(Thread):
         self.machine = machine
 
         self.state = MachineState.WAIT_FOR_CONFIG
-        self.minio_cache = MinioCache()
+        self.minio = MinioClient()
 
         # Training / Qualifying process
         self.sergent_hartman = SergentHartman(machine)
@@ -430,12 +395,12 @@ class Executor(Thread):
         self.remote_url_to_local_cache_mapping[continue_url] = continue_url
 
         def cache_it(url, suffix):
-            if self.minio_cache.is_local_url(url):
+            if self.minio.is_local_url(url):
                 logger.debug(f"Ignore caching {url} as it is already hosted by our minio cache")
                 return
             self.remote_url_to_local_cache_mapping[url] = f"http://10.42.0.1:9000/boot/{artifact_prefix}-{suffix}"
             self.log(f'Caching {url} into minio...\n')
-            self.minio_cache.save_boot_artifact(start_url, f"{artifact_prefix}-start")
+            self.minio.save_boot_artifact(start_url, f"{artifact_prefix}-start")
 
         cache_it(start_url, 'start')
         if start_url != continue_url:
