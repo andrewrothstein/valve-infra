@@ -304,7 +304,7 @@ class Job:
 
         version = fields.Int(strict=True, missing=1)
         deadline = fields.DateTime(missing=datetime.max)
-        target = fields.Nested(Target.Schema(), required=True)
+        target = fields.Nested(Target.Schema(), missing=Target())
         timeouts = fields.Nested(Timeouts.Schema(), missing=None)
         console_patterns = fields.Nested(ConsoleState.Schema(), required=True)
         deployment = fields.Nested(DeploymentsSchema(), required=True)

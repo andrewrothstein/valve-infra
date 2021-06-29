@@ -36,11 +36,15 @@ class Response:
 
 
 class Job:
-    def __init__(self, executor_url, job_desc, wait_if_busy=False, callback_host=None):
+    def __init__(self, executor_url, job_desc, wait_if_busy=False, callback_host=None,
+                 machine_tags=None, machine_id=None):
         self.executor_url = executor_url
         self.job_desc = job_desc
         self.wait_if_busy = wait_if_busy
         self.callback_host = callback_host
+
+        self.machine_tags = machine_tags
+        self.machine_id = machine_id
 
     def _parse_response(self, r):
         try:
@@ -73,6 +77,12 @@ class Job:
             }
             if self.callback_host is not None:
                 metadata['callback']['host'] = self.callback_host
+
+            if self.machine_id is not None or (self.machine_tags is not None and len(self.machine_tags) > 0):
+                metadata['target'] = {
+                    "id": self.machine_id,
+                    "tags": self.machine_tags
+                }
 
             files = [('metadata', ('metadata', json.dumps(metadata), 'application/json')),
                      ('job', ('job', self.job_desc, 'application/x-yaml'))]
@@ -243,12 +253,13 @@ class Job:
 
     @classmethod
     def from_file(cls, executor_url, path, wait_if_busy=False,
-                  callback_host=None):
+                  callback_host=None, machine_tags=None, machine_id=None):
         with open(path) as f:
             job_desc = f.read()
 
         return cls(executor_url, job_desc, wait_if_busy=wait_if_busy,
-                   callback_host=callback_host)
+                   callback_host=callback_host, machine_tags=machine_tags,
+                   machine_id=machine_id)
 
 
 if __name__ == '__main__':
@@ -261,12 +272,17 @@ if __name__ == '__main__':
     parser.add_argument("-c", "--callback",
                         help=("Hostname that the executor will use to connect back to this client, "
                               "useful for non-trivial routing to the test device"))
+    parser.add_argument("-t", "--machine-tag", action="append", dest="machine_tags",
+                        help="Tag of the machine that should be running the job. Overrides the job's target.")
+    parser.add_argument("-i", "--machine-id",
+                        help="ID of the machine that should run the job. Overrides the job's target.")
     parser.add_argument('action', help='Action this script should do',
                         choices=['run'])
     parser.add_argument("job", help='Job that should be run')
     args = parser.parse_args()
 
     job = Job.from_file(args.executor_url, args.job, args.wait,
-                        callback_host=args.callback)
+                        callback_host=args.callback,
+                        machine_tags=args.machine_tags, machine_id=args.machine_id)
     status = job.run()
     sys.exit(status.status_code)

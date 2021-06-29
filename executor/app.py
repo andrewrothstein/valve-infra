@@ -2,6 +2,7 @@
 
 import traceback
 import requests
+import config
 import click
 import flask
 import json
@@ -11,8 +12,7 @@ from gitlab_runner import GitlabRunnerAPI
 from mars import MarsClient, Machine
 from boots import BootService
 from client import JobStatus
-from job import Job
-import config
+from job import Job, Target
 
 
 class CustomJSONEncoder(flask.json.JSONEncoder):
@@ -190,13 +190,21 @@ def post_job():
             raw_job = job_file.read().decode()
             job = Job.from_job(raw_job)
 
+            # Get the target that will run the job. Use the job's target by default,
+            # but allow the client to override the target
+            if "target" in metadata:
+                target = metadata.get('target', {})
+                job_target = Target(target.get('id'), target.get('tags', []))
+            else:
+                job_target = job.target
+
             # Use the client-provided host callback if available, or default to the remote addr
             callback = metadata.get('callback', {})
             remote_addr = callback.get("host", request.remote_addr)
             endpoint = (remote_addr, callback.get("port"))
 
             super().__init__(request=request, version=1, raw_job=raw_job,
-                             target=job.target, callback_endpoint=endpoint)
+                             target=job_target, callback_endpoint=endpoint)
 
     parsed = JobRequest.parse(flask.request)
 
