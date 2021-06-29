@@ -6,7 +6,7 @@ from collections import defaultdict
 from urllib.parse import urlparse, urlsplit
 from enum import Enum
 
-from message import LogLevel
+from message import LogLevel, JobIOMessage, ControlMessage, SessionEndMessage, Message, MessageType
 from pdu import PDUState
 from message import JobStatus
 from job import Job
@@ -42,14 +42,15 @@ def str_to_int(string, default):
 
 
 class JobConsole(Thread):
-    def __init__(self, machine_id, client_endpoint, console_patterns, clientless=False, log_level=LogLevel.INFO):
+    def __init__(self, machine_id, client_endpoint, console_patterns,
+                 client_version=None, log_level=LogLevel.INFO):
         super().__init__(name='ConsoleThread')
 
         self.machine_id = machine_id
 
         self.client_endpoint = client_endpoint
         self.console_patterns = console_patterns
-        self.clientless = clientless
+        self.client_version = client_version
         self.log_level = log_level
 
         # Thread
@@ -62,7 +63,7 @@ class JobConsole(Thread):
         # Job-long state
         self.is_over = False
         self.start_time = None
-        self.line_buffer = b""
+        self.line_buffer = bytearray()
 
         self.reset_per_boot_state()
 
@@ -93,7 +94,7 @@ class JobConsole(Thread):
         self.needs_reboot = self.console_patterns.needs_reboot
 
     def start(self):
-        if not self.clientless:
+        if self.client_version:
             logger.info(f"Connecting to the client endpoint {self.client_endpoint}")
             self.client_sock = socket.create_connection(self.client_endpoint)
         self.start_time = datetime.now()
@@ -110,7 +111,7 @@ class JobConsole(Thread):
             idx = to_process.find(b'\n', cur)
             if idx > 0:
                 line = to_process[cur:idx+1]
-                logger.info(f"{self.machine_id} -> {line}")
+                logger.info(f"{self.machine_id} -> {bytes(line)}")
                 patterns_matched |= self.console_patterns.process_line(line)
                 cur = idx + 1
             else:
@@ -137,9 +138,12 @@ class JobConsole(Thread):
         log_msg = f"+{relative_time:.3f}s: {msg}"
         logger.info(log_msg.rstrip("\r\n"))
 
-        if not self.clientless:
+        if self.client_version:
             try:
-                self.client_sock.send(log_msg.encode())
+                if self.client_version == 0:
+                    self.client_sock.send(log_msg.encode())
+                elif self.client_version == 1:
+                    ControlMessage.create(log_msg, severity=log_level).send(self.client_sock)
             except OSError:
                 pass
 
@@ -147,10 +151,14 @@ class JobConsole(Thread):
         was_over = self.is_over
         self.is_over = True
 
-        if not was_over:
-            self.log(f"<-- End of the session: {self.console_patterns.job_status} -->\n")
+        if self.client_version:
+            if not was_over:
+                if self.client_version == 0:
+                    self.log(f"<-- End of the session: {self.console_patterns.job_status} -->\n")
+                elif self.client_version == 1:
+                    status = JobStatus.from_str(self.console_patterns.job_status)
+                    SessionEndMessage.create(status=status).send(self.client_sock)
 
-        if not self.clientless:
             try:
                 self.client_sock.shutdown(socket.SHUT_RDWR)
                 self.client_sock.close()
@@ -172,7 +180,7 @@ class JobConsole(Thread):
     def run(self):
         while not self._stop_event.is_set():
             fds = [self.salad_sock.fileno()]
-            if not self.clientless:
+            if self.client_version:
                 fds.extend([self.client_sock.fileno()])
 
             rlist, _, _ = select.select(fds, [], [], 1.0)
@@ -198,8 +206,11 @@ class JobConsole(Thread):
                             self.last_activity_from_machine = datetime.now()
 
                         # Forward to the client
-                        if not self.clientless:
-                            self.client_sock.send(buf)
+                        if self.client_version:
+                            if self.client_version == 0:
+                                self.client_sock.send(buf)
+                            elif self.client_version == 1:
+                                JobIOMessage.create(buf).send(self.client_sock)
 
                         # The message got forwarded, close the session if it ended
                         if self.console_patterns.session_has_ended:
@@ -207,15 +218,20 @@ class JobConsole(Thread):
 
                     elif fd == self.client_sock.fileno():
                         # DUT's stdin: Client -> Salad
-                        buf = self.client_sock.recv(8192)
-                        if len(buf) == 0:
-                            self.close()
+                        if self.client_version == 0:
+                            buf = self.client_sock.recv(8192)
+                            if len(buf) == 0:
+                                self.close()
+
+                            # Forward to the salad
+                            self.salad_sock.send(buf)
+                        elif self.client_version == 1:
+                            msg = Message.next_message(self.client_sock)
+                            if msg.msg_type == MessageType.JOB_IO:
+                                self.salad_sock.send(msg.buffer)
 
                         self.last_activity_from_client = datetime.now()
-
-                        # Forward to the salad
-                        self.salad_sock.send(buf)
-                except (ConnectionResetError, BrokenPipeError, OSError):
+                except (ConnectionResetError, BrokenPipeError, EOFError, OSError):
                     self.log(traceback.format_exc())
                     self.close()
                 except Exception:
@@ -381,13 +397,25 @@ class Executor(Thread):
         self.stop_event = Event()
         self.start()
 
-    def start_job(self, job, console_endpoint):
+    def start_job(self, job_request):
         if self.state != MachineState.IDLE:
             raise ValueError(f"The machine isn't idle: Current state is {self.state.name}")
 
+        # Bit nasty to render twice, but better than duplicating
+        # template render in the various call-sites within
+        # executor. Rendering it up front reduces the chances for
+        # mistakes. (Meta-point: using an HTTP query to specify the
+        # "target" could avoid this duplication of work, and might
+        # actually make more sense)
+        job = Job.render_with_machine(job_request.raw_job, self.machine)
+        logger.debug("renderered job:\n%s", job)
+
         self.state = MachineState.QUEUED
+        self.job_request = job_request
         self.job_config = job
-        self.job_console = JobConsole(self.machine.id, console_endpoint, self.job_config.console_patterns)
+        self.job_console = JobConsole(self.machine.id, job_request.callback_endpoint,
+                                      self.job_config.console_patterns,
+                                      client_version=job_request.version)
         self.job_ready.set()
 
     def log(self, msg, log_level=LogLevel.INFO):
@@ -438,7 +466,7 @@ class Executor(Thread):
                 self.job_config = self.sergent_hartman.next_task()
                 self.job_console = JobConsole(self.machine.id,
                                               client_endpoint=None,
-                                              clientless=True,
+                                              client_version=None,
                                               console_patterns=self.job_config.console_patterns)
             else:
                 self.sergent_hartman.reset()

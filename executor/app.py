@@ -4,6 +4,7 @@ import traceback
 import requests
 import click
 import flask
+import json
 
 from executor import SergentHartman, MachineState
 from gitlab_runner import GitlabRunnerAPI
@@ -11,7 +12,6 @@ from mars import MarsClient, Machine
 from boots import BootService
 from client import JobStatus
 from job import Job
-from logger import logger
 
 
 class CustomJSONEncoder(flask.json.JSONEncoder):
@@ -120,33 +120,101 @@ def post_job():
             else:
                 return None, 406, f"No machines found matching the tags {wanted_tags}"
 
-    job_params = flask.request.json
-    metadata = job_params["metadata"]
-    job = Job.from_job(job_params["job"])
-    logger.debug("raw job:\n%s", job)
-    machine, error_code, reason = find_suitable_machine(job.target)
-    if machine is not None:
-        # Use the client-provided host callback if available, or default to the remote addr
-        remote_addr = metadata.get("callback_host", flask.request.remote_addr)
-        if remote_addr is not None:
-            endpoint = (remote_addr, metadata.get("callback_port"))
-            # Bit nasty to render twice, but better than duplicating
-            # template render in the various call-sites within
-            # executor. Rendering it up front reduces the chances for
-            # mistakes. (Meta-point: using an HTTP query to specify the
-            # "target" could avoid this duplication of work, and might
-            # actually make more sense)
-            job = Job.render_with_machine(job_params["job"], machine)
-            logger.debug("renderered job:\n%s", job)
-            machine.executor.start_job(job, endpoint)
-        else:
-            reason = "Invalid argument: callback_host cannot be None. Leave empty to get the default value"
-            error_code = 400
+    class JobRequest:
+        def __init__(self, request, version, raw_job, target, callback_endpoint):
+            self.request = request
+            self.version = version
+            self.raw_job = raw_job
+            self.target = target
+            self.callback_endpoint = callback_endpoint
 
-    response = {
-        # TODO: Store the job in memory, and show the ID here
-        "reason": reason
-    }
+            # Callback validation
+            if callback_endpoint[0] is None:
+                raise ValueError("callback's host cannot be None. Leave empty to get the default value")
+            if callback_endpoint[1] is None:
+                raise ValueError("callback's port cannot be None")
+
+        @classmethod
+        def parse(cls, request):
+            if request.mimetype == "application/json":
+                return JSONJobRequest(request)
+            elif request.mimetype == "multipart/form-data":
+                return MultipartJobRequest(request)
+            else:
+                raise ValueError("Unknown job request format")
+
+    # DEPRECATED: To be removed when we are sure all the clients out there have been updated
+    class JSONJobRequest(JobRequest):
+        def __init__(self, request):
+            job_params = request.json
+            metadata = job_params["metadata"]
+            job = Job.from_job(job_params["job"])
+
+            # Use the client-provided host callback if available, or default to the remote addr
+            remote_addr = metadata.get("callback_host", flask.request.remote_addr)
+            endpoint = (remote_addr, metadata.get("callback_port"))
+
+            super().__init__(request=request, version=0, raw_job=job_params["job"],
+                             target=job.target, callback_endpoint=endpoint)
+
+    class MultipartJobRequest(JobRequest):
+        def __init__(self, request):
+            metadata_file = request.files.get('metadata')
+            if metadata_file is None:
+                raise ValueError("No metadata file found")
+
+            if metadata_file.mimetype != "application/json":
+                raise ValueError("The metadata file has the wrong mimetype: "
+                                 "{metadata_file.mimetype}} instead of application/json")
+
+            try:
+                metadata = json.loads(metadata_file.read())
+            except json.JSONDecodeError as e:
+                raise ValueError(f"The metadata file is not a valid JSON file: {e.msg}")
+
+            version = metadata.get('version')
+            if version == 1:
+                self.parse_v1(request, metadata)
+            else:
+                raise ValueError(f"Invalid request version {version}")
+
+        def parse_v1(self, request, metadata):
+            # Get the job file, and check its mimetype
+            job_file = request.files['job']
+            if job_file.mimetype != "application/x-yaml":
+                raise ValueError("The metadata file has the wrong mimetype: "
+                                 "{job_file.mimetype}} instead of application/x-yaml")
+
+            # Create a Job object
+            raw_job = job_file.read().decode()
+            job = Job.from_job(raw_job)
+
+            # Use the client-provided host callback if available, or default to the remote addr
+            callback = metadata.get('callback', {})
+            remote_addr = callback.get("host", request.remote_addr)
+            endpoint = (remote_addr, callback.get("port"))
+
+            super().__init__(request=request, version=1, raw_job=raw_job,
+                             target=job.target, callback_endpoint=endpoint)
+
+    parsed = JobRequest.parse(flask.request)
+
+    machine, error_code, error_msg = find_suitable_machine(parsed.target)
+    if machine is not None:
+        machine.executor.start_job(parsed)
+
+    if parsed.version == 0:
+        response = {
+            "reason": error_msg
+        }
+    elif parsed.version == 1:
+        response = {
+            # protocol version
+            "version": 1,
+            "error_msg": error_msg
+
+            # TODO: Store the job in memory, and show the ID here
+        }
     return flask.make_response(flask.jsonify(response), error_code)
 
 

@@ -1,20 +1,22 @@
 #!/usr/bin/env python3
 
+from logging import getLogger, getLevelName, Formatter, StreamHandler
+from dataclasses import dataclass
+
 import traceback
 import argparse
 import requests
 import termios
 import select
 import socket
+import json
 import time
 import tty
 import sys
 import re
 import os
-import json
-from logging import getLogger, getLevelName, Formatter, StreamHandler
 
-from message import JobStatus
+from message import MessageType, Message, JobIOMessage, JobStatus
 
 
 logger = getLogger(__name__)
@@ -27,12 +29,33 @@ console_handler.setFormatter(log_formatter)
 logger.addHandler(console_handler)
 
 
+@dataclass
+class Response:
+    version: int = 0
+    error_msg: str = None
+
+
 class Job:
     def __init__(self, executor_url, job_desc, wait_if_busy=False, callback_host=None):
         self.executor_url = executor_url
         self.job_desc = job_desc
         self.wait_if_busy = wait_if_busy
         self.callback_host = callback_host
+
+    def _parse_response(self, r):
+        try:
+            ret = r.json()
+        except Exception:
+            return Response(error_msg=r.text)
+
+        version = ret.get("version", 0)
+
+        if version == 0:
+            return Response(error_msg=ret.get("reason"))
+        elif version == 1:
+            return Response(**ret)
+        else:
+            raise ValueError(f"Unsupported response version {version}")
 
     def _setup_connection(self):
         # Set up a TCP server
@@ -42,19 +65,23 @@ class Job:
             local_port = tcp_server.getsockname()[1]
 
             # Queue the job
-            data = {
-                "metadata": {
-                    "callback_port": local_port,
-                },
-                "job": self.job_desc
+            metadata = {
+                "version": 1,
+                "callback": {
+                    "port": local_port
+                }
             }
-
             if self.callback_host is not None:
-                data['metadata']['callback_host'] = self.callback_host
+                metadata['callback']['host'] = self.callback_host
+
+            files = [('metadata', ('metadata', json.dumps(metadata), 'application/json')),
+                     ('job', ('job', self.job_desc, 'application/x-yaml'))]
 
             first_wait = True
             while True:
-                r = requests.post(f"{self.executor_url}/api/v1/jobs", json=data)
+                r = requests.post(f"{self.executor_url}/api/v1/jobs", files=files)
+                response = self._parse_response(r)
+
                 if r.status_code == 200:
                     break
                 elif r.status_code == 409 and self.wait_if_busy:
@@ -65,13 +92,9 @@ class Job:
                         print(".", end="", flush=True)
                     time.sleep(1)
                 else:
-                    try:
-                        ret = r.json()
-                        print(f"ERROR: Could not queue the work: \"{ret}\"", file=sys.stderr)
-                    except Exception:
-                        print(f"ERROR: Could not queue the work: \"{r.text}\"", file=sys.stderr)
+                    print(f"ERROR: Could not queue the work: \"{response.error_msg}\"", file=sys.stderr)
 
-                    return None
+                    return None, response
 
             if not first_wait:
                 print("")
@@ -87,20 +110,54 @@ class Job:
             # Set the resulting socket's timeout to blocking
             sock.settimeout(None)
 
-        return sock
+        return sock, response
 
-    def _parse_job_status(self, final_lines):
+    def _read_executor_message_v0(self, job_socket):
+        # Local cache
+        final_lines = getattr(self, "final_lines", None)
+        if final_lines is None:
+            self.final_lines = final_lines = bytearray()
+
+        # Get the data
+        buf = job_socket.recv(4096)
+        if len(buf) == 0:
+            # The job is over, check the job status!
+            try:
+                m = re.search(b'<-- End of the session: (?P<status>\\w+) -->', final_lines)
+                if m is not None:
+                    status_str = m.groupdict({}).get("status", b'UNKNOWN').decode()
+                    return JobStatus.from_str(status_str)
+            except Exception:
+                traceback.print_exc()
+
+        sys.stdout.buffer.write(buf)
+        sys.stdout.buffer.flush()
+
+        # Keep in memory the final lines, for later parsing
+        final_lines += buf
+        final_lines = final_lines[-100:]
+
+        return None
+
+    def _read_executor_message_v1(self, job_socket):
         try:
-            m = re.search(b"<-- End of the session: (?P<status>\\w+) -->", final_lines)
-            if m is not None:
-                status_str = m.groupdict({}).get("status", b"UNKNOWN").decode()
-                return JobStatus.from_str(status_str)
+            msg = Message.next_message(job_socket)
+
+            # TODO: Only display control messages at the end of a new line
+            if msg.msg_type == MessageType.CONTROL:
+                print(msg.message, flush=True, end="")
+            elif msg.msg_type == MessageType.JOB_IO:
+                sys.stdout.buffer.write(msg.buffer)
+                sys.stdout.buffer.flush()
+            elif msg.msg_type == MessageType.SESSION_END:
+                return msg.status
         except Exception:
             traceback.print_exc()
+            return JobStatus.INCOMPLETE
 
-        return JobStatus.INCOMPLETE
+        return None
 
-    def _forward_inputs_and_outputs(self, job_socket):
+    def _forward_inputs_and_outputs(self, job_socket, job_response):
         print("Connection established: Switch to proxy mode")
 
         # Set stdin to the raw input mode
@@ -112,7 +169,6 @@ class Job:
         control_char_pressed = False
 
         try:
-            final_lines = b""
             while True:
                 try:
                     readables = [job_socket]
@@ -123,27 +179,24 @@ class Job:
                     for fd in r_fds:
                         if fd is sys.stdin:
                             buf = os.read(sys.stdin.fileno(), 1)
+                            msg = JobIOMessage.create(buf)
                             if buf == control_char:
                                 if control_char_pressed:
                                     # Repeating the control char sends it through
-                                    job_socket.send(buf)
+                                    msg.send(job_socket)
                                 else:
                                     control_char_pressed = True
                             else:
                                 control_char_pressed = False
-                                job_socket.send(buf)
+                                msg.send(job_socket)
                         elif fd is job_socket:
-                            buf = job_socket.recv(4096)
-                            if len(buf) == 0:
-                                # The job is over, check the job status!
-                                return self._parse_job_status(final_lines)
+                            if job_response.version == 0:
+                                ret = self._read_executor_message_v0(job_socket)
+                            else:
+                                ret = self._read_executor_message_v1(job_socket)
 
-                            sys.stdout.buffer.write(buf)
-                            sys.stdout.buffer.flush()
-
-                            # Keep in memory the final lines, for later parsing
-                            final_lines += buf
-                            final_lines = final_lines[-100:]
+                            if ret:
+                                return ret
                         else:
                             raise ValueError(f"Received an unexpected fd: {fd}")
                 except KeyboardInterrupt:
@@ -164,15 +217,15 @@ class Job:
         except OSError:
             pass
 
-    def start(self):
+    def run(self):
         sock = None
 
         try:
-            sock = self._setup_connection()
+            sock, response = self._setup_connection()
             if sock is None:
                 return JobStatus.SETUP_FAIL
 
-            status = self._forward_inputs_and_outputs(sock)
+            status = self._forward_inputs_and_outputs(sock, response)
         except json.decoder.JSONDecodeError:
             logger.error("Invalid response from executor server")
             status = JobStatus.SETUP_FAIL
@@ -215,5 +268,5 @@ if __name__ == '__main__':
 
     job = Job.from_file(args.executor_url, args.job, args.wait,
                         callback_host=args.callback)
-    status = job.start()
+    status = job.run()
     sys.exit(status.status_code)
