@@ -91,9 +91,9 @@ def provision_network_boot_service(default_kernel_path,
                     'syslinux-6.03/bios/com32/elflink/ldlinux/ldlinux.c32',
                     'syslinux-6.03/efi64/efi/syslinux.efi',
                     'syslinux-6.03/efi64/com32/elflink/ldlinux/ldlinux.e64']:
-                os.rename(os.path.join(td, f),
-                          os.path.join(config_paths['TFTP_DIR'],
-                                       os.path.basename(f)))
+                shutil.move(os.path.join(td, f),
+                            os.path.join(config_paths['TFTP_DIR'],
+                                         os.path.basename(f)))
     os.makedirs(config_paths['PXELINUX_CONFIG_DIR'], exist_ok=True)
     default_pxelinux_config = os.path.join(config_paths['PXELINUX_CONFIG_DIR'], 'default')
     if not os.path.isfile(default_pxelinux_config):
