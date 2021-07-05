@@ -407,14 +407,6 @@ def cli(ctx, url, username):
     ctx.obj['client'] = Client(url=url, username=username)
 
 
-@cli.command()
-@click.pass_context
-def login(ctx):
-    """Log in the valve traces service."""
-    client = ctx.obj['client']
-    client.login()
-
-
 @cli.group()
 @click.pass_context
 def app(ctx):
