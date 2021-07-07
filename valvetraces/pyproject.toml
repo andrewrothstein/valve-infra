@@ -1,9 +1,6 @@
 [build-system]
 requires = [
     "setuptools>=42",
-    "requests>=2,<3",
-    "gfxinfo-mupuf>=0.0.5",
-    "humanize>=3.3.0",
     "wheel"
 ]
 build-backend = "setuptools.build_meta"
