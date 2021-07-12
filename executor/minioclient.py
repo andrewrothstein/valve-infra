@@ -1,19 +1,19 @@
 from urllib.parse import urlparse
 from minio import Minio
 from logger import logger
+import config
 
 import requests
 import tempfile
-import os
 
 
 class MinioClient():
     def __init__(self, url=None):
         if url is None:
-            url = os.environ.get("MINIO_URL", "http://10.42.0.1:9000")
+            url = config.MINIO_URL
         self.url = url
 
-        secret_key = os.environ.get('MINIO_ROOT_PASSWORD')
+        secret_key = config.MINIO_ROOT_PASSWORD
         if secret_key is None:
             secret_key = "random"
             logger.warning("No password specified, jobs won't be runnable")

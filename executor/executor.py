@@ -12,6 +12,7 @@ from message import JobStatus
 from job import Job
 from logger import logger
 from minioclient import MinioClient
+import config
 
 import traceback
 import requests
@@ -19,7 +20,6 @@ import requests
 import select
 import socket
 import time
-import os
 
 
 # Constants
@@ -68,15 +68,11 @@ class JobConsole(Thread):
         self.reset_per_boot_state()
 
     @property
-    def salad_base_url(self):
-        return os.getenv('SALAD_URL', "http://10.42.0.1:8005")
-
-    @property
     def salad_url(self):
-        return f"{self.salad_base_url}/api/v1/machine/{self.machine_id}"
+        return f"{config.SALAD_URL}/api/v1/machine/{self.machine_id}"
 
     def connect_to_salad(self):
-        parsed_url = urlsplit(self.salad_base_url)
+        parsed_url = urlsplit(config.SALAD_URL)
 
         r = requests.get(self.salad_url)
         r.raise_for_status()
@@ -243,10 +239,10 @@ class SergentHartman:
         super().__init__()
 
         if boot_loop_counts is None:
-            boot_loop_counts = str_to_int(os.environ.get("SERGENT_HARTMAN_BOOT_COUNT"), 100)
+            boot_loop_counts = int(config.SERGENT_HARTMAN_BOOT_COUNT)
 
         if qualifying_rate is None:
-            qualifying_rate = str_to_int(os.environ.get("SERGENT_HARTMAN_QUALIFYING_BOOT_COUNT"), 100)
+            qualifying_rate = int(config.SERGENT_HARTMAN_QUALIFYING_BOOT_COUNT)
 
         self.machine = machine
         self.boot_loop_counts = boot_loop_counts
@@ -276,7 +272,7 @@ class SergentHartman:
 
             self.is_active = True
 
-            return Job.from_path(self.register_template, self.machine)
+            return Job.from_path(config.EXECUTOR_REGISTRATION_JOB, self.machine)
         else:
             # Check that we got the expected amount of reports
             if self.cur_loop != sum(self.statuses.values()):
@@ -293,14 +289,14 @@ class SergentHartman:
                         self.boot_loop_counts,
                         statuses_str)
 
-            return Job.from_path(self.bootloop_template, self.machine)
+            return Job.from_path(config.EXECUTOR_BOOTLOOP_JOB, self.machine)
 
     def report(self, job_status):
         mid = self.machine.id
 
         if self.cur_loop == 0:
             if job_status != JobStatus.PASS:
-                delay = str_to_int(os.getenv("SERGENT_HARTMAN_REGISTRATION_RETRIAL_DELAY", None), 120)
+                delay = int(config.SERGENT_HARTMAN_REGISTRATION_RETRIAL_DELAY)
                 logger.warning((f"SergentHartman/{mid} - Registration failed with status {job_status.name}. "
                                 f"Retrying in {delay} second(s)"))
                 self.reset()
@@ -321,16 +317,8 @@ class SergentHartman:
         return 0
 
     @property
-    def register_template(self):
-        return os.getenv('EXECUTOR_REGISTRATION_JOB', None)
-
-    @property
-    def bootloop_template(self):
-        return os.getenv('EXECUTOR_BOOTLOOP_JOB', None)
-
-    @property
     def is_available(self):
-        return self.register_template is not None or self.bootloop_template is not None
+        return config.EXECUTOR_REGISTRATION_JOB or config.EXECUTOR_BOOTLOOP_JOB
 
 
 class Executor(Thread):

@@ -1,7 +1,7 @@
 from pprint import pformat
 from gitlab import Gitlab
 from logger import logger
-import settings
+import config
 
 import toml
 
@@ -149,13 +149,13 @@ class GitlabConfig:
             '/var/run/docker.sock:/var/run/docker.sock',
             '/cache'
         ]
-        config = {
+        runner_config = {
             'name': name,
             'limit': 1,
             'url': 'https://gitlab.freedesktop.org/',
             'token': token,
             'executor': 'docker',
-            'environment': [f"{k}={v}" for k, v in settings.job_environment_vars().items()],
+            'environment': [f"{k}={v}" for k, v in config.job_environment_vars().items()],
             'custom_build_dir': {},
             'cache': {'s3': {}, 'gcs': {}, 'azure': {}},
             'docker': {
@@ -176,8 +176,8 @@ class GitlabConfig:
                 'memory_reservation': str(memory_reservation),
             }
         }
-        logger.info(f"GitlabConfig: adding a new runner:\n{pformat(config)}")
-        self.runners().append(config)
+        logger.info(f"GitlabConfig: adding a new runner:\n{pformat(runner_config)}")
+        self.runners().append(runner_config)
         self._save()
 
     @property

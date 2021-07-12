@@ -5,7 +5,7 @@ from marshmallow.exceptions import ValidationError
 from jinja2 import Template
 import yaml
 import re
-import settings
+import config
 
 
 class Target:
@@ -361,7 +361,7 @@ class Job:
             "machine_id": machine.id,
             "machine_tags": machine.tags,
             "local_tty_device": machine.local_tty_device,
-            **{k.lower(): v for k, v in settings.job_environment_vars().items()},
+            **{k.lower(): v for k, v in config.job_environment_vars().items()},
         }
         rendered_job_str = Template(job_str).render(**template_params)
         return cls.from_job(rendered_job_str)

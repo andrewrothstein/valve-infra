@@ -415,7 +415,7 @@ class MockMachine:
         return "ttyS0"
 
 
-@patch('settings.job_environment_vars')
+@patch('config.job_environment_vars')
 def test_Job__sample(job_env):
     job_env.return_value = {'MINIO_URL': 'testing-url',
                             'NTP_PEER': '10.42.0.1',
@@ -466,7 +466,7 @@ deployment:
     assert str(exc.value) == "{'console_patterns': {'reboot': ['Unknown field.']}}"
 
 
-@patch('settings.job_environment_vars')
+@patch('config.job_environment_vars')
 def test_Job__from_machine(job_env):
     job_env.return_value = {'MINIO_URL': 'testing-url',
                             'NTP_PEER': '10.42.0.1'}

@@ -12,6 +12,7 @@ from mars import MarsClient, Machine
 from boots import BootService
 from client import JobStatus
 from job import Job
+import config
 
 
 class CustomJSONEncoder(flask.json.JSONEncoder):
@@ -244,22 +245,19 @@ def cli(ctx, gitlab_url, gitlab_conf_file, gitlab_access_token,
 
 
 @cli.command()
-@click.option('--mars-url', envvar='MARS_URL', default="http://127.0.0.1")
-@click.option('--host', envvar='EXECUTOR_HOST', default="0.0.0.0")
-@click.option('--port', envvar='EXECUTOR_PORT', type=int, default=8003)
 @click.pass_context
-def run(ctx, mars_url, host, port):  # pragma: nocover
+def run(ctx):  # pragma: nocover
     # Start the network boot service
     boots = BootService()
 
     # Create all the workers based on the machines found in MaRS
-    mars = MarsClient(mars_url, boots, gitlab_runner_api=ctx.obj.get('GITLAB_RUNNER_API'))
+    mars = MarsClient(config.MARS_URL, boots, gitlab_runner_api=ctx.obj.get('GITLAB_RUNNER_API'))
     mars.start()
 
     # Start flask
     with app.app_context():
         flask.current_app.mars = mars
-    app.run(host=host, port=port)
+    app.run(host=config.EXECUTOR_HOST, port=config.EXECUTOR_PORT)
 
     # Shutdown
     mars.stop(wait=True)

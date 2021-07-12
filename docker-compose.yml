@@ -18,6 +18,7 @@ services:
     network_mode: host
     image: registry.freedesktop.org/mupuf/valve-infra/executor
     environment:
+      - EXECUTOR_HOST=0.0.0.0
       - EXECUTOR_PORT=80
       - EXECUTOR_REGISTRATION_JOB=/app/job_templates/register.yml.j2
       - EXECUTOR_BOOTLOOP_JOB=/app/job_templates/bootloop.yml.j2

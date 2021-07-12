@@ -1,11 +1,12 @@
 from unittest.mock import patch
-import os
+import config
 
 from minioclient import MinioClient
 
 
 @patch("minioclient.Minio", autospec=True)
 def test_client_instanciation__defaults(minio_mock):
+    config.MINIO_ROOT_PASSWORD = None
     MinioClient()
 
     minio_mock.assert_called_once_with(endpoint="10.42.0.1:9000", access_key="minioadmin",
@@ -14,25 +15,24 @@ def test_client_instanciation__defaults(minio_mock):
 
 @patch("minioclient.Minio", autospec=True)
 def test_client_instanciation__custom_params(minio_mock):
-    with patch.dict(os.environ, {"MINIO_URL": "http://hello-world",
-                                 "MINIO_ROOT_PASSWORD": "123456789"}):
-        MinioClient()
-
+    config.MINIO_URL = "http://hello-world"
+    config.MINIO_ROOT_PASSWORD = "123456789"
+    MinioClient()
     minio_mock.assert_called_once_with(endpoint="hello-world", access_key="minioadmin",
                                        secret_key="123456789", secure=False)
 
 
 def test_is_local_url():
+    config.MINIO_URL = "http://10.42.0.1:9000"
     minio = MinioClient()
 
     assert minio.is_local_url("http://10.42.0.1:9000/toto")
     assert not minio.is_local_url("http://hello-world/toto")
 
-    with patch.dict(os.environ, {"MINIO_URL": "http://hello-world"}):
-        minio = MinioClient()
-
-        assert not minio.is_local_url("http://10.42.0.1:9000/toto")
-        assert minio.is_local_url("http://hello-world/toto")
+    config.MINIO_URL = "http://hello-world"
+    minio = MinioClient()
+    assert not minio.is_local_url("http://10.42.0.1:9000/toto")
+    assert minio.is_local_url("http://hello-world/toto")
 
 
 class MockStream:

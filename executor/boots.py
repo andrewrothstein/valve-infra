@@ -11,6 +11,7 @@ import sys
 import tempfile
 import time
 
+import config
 from logger import logger
 
 DEFAULT_CONFIG_PATHS = {
@@ -208,10 +209,10 @@ class BootService():
                  default_initrd=None,
                  default_cmdline=None,
                  config_paths=DEFAULT_CONFIG_PATHS):
-        self.private_interface = private_interface or os.environ['PRIVATE_INTERFACE']
-        self.default_kernel = default_kernel or os.environ['BOOTS_DEFAULT_KERNEL']
-        self.default_initrd = default_initrd or os.environ['BOOTS_DEFAULT_INITRD']
-        self.default_cmdline = default_cmdline or os.environ['BOOTS_DEFAULT_CMDLINE']
+        self.private_interface = private_interface or config.PRIVATE_INTERFACE
+        self.default_kernel = default_kernel or config.BOOTS_DEFAULT_KERNEL
+        self.default_initrd = default_initrd or config.BOOTS_DEFAULT_INITRD
+        self.default_cmdline = default_cmdline or config.BOOTS_DEFAULT_CMDLINE
         self.config_paths = config_paths
 
         # Ensure these steps happen on the calling thread, not
@@ -225,8 +226,8 @@ class BootService():
 
     def stop(self):
         self.dnsmasq.stop()
-        for config in glob.glob(os.path.join(self.config_paths['PXELINUX_CONFIG_DIR'], '01-*')):
-            os.remove(config)
+        for config_file in glob.glob(os.path.join(self.config_paths['PXELINUX_CONFIG_DIR'], '01-*')):
+            os.remove(config_file)
 
     def write_network_config(self, mac_address, ip_address, hostname):
         # Are static mappings that useful here? We're basically
@@ -280,7 +281,7 @@ if __name__ == '__main__':  # pragma: nocover
     if len(sys.argv) == 2:
         private_interface = sys.argv[1]
     else:
-        private_interface = os.environ.get('PRIVATE_INTERFACE', 'br0')
+        private_interface = config.PRIVATE_INTERFACE
     try:
         boots = BootService(private_interface=private_interface, config_paths=DEFAULT_CONFIG_PATHS)
         boots.start()
