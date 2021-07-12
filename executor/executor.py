@@ -590,12 +590,12 @@ class Executor(Thread):
                     self.log(f"Starting the job: {self.job_config}\n\n", LogLevel.DEBUG)
                     execute_job()
                 except Exception:
-                    self.log_exception()
+                    log_exception()
                 finally:
                     session_end()
             except Exception:
                 # Capture any further exceptions from session_end
                 # TODO: Refactor to avoid the cyclomatic complexity.
-                traceback.print_exc()
+                log_exception()
 
             # TODO: Keep the state of the job in memory for later querying
