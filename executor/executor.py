@@ -596,6 +596,9 @@ class Executor(Thread):
             except Exception:
                 # Capture any further exceptions from session_end
                 # TODO: Refactor to avoid the cyclomatic complexity.
-                log_exception()
+                # Note: Do not be tempted to log_exception() here! Any
+                # exceptions thrown by *that* method could crash our
+                # thread.
+                traceback.print_exc()
 
             # TODO: Keep the state of the job in memory for later querying
