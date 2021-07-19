@@ -12,6 +12,16 @@ TAP_IDX = 0
 BRIDGE = 'br0'
 
 
+def check_bridge():
+    global BRIDGE
+    try:
+        subprocess.check_call(['ip', 'link', 'show', BRIDGE])
+    except:
+        subprocess.check_call(['ip', 'link', 'add', 'name', BRIDGE, 'type', 'bridge'])
+        subprocess.check_call(['ip', 'addr', 'add', '10.42.0.1/24', 'dev', BRIDGE])
+        subprocess.check_call(['ip', 'link', 'set', BRIDGE, 'up'])
+
+
 # TODO, could simplify this by plugging directory into br0, lose some
 # firewalling tricks, but might be worth it... Doesn't seem the
 # "typical way" to do this kind of thing based on my research tho.
@@ -52,6 +62,7 @@ def gen_mac(index):
     return f'52:54:00:11:22:{counter}'
 
 
+check_bridge()
 OUTLETS = [
     {'tap': get_tap(),
      'mac': gen_mac(i),
