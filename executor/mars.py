@@ -58,6 +58,10 @@ class Machine:
         return self._machine_id
 
     @property
+    def ip_address(self):
+        return self._fields.get('ip_address')
+
+    @property
     def ready_for_service(self):
         return self._fields.get('ready_for_service', False)
 
