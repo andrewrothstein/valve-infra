@@ -9,6 +9,8 @@ RUN set -ex \
          && apt-get update -y \
          && apt-get install -y --no-install-recommends gcc libsnmp-dev snmp-mibs-downloader dnsmasq \
          && pip install --no-cache-dir -r executor/requirements.txt \
+	 && wget -O /usr/bin/mcli https://dl.min.io/client/mc/release/linux-amd64/mc \
+	 && chmod +x /usr/bin/mcli \
          && apt-get remove -y gcc \
          && apt-get autoremove -y \
          && apt-get clean -y \
