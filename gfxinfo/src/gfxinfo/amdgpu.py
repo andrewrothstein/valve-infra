@@ -1,13 +1,12 @@
 from functools import cache
 from typing import Dict, Tuple
-import json
 import os
 import re
 import requests
 import sys
 try:
     from functools import cached_property
-except:
+except ImportError:
     from backports.cached_property import cached_property
 
 
@@ -21,7 +20,7 @@ def download_supported_pci_devices(cache_directory):
     try:
         with open(cache_filename, 'r') as f:
             return f.read()
-    except:
+    except FileNotFoundError:
         # Fetch from the network below in case the cache isn't prepared.
         pass
 

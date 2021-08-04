@@ -1,12 +1,7 @@
-import requests
-import re
-import sys
 try:
     from functools import cached_property
-except:
+except ImportError:
     from backports.cached_property import cached_property
-from functools import cache
-from typing import Dict, Tuple
 
 
 SUPPORTED_GPUS = {

@@ -1,6 +1,6 @@
 try:
     from functools import cached_property
-except:
+except ImportError:
     from backports.cached_property import cached_property
 from enum import Enum
 from cffi import FFI
@@ -48,8 +48,8 @@ class VulkanDeviceType(Enum):
     OTHER = vk.VK_PHYSICAL_DEVICE_TYPE_OTHER
     INTEGRATED = vk.VK_PHYSICAL_DEVICE_TYPE_INTEGRATED_GPU
     DISCRETE = vk.VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU
-    VIRTUAL =  vk.VK_PHYSICAL_DEVICE_TYPE_VIRTUAL_GPU
-    CPU =  vk.VK_PHYSICAL_DEVICE_TYPE_CPU
+    VIRTUAL = vk.VK_PHYSICAL_DEVICE_TYPE_VIRTUAL_GPU
+    CPU = vk.VK_PHYSICAL_DEVICE_TYPE_CPU
 
 
 def get_vk_instance(app_info, enabled_extensions=None):
@@ -89,7 +89,7 @@ class VulkanInfo:
             physical_device_properties_2_supported = False
             print('WARNING: The {} extension is not supported. '
                   'Some information is not available.'.format(
-                vk.VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME))
+                      vk.VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME))
             try:
                 instance = get_vk_instance(app_info)
             except Exception as err:
@@ -119,7 +119,8 @@ class VulkanInfo:
         physical_device = physical_devices[device_index]
         return cls(instance, physical_device, physical_device_properties_2_supported)
 
-    def __init__(self, instance, physical_device, physical_device_properties_2_supported=False):
+    def __init__(self, instance, physical_device,
+                 physical_device_properties_2_supported=False):
         self._physical_device_properties = vk.vkGetPhysicalDeviceProperties(
             physical_device)
         self._physical_device_memory_properties = vk.vkGetPhysicalDeviceMemoryProperties(
@@ -256,5 +257,5 @@ class VulkanInfo:
 
 if __name__ == '__main__':
     if info := VulkanInfo.construct():
-        print("The device %s (VRAM=%.2f GiB, GTT=%.2f GiB) implements %d extensions" % \
-              (info.device, info.VRAM_heap.GiB_size, info.GTT_heap.GiB_size, len(info.extensions)))
+        print("The device %s (VRAM=%.2f GiB, GTT=%.2f GiB) implements %d extensions" %
+              info.device, info.VRAM_heap.GiB_size, info.GTT_heap.GiB_size, len(info.extensions))

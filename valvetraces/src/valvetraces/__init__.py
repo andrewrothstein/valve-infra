@@ -281,9 +281,9 @@ class Client:
 
             # Ask the website for the URL of where to upload the file
             r_blob = self._post("/rails/active_storage/direct_uploads",
-                                 {"blob": {"filename": name, "byte_size": file_size,
-                                           "content_type": "application/octet-stream",
-                                           "checksum": data_checksum}})
+                                {"blob": {"filename": name, "byte_size": file_size,
+                                          "content_type": "application/octet-stream",
+                                          "checksum": data_checksum}})
             blob = Blob(r_blob)
 
             # Send the file to the bucket
@@ -358,7 +358,7 @@ class Client:
         if not machine_tags:
             machine_tags = list(self.machine_tags)
 
-        pattern = re.compile('(?P<frame_id>\d+$)')
+        pattern = re.compile(r'(?P<frame_id>\d+$)')
         for frame in frames:
             file_name = os.path.basename(frame)
             without_ext, _ = os.path.splitext(frame)
@@ -370,7 +370,7 @@ class Client:
             r = self._post(
                 "/api/v1/trace_execs",
                 params={"trace_exec": {"trace_id": trace_id,
-                "job_id": job_id}})
+                                       "job_id": job_id}})
             trace_exec_id = r.get('id')
             frame_id = int(m.groupdict({}).get('frame_id'))
             blob = self._upload_frame_blob(frame, file_name)
