@@ -262,27 +262,35 @@ class Job:
                    machine_id=machine_id)
 
 
+def run_job(args):
+    job = Job.from_file(args.executor_url, args.job_id_prefix, args.job, args.wait,
+                        callback_host=args.callback, machine_tags=args.machine_tag,
+                        machine_id=args.machine_id)
+    status = job.start(args)
+    logger.info("status: %s", status)
+    sys.exit(status.status_code)
+
+
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser()
+    parser = argparse.ArgumentParser(prog='Executor client')
     parser.add_argument("-e", '--executor', dest='executor_url',
                         default="http://localhost",
                         help='URL to the executor service')
-    parser.add_argument("-w", "--wait", action="store_true",
-                        help="Wait for a machine to become available if all are busy")
-    parser.add_argument("-c", "--callback",
-                        help=("Hostname that the executor will use to connect back to this client, "
-                              "useful for non-trivial routing to the test device"))
-    parser.add_argument("-t", "--machine-tag", action="append", dest="machine_tags",
-                        help="Tag of the machine that should be running the job. Overrides the job's target.")
-    parser.add_argument("-i", "--machine-id",
-                        help="ID of the machine that should run the job. Overrides the job's target.")
-    parser.add_argument('action', help='Action this script should do',
-                        choices=['run'])
-    parser.add_argument("job", help='Job that should be run')
-    args = parser.parse_args()
 
-    job = Job.from_file(args.executor_url, args.job, args.wait,
-                        callback_host=args.callback,
-                        machine_tags=args.machine_tags, machine_id=args.machine_id)
-    status = job.run()
-    sys.exit(status.status_code)
+    subparsers = parser.add_subparsers()
+
+    run_parser = subparsers.add_parser('run', help='run a job')
+    run_parser.add_argument("-w", "--wait", action="store_true",
+                            help="Wait for a machine to become available if all are busy")
+    run_parser.add_argument("-c", "--callback",
+                            help=("Hostname that the executor will use to connect back to this client, "
+                                  "useful for non-trivial routing to the test device"))
+    run_parser.add_argument("-t", "--machine-tag", action="append", dest="machine_tags",
+                            help="Tag of the machine that should be running the job. Overrides the job's target.")
+    run_parser.add_argument("-i", "--machine-id",
+                            help="ID of the machine that should run the job. Overrides the job's target.")
+    run_parser.add_argument("job", help='Job that should be run')
+    run_parser.set_defaults(func=run_job)
+
+    args = parser.parse_args()
+    args.func(args)
