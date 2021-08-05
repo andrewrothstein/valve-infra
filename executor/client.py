@@ -24,7 +24,7 @@ from message import MessageType, Message, JobIOMessage, JobStatus
 logger = getLogger(__name__)
 logger.setLevel(getLevelName('DEBUG'))
 log_formatter = \
-    Formatter("%(asctime)s [%(levelname)s] %(name)s: "
+    Formatter("%(asctime)s [%(levelname)s] %(funcName)s: "
               "%(message)s [%(threadName)s] ")
 console_handler = StreamHandler()
 console_handler.setFormatter(log_formatter)
