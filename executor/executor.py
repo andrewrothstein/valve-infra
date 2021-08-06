@@ -3,7 +3,7 @@
 from datetime import datetime
 from threading import Thread, Event
 from collections import defaultdict, namedtuple
-from urllib.parse import urlsplit
+from urllib.parse import urlsplit, urlparse
 from enum import Enum, IntEnum
 
 from message import LogLevel, JobIOMessage, ControlMessage, SessionEndMessage, Message, MessageType
@@ -411,6 +411,16 @@ class JobBucket:
     def setup(self):
         if self.initial_state_tarball_file:
             self.minio.extract_archive(self.initial_state_tarball_file, self.name)
+
+    def access_url(self, role=None):
+        endpoint = urlparse(self.minio.url)
+
+        role_creds = self.credentials(role)
+        if role_creds:
+            credentials = f"{role_creds[0]}:{role_creds[1]}@"
+        else:
+            credentials = ""
+        return f'{endpoint.scheme}://{credentials}{endpoint.netloc}'
 
     @classmethod
     def from_job_request(cls, minio, request):
