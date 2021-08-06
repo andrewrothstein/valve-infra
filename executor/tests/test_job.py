@@ -138,9 +138,10 @@ def test_Timeout_from_job():
 
 
 def test_Timeouts__overall_with_retries():
-    with pytest.raises(ValueError) as exc:
-        Timeouts({Timeouts.Type.OVERALL.value: Timeout("name", timedelta(), retries=1)})
-    assert "The overall timeout cannot have retries" in str(exc.value)
+    for t_type in [Timeouts.Type.OVERALL.value, Timeouts.Type.INFRA_TEARDOWN.value]:
+        with pytest.raises(ValueError) as exc:
+            Timeouts({t_type: Timeout("name", timedelta(), retries=1)})
+        assert "Neither the overall nor the teardown timeout can have retries" in str(exc.value)
 
 
 def test_Timeouts__default():

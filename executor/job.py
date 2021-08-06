@@ -103,6 +103,7 @@ class Timeouts:
     class Type(Enum):
         OVERALL = "overall"
         INFRA_SETUP = "infra_setup"
+        INFRA_TEARDOWN = "infra_teardown"
         BOOT_CYCLE = "boot_cycle"
         CONSOLE = "console_activity"
         FIRST_CONSOLE_MSG = "first_console_activity"
@@ -110,6 +111,7 @@ class Timeouts:
     class Schema(Schema):
         overall = fields.Nested(Timeout.Schema(context={"name": "overall"}))
         infra_setup = fields.Nested(Timeout.Schema(context={"name": "infra_setup"}))
+        infra_teardown = fields.Nested(Timeout.Schema(context={"name": "infra_teardown"}))
         boot_cycle = fields.Nested(Timeout.Schema(context={"name": "boot_cycle"}))
         console_activity = fields.Nested(Timeout.Schema(context={"name": "console_activity"}))
         first_console_activity = fields.Nested(Timeout.Schema(context={"name": "first_console_activity"}))
@@ -128,8 +130,8 @@ class Timeouts:
                 timeout = Timeout(name=t_type.value, timeout=timedelta.max, retries=0)
 
             # Sanity check the timeout
-            if t_type == self.Type.OVERALL and timeout.retries != 0:
-                raise ValueError("The overall timeout cannot have retries")
+            if t_type in [self.Type.OVERALL, self.Type.INFRA_TEARDOWN] and timeout.retries != 0:
+                raise ValueError("Neither the overall nor the teardown timeout can have retries")
 
             setattr(self, t_type.value, timeout)
 
@@ -349,6 +351,7 @@ class Job:
 
         default_timeouts = {
             "overall": Timeout(name="overall", timeout=timedelta(hours=6), retries=0),
+            "infra_teardown": Timeout(name="infra_teardown", timeout=timedelta(minutes=10), retries=0),
         }
 
         try:
