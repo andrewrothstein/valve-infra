@@ -1,7 +1,5 @@
 #!/usr/bin/env python3
 
-from enum import Enum
-
 import traceback
 import argparse
 import requests
@@ -16,6 +14,9 @@ import os
 import json
 from logging import getLogger, getLevelName, Formatter, StreamHandler
 
+from message import JobStatus
+
+
 logger = getLogger(__name__)
 logger.setLevel(getLevelName('DEBUG'))
 log_formatter = \
@@ -24,24 +25,6 @@ log_formatter = \
 console_handler = StreamHandler()
 console_handler.setFormatter(log_formatter)
 logger.addHandler(console_handler)
-
-
-class JobStatus(Enum):
-    PASS = 0
-    WARN = 1
-    COMPLETE = 2
-    FAIL = 3
-    INCOMPLETE = 4
-    UNKNOWN = 5
-    SETUP_FAIL = 6
-
-    @classmethod
-    def from_str(cls, status):
-        return getattr(cls, status, cls.UNKNOWN)
-
-    @property
-    def status_code(self):
-        return self.value
 
 
 class Job:

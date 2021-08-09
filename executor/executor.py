@@ -4,10 +4,11 @@ from datetime import datetime
 from threading import Thread, Event
 from collections import defaultdict
 from urllib.parse import urlparse, urlsplit
-from enum import Enum, IntEnum
+from enum import Enum
 
+from message import LogLevel
 from pdu import PDUState
-from client import JobStatus
+from message import JobStatus
 from job import Job
 from logger import logger
 
@@ -31,13 +32,6 @@ class MachineState(Enum):
     TRAINING = 2
     QUEUED = 3
     RUNNING = 4
-
-
-class LogLevel(IntEnum):
-    DEBUG = 0
-    INFO = 1
-    WARN = 2
-    ERROR = 3
 
 
 def str_to_int(string, default):
