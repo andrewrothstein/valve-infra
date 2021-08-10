@@ -506,7 +506,7 @@ class Executor(Thread):
             self.log("Setup the infrastructure\n")
             timeouts.infra_setup.start()
             self._cache_remote_artifacts()
-            self.log(f"Completed setup of the infrastructure, after {timeouts.infra_setup.active_for} s")
+            self.log(f"Completed setup of the infrastructure, after {timeouts.infra_setup.active_for} s\n")
             timeouts.infra_setup.stop()
 
             # Keep on resuming until success, timeouts' retry limits is hit, or the entire executor is going down
