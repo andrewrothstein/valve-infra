@@ -4,7 +4,7 @@ from datetime import datetime
 from threading import Thread, Event
 from collections import defaultdict, namedtuple
 from urllib.parse import urlsplit
-from enum import Enum
+from enum import Enum, IntEnum
 
 from message import LogLevel, JobIOMessage, ControlMessage, SessionEndMessage, Message, MessageType
 from pdu import PDUState
@@ -43,6 +43,12 @@ def str_to_int(string, default):
         return default
 
 
+class JobConsoleState(IntEnum):
+    CREATED = 0
+    ACTIVE = 1
+    OVER = 2
+
+
 class JobConsole(Thread):
     def __init__(self, machine_id, client_endpoint, console_patterns,
                  client_version=None, log_level=LogLevel.INFO):
@@ -55,15 +61,12 @@ class JobConsole(Thread):
         self.client_version = client_version
         self.log_level = log_level
 
-        # Thread
-        self._stop_event = Event()
-
         # Sockets
         self.client_sock = None
         self.salad_sock = self.connect_to_salad()
 
         # Job-long state
-        self.is_over = False
+        self._state = JobConsoleState.CREATED
         self.start_time = None
         self.line_buffer = bytearray()
 
@@ -91,12 +94,39 @@ class JobConsole(Thread):
         self.console_patterns.reset_per_boot_state()
         self.needs_reboot = self.console_patterns.needs_reboot
 
+    @property
+    def state(self):
+        if self._state == JobConsoleState.ACTIVE:
+            return self._state if self.is_alive() else JobConsoleState.OVER
+
+        return self._state
+
+    def set_state(self, state):
+        prev_state = self._state
+        if state < prev_state:
+            raise ValueError("The state can only move forward")
+        elif state == prev_state:
+            return
+        else:
+            self._state = state
+
+        self.log(f"Job console state changed from {prev_state.name} -> {state.name}\n")
+
+        if state == JobConsoleState.ACTIVE:
+            self.start_time = datetime.now()
+        elif state == JobConsoleState.OVER:
+            if not self.clientless:
+                if self.client_version == 0:
+                    self.log(f"<-- End of the session: {self.console_patterns.job_status} -->\n")
+                elif self.client_version == 1:
+                    status = JobStatus.from_str(self.console_patterns.job_status)
+                    SessionEndMessage.create(status=status).send(self.client_sock)
+            self.close()
+
     def start(self):
         if self.client_version:
             logger.info(f"Connecting to the client endpoint {self.client_endpoint}")
             self.client_sock = socket.create_connection(self.client_endpoint)
-        self.start_time = datetime.now()
-
         super().start()
 
     def match_console_patterns(self, buf):
@@ -146,17 +176,7 @@ class JobConsole(Thread):
                 pass
 
     def close(self):
-        was_over = self.is_over
-        self.is_over = True
-
         if self.client_version:
-            if not was_over:
-                if self.client_version == 0:
-                    self.log(f"<-- End of the session: {self.console_patterns.job_status} -->\n")
-                elif self.client_version == 1:
-                    status = JobStatus.from_str(self.console_patterns.job_status)
-                    SessionEndMessage.create(status=status).send(self.client_sock)
-
             try:
                 self.client_sock.shutdown(socket.SHUT_RDWR)
                 self.client_sock.close()
@@ -169,17 +189,24 @@ class JobConsole(Thread):
         except OSError:
             pass
 
-        self._stop_event.set()
-
     def stop(self):
-        self._stop_event.set()
+        self.set_state(JobConsoleState.OVER)
         self.join()
 
     def run(self):
-        while not self._stop_event.is_set():
-            fds = [self.salad_sock.fileno()]
+        self.set_state(JobConsoleState.ACTIVE)
+
+        while self.state < JobConsoleState.OVER:
+            fds = []
+            if self.state == JobConsoleState.ACTIVE:
+                fds.extend([self.salad_sock.fileno()])
             if self.client_version:
                 fds.extend([self.client_sock.fileno()])
+
+            # Make sure all the FDs are valid, or exit!
+            if any([fd < 0 for fd in fds]):
+                self.log("Found a negative fd, aborting!")
+                self.set_state(JobConsoleState.OVER)
 
             rlist, _, _ = select.select(fds, [], [], 1.0)
 
@@ -189,7 +216,7 @@ class JobConsole(Thread):
                         # DUT's stdout/err: Salad -> Client
                         buf = self.salad_sock.recv(8192)
                         if len(buf) == 0:
-                            self.close()
+                            self.set_state(JobConsoleState.OVER)
 
                         # Match the console patterns
                         try:
@@ -212,14 +239,14 @@ class JobConsole(Thread):
 
                         # The message got forwarded, close the session if it ended
                         if self.console_patterns.session_has_ended:
-                            self.close()
+                            self.set_state(JobConsoleState.OVER)
 
                     elif fd == self.client_sock.fileno():
                         # DUT's stdin: Client -> Salad
                         if self.client_version == 0:
                             buf = self.client_sock.recv(8192)
                             if len(buf) == 0:
-                                self.close()
+                                self.set_state(JobConsoleState.OVER)
 
                             # Forward to the salad
                             self.salad_sock.send(buf)
@@ -581,7 +608,8 @@ class Executor(Thread):
 
             # Keep on resuming until success, timeouts' retry limits is hit, or the entire executor is going down
             deployment = self.job_config.deployment_start
-            while not self.stop_event.is_set() and not timeouts.overall.has_expired and not self.job_console.is_over:
+            while (not self.stop_event.is_set() and not timeouts.overall.has_expired and
+                   self.job_console.state < JobConsoleState.OVER):
                 self.job_console.reset_per_boot_state()
 
                 # Make sure the machine shuts down
@@ -604,8 +632,9 @@ class Executor(Thread):
                 timeouts.first_console_activity.start()
                 timeouts.console_activity.stop()
 
-                while (not self.job_console.is_over and not self.job_console.needs_reboot
-                       and not self.stop_event.is_set() and not timeouts.has_expired):
+                while (self.job_console.state != JobConsoleState.OVER and
+                       not self.job_console.needs_reboot and
+                       not self.stop_event.is_set() and not timeouts.has_expired):
                     # Update the activity timeouts, based on when was the
                     # last time we sent it data
                     if self.job_console.last_activity_from_machine is not None:
