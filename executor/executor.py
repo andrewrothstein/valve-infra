@@ -46,7 +46,9 @@ def str_to_int(string, default):
 class JobConsoleState(IntEnum):
     CREATED = 0
     ACTIVE = 1
-    OVER = 2
+    DUT_DONE = 2
+    TEAR_DOWN = 3
+    OVER = 4
 
 
 class JobConsole(Thread):
@@ -69,6 +71,7 @@ class JobConsole(Thread):
         self._state = JobConsoleState.CREATED
         self.start_time = None
         self.line_buffer = bytearray()
+        self._user_session_state = dict()
 
         self.reset_per_boot_state()
 
@@ -94,6 +97,24 @@ class JobConsole(Thread):
         self.console_patterns.reset_per_boot_state()
         self.needs_reboot = self.console_patterns.needs_reboot
 
+    def close_salad(self):
+        try:
+            self.salad_sock.shutdown(socket.SHUT_RDWR)
+            self.salad_sock.close()
+        except OSError:
+            pass
+
+    def close_client(self):
+        if self.client_version:
+            try:
+                self.client_sock.shutdown(socket.SHUT_RDWR)
+                self.client_sock.close()
+            except OSError:
+                pass
+
+    def close(self):
+        self.set_state(JobConsoleState.OVER)
+
     @property
     def state(self):
         if self._state == JobConsoleState.ACTIVE:
@@ -101,7 +122,7 @@ class JobConsole(Thread):
 
         return self._state
 
-    def set_state(self, state):
+    def set_state(self, state, **kwargs):
         prev_state = self._state
         if state < prev_state:
             raise ValueError("The state can only move forward")
@@ -114,14 +135,36 @@ class JobConsole(Thread):
 
         if state == JobConsoleState.ACTIVE:
             self.start_time = datetime.now()
-        elif state == JobConsoleState.OVER:
-            if not self.clientless:
+
+        elif state == JobConsoleState.DUT_DONE:
+            # Skip the entire tear-down if we do not have a client
+            if not self.client_version:
+                self.set_state(JobConsoleState.OVER)
+
+        elif state == JobConsoleState.TEAR_DOWN:
+            # Kill the connection to SALAD
+            self.close_salad()
+
+            # Notify the client
+            if self.client_version:
                 if self.client_version == 0:
                     self.log(f"<-- End of the session: {self.console_patterns.job_status} -->\n")
                 elif self.client_version == 1:
-                    status = JobStatus.from_str(self.console_patterns.job_status)
-                    SessionEndMessage.create(status=status).send(self.client_sock)
-            self.close()
+                    try:
+                        status = JobStatus.from_str(self.console_patterns.job_status)
+                        SessionEndMessage.create(job_bucket=kwargs.get('job_bucket'),
+                                                 status=status).send(self.client_sock)
+                    except (ConnectionResetError, BrokenPipeError, OSError):
+                        traceback.print_exc()
+                try:
+                    self.client_sock.shutdown(socket.SHUT_WR)
+                except (ConnectionResetError, BrokenPipeError, OSError):
+                    pass
+
+        elif state == JobConsoleState.OVER:
+            # Make sure the connections to SALAD and the client are killed
+            self.close_salad()
+            self.close_client()
 
     def start(self):
         if self.client_version:
@@ -175,20 +218,6 @@ class JobConsole(Thread):
             except OSError:
                 pass
 
-    def close(self):
-        if self.client_version:
-            try:
-                self.client_sock.shutdown(socket.SHUT_RDWR)
-                self.client_sock.close()
-            except OSError:
-                pass
-
-        try:
-            self.salad_sock.shutdown(socket.SHUT_RDWR)
-            self.salad_sock.close()
-        except OSError:
-            pass
-
     def stop(self):
         self.set_state(JobConsoleState.OVER)
         self.join()
@@ -198,7 +227,7 @@ class JobConsole(Thread):
 
         while self.state < JobConsoleState.OVER:
             fds = []
-            if self.state == JobConsoleState.ACTIVE:
+            if self.state < JobConsoleState.TEAR_DOWN:
                 fds.extend([self.salad_sock.fileno()])
             if self.client_version:
                 fds.extend([self.client_sock.fileno()])
@@ -206,7 +235,7 @@ class JobConsole(Thread):
             # Make sure all the FDs are valid, or exit!
             if any([fd < 0 for fd in fds]):
                 self.log("Found a negative fd, aborting!")
-                self.set_state(JobConsoleState.OVER)
+                self.close()
 
             rlist, _, _ = select.select(fds, [], [], 1.0)
 
@@ -216,7 +245,7 @@ class JobConsole(Thread):
                         # DUT's stdout/err: Salad -> Client
                         buf = self.salad_sock.recv(8192)
                         if len(buf) == 0:
-                            self.set_state(JobConsoleState.OVER)
+                            self.set_state(JobConsoleState.DUT_DONE)
 
                         # Match the console patterns
                         try:
@@ -239,24 +268,34 @@ class JobConsole(Thread):
 
                         # The message got forwarded, close the session if it ended
                         if self.console_patterns.session_has_ended:
-                            self.set_state(JobConsoleState.OVER)
+                            self.set_state(JobConsoleState.DUT_DONE)
 
                     elif fd == self.client_sock.fileno():
                         # DUT's stdin: Client -> Salad
                         if self.client_version == 0:
                             buf = self.client_sock.recv(8192)
                             if len(buf) == 0:
-                                self.set_state(JobConsoleState.OVER)
+                                self.close()
 
                             # Forward to the salad
                             self.salad_sock.send(buf)
                         elif self.client_version == 1:
-                            msg = Message.next_message(self.client_sock)
-                            if msg.msg_type == MessageType.JOB_IO:
-                                self.salad_sock.send(msg.buffer)
+                            try:
+                                msg = Message.next_message(self.client_sock)
+                                if msg.msg_type == MessageType.JOB_IO:
+                                    self.salad_sock.send(msg.buffer)
+                            except EOFError:
+                                # Do not warn when we are expecting the client to close its socket
+                                if self.state < JobConsoleState.TEAR_DOWN:
+                                    self.log(traceback.format_exc())
+
+                                self.log("The client closed its connection")
+
+                                # Clean up everything on our side
+                                self.close()
 
                         self.last_activity_from_client = datetime.now()
-                except (ConnectionResetError, BrokenPipeError, EOFError, OSError):
+                except (ConnectionResetError, BrokenPipeError, OSError):
                     self.log(traceback.format_exc())
                     self.close()
                 except Exception:
@@ -584,7 +623,6 @@ class Executor(Thread):
 
             # Signal to the job that we reached the end of the execution
             if self.job_console is not None:
-                time.sleep(CONSOLE_DRAINING_DELAY)  # Delay to make sure messages are read before the end of the job
                 self.job_console.close()
                 self.job_console = None
                 self.machine.boots.remove_pxelinux_config(self.machine.mac_address)
@@ -619,7 +657,7 @@ class Executor(Thread):
             # Keep on resuming until success, timeouts' retry limits is hit, or the entire executor is going down
             deployment = self.job_config.deployment_start
             while (not self.stop_event.is_set() and not timeouts.overall.has_expired and
-                   self.job_console.state < JobConsoleState.OVER):
+                   self.job_console.state < JobConsoleState.DUT_DONE):
                 self.job_console.reset_per_boot_state()
 
                 # Make sure the machine shuts down
@@ -642,7 +680,7 @@ class Executor(Thread):
                 timeouts.first_console_activity.start()
                 timeouts.console_activity.stop()
 
-                while (self.job_console.state != JobConsoleState.OVER and
+                while (self.job_console.state < JobConsoleState.DUT_DONE and
                        not self.job_console.needs_reboot and
                        not self.stop_event.is_set() and not timeouts.has_expired):
                     # Update the activity timeouts, based on when was the
@@ -684,6 +722,35 @@ class Executor(Thread):
 
                 # We went through one boot cycle, update the
                 deployment = self.job_config.deployment_continue
+
+            # We either reached the end of the job, or the client got disconnected
+            if self.job_console.state == JobConsoleState.DUT_DONE:
+                # Tearing down the job
+                self.log("The job has finished executing, starting tearing down\n")
+                timeouts.infra_teardown.start()
+
+                # Delay to make sure messages are read before the end of the job
+                time.sleep(CONSOLE_DRAINING_DELAY)
+
+                # Start the tear down, which will create and send the credentials
+                # for the job bucket to the client
+                self.log("Creating credentials to the job bucket for the client\n")
+                self.job_console.set_state(JobConsoleState.TEAR_DOWN, job_bucket=self.job_bucket)
+
+                # Wait for the client to close the connection
+                self.log("Waiting for the client to download the job bucket\n")
+                while (self.job_console.state < JobConsoleState.OVER and
+                       not self.stop_event.is_set() and
+                       not timeouts.infra_teardown.has_expired):
+                    # Wait a little bit before checking again
+                    time.sleep(0.1)
+
+                self.log(f"Completed the tear down procedure in {timeouts.infra_teardown.active_for} s\n")
+                timeouts.infra_teardown.stop()
+            else:
+                self.log("The job is over, skipping sharing the job bucket with the client")
+
+            # We are done!
 
         while not self.stop_event.is_set():
             try:

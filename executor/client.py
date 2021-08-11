@@ -4,6 +4,7 @@ from logging import getLogger, getLevelName, Formatter, StreamHandler
 from dataclasses import dataclass
 from tarfile import TarFile
 
+import subprocess
 import traceback
 import argparse
 import requests
@@ -250,6 +251,15 @@ class Job:
 
         return None
 
+    def _handle_end_message(self, session_end_msg):
+        logger.info("Downloading the job bucket")
+        if session_end_msg.job_bucket and self.share_directory:
+            bucket = session_end_msg.job_bucket
+            os.environ['MC_HOST_client'] = bucket.minio_access_url
+            subprocess.check_call(["mcli", "--no-color", "mirror",
+                                   "--overwrite", "--remove", f'client/{bucket.bucket_name}',
+                                   self.share_directory])
+
     def _read_executor_message_v1(self, job_socket):
         try:
             msg = Message.next_message(job_socket)
@@ -261,6 +271,7 @@ class Job:
                 sys.stdout.buffer.write(msg.buffer)
                 sys.stdout.buffer.flush()
             elif msg.msg_type == MessageType.SESSION_END:
+                self._handle_end_message(msg)
                 return msg.status
         except Exception:
             traceback.print_exc()
