@@ -1,4 +1,6 @@
 from dataclasses import dataclass, field
+from functools import cached_property
+from collections import namedtuple
 from datetime import datetime
 from enum import Enum, IntEnum
 
@@ -127,10 +129,27 @@ class SessionEndMessage(Message):
     def status(self):
         return JobStatus.from_str(self.payload.get("status"))
 
+    @cached_property
+    def job_bucket(self):
+        bucket = self.payload.get("job_bucket")
+        if bucket is None:
+            return None
+
+        JobBucket = namedtuple("JobBucket", ["minio_access_url", "bucket_name"])
+        return JobBucket(minio_access_url=bucket.get('minio_access_url'),
+                         bucket_name=bucket.get('bucket_name'))
+
     @classmethod
-    def create(cls, status):
+    def create(cls, status, job_bucket=None):
         parameters = {
             "status": status.name
         }
+
+        if job_bucket:
+            job_bucket.create_owner_credentials("client")
+            parameters['job_bucket'] = {
+                "minio_access_url": job_bucket.access_url("client"),
+                "bucket_name": job_bucket.name
+            }
 
         return cls(payload=parameters)

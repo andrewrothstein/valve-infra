@@ -39,6 +39,19 @@ def test_SessionEndMessage():
     msg = SessionEndMessage.create(status=JobStatus.PASS)
     assert msg.payload == parameters
     assert msg.status == JobStatus.PASS
+    assert msg.job_bucket is None
+
+    # Test the bucket
+    bucket = MagicMock()
+    bucket.name = "bucketname"
+    bucket.access_url.return_value = "http://myurl"
+
+    msg = SessionEndMessage.create(status=JobStatus.PASS,
+                                   job_bucket=bucket)
+    assert msg.job_bucket.minio_access_url == "http://myurl"
+    assert msg.job_bucket.bucket_name == "bucketname"
+    bucket.access_url.create_owner_credentials("client")
+    bucket.access_url.assert_called_with("client")
 
 
 def test_Message_send_receive():
