@@ -1,36 +1,43 @@
-from unittest.mock import patch
+from unittest.mock import call, patch, MagicMock
+from urllib.parse import urlparse
 import config
 
-from minioclient import MinioClient
+from minioclient import MinioClient, generate_whitelist_str
+from minio.error import S3Error
+
+import pytest
 
 
 @patch("minioclient.Minio", autospec=True)
-def test_client_instanciation__defaults(minio_mock):
-    config.MINIO_ROOT_PASSWORD = None
+@patch("subprocess.check_call")
+def test_client_instanciation__defaults(subproc_mock, minio_mock):
     MinioClient()
-
-    minio_mock.assert_called_once_with(endpoint="10.42.0.1:9000", access_key="minioadmin",
-                                       secret_key="random", secure=False)
+    minio_mock.assert_called_once_with(endpoint=urlparse(config.MINIO_URL).netloc,
+                                       access_key=config.MINIO_USER, secret_key=config.MINIO_ROOT_PASSWORD,
+                                       secure=False)
+    subproc_mock.assert_called_once_with(['mcli', '-q', '--no-color', 'alias', 'set',
+                                          config.MINIO_ADMIN_ALIAS, config.MINIO_URL,
+                                          config.MINIO_USER, config.MINIO_ROOT_PASSWORD])
 
 
 @patch("minioclient.Minio", autospec=True)
-def test_client_instanciation__custom_params(minio_mock):
-    config.MINIO_URL = "http://hello-world"
-    config.MINIO_ROOT_PASSWORD = "123456789"
-    MinioClient()
-    minio_mock.assert_called_once_with(endpoint="hello-world", access_key="minioadmin",
-                                       secret_key="123456789", secure=False)
+@patch("subprocess.check_call")
+def test_client_instanciation__custom_params(subproc_mock, minio_mock):
+    MinioClient(url="http://hello-world", user="accesskey", secret_key="secret_key", alias="toto")
+    minio_mock.assert_called_once_with(endpoint="hello-world", access_key="accesskey",
+                                       secret_key="secret_key", secure=False)
+    subproc_mock.assert_called_once_with(['mcli', '-q', '--no-color', 'alias', 'set',
+                                          "toto", "http://hello-world", "accesskey", "secret_key"])
 
 
-def test_is_local_url():
-    config.MINIO_URL = "http://10.42.0.1:9000"
-    minio = MinioClient()
+@patch("subprocess.check_call")
+def test_is_local_url(subproc_mock):
+    minio = MinioClient(url="http://10.42.0.1:9000")
 
     assert minio.is_local_url("http://10.42.0.1:9000/toto")
     assert not minio.is_local_url("http://hello-world/toto")
 
-    config.MINIO_URL = "http://hello-world"
-    minio = MinioClient()
+    minio = MinioClient(url="http://hello-world")
     assert not minio.is_local_url("http://10.42.0.1:9000/toto")
     assert minio.is_local_url("http://hello-world/toto")
 
@@ -52,10 +59,165 @@ class MockStream:
 @patch("minioclient.requests.get", return_value=MockStream())
 @patch("minioclient.Minio", autospec=True)
 @patch("minioclient.tempfile.NamedTemporaryFile", autospec=True)
-def test_save_boot_artifact(named_temp_mock, minio_mock, get_mock):
+@patch("subprocess.check_call")
+def test_save_boot_artifact(subproc_mock, named_temp_mock, minio_mock, get_mock):
     client = MinioClient()
 
     named_temp_mock().__enter__().name = "/tmp/temp_file"
     client.save_boot_artifact("https://toto.com/path", "/toto/path")
 
     client._client.fput_object.assert_called_once_with("boot", "/toto/path", "/tmp/temp_file")
+
+
+@patch("minioclient.Minio", autospec=True)
+@patch("minioclient.TarFile.open", autospec=True)
+@patch("subprocess.check_call")
+def test_extract_archive(subproc_mock, tarfile_mock, minio_mock):
+    client = MinioClient()
+
+    archive_mock = tarfile_mock.return_value.__enter__.return_value
+    file_obj = MagicMock()
+    members = [MagicMock(isfile=MagicMock(return_value=True), size=42),
+               MagicMock(isfile=MagicMock(return_value=False)),
+               None]
+    members[0].name = "toto"
+    archive_mock.next = MagicMock(side_effect=members)
+
+    client.extract_archive(file_obj, "bucket/rootpath")
+
+    tarfile_mock.assert_called_once_with(fileobj=file_obj, mode='r')
+    archive_mock.extractfile.assert_called_once_with(members[0])
+
+    client._client.put_object.assert_called_once_with("bucket/rootpath",
+                                                      "toto",
+                                                      archive_mock.extractfile(),
+                                                      members[0].size,
+                                                      num_parallel_uploads=1)
+
+
+@patch("minioclient.Minio", autospec=True)
+@patch("subprocess.check_call")
+def test_make_bucket(subproc_mock, minio_mock):
+    client = MinioClient()
+    client._client = MagicMock()
+    client.make_bucket('test-id')
+    client._client.make_bucket.assert_called_once_with('test-id')
+
+    def side_effect(*arg, **kwargs):
+        raise S3Error('code', 'message', 'resource', 'request_id', 'host_id', 'response')
+    client._client.make_bucket.side_effect = side_effect
+
+    with pytest.raises(ValueError) as exc:
+        client.make_bucket('test-id')
+    assert "The bucket already exists" in str(exc.value)
+
+
+@patch("minioclient.Minio", autospec=True)
+@patch("subprocess.check_call")
+def test_remove_bucket(subproc_mock, minio_mock):
+    client = MinioClient(url='http://test.invalid', user='test', secret_key='test', alias="local")
+    client.remove_bucket('test-id')
+    subproc_mock.assert_has_calls([
+        call(['mcli', '-q', '--no-color', 'alias', 'set', 'local', 'http://test.invalid', 'test', 'test']),
+        call(['mcli', '-q', '--no-color', 'rb', '--force', 'local/test-id'])])
+
+
+def test_generate_whitelist_str():
+    assert generate_whitelist_str([]) == '"0.0.0.0/0"'
+    assert generate_whitelist_str(['localhost']) == '"localhost"'
+    assert generate_whitelist_str(['localhost', '1.2.3.4/32']) == '"localhost","1.2.3.4/32"'
+
+
+@patch("minioclient.Minio", autospec=True)
+@patch("subprocess.check_call")
+def test_minio_add_user(subproc_mock, minio_mock):
+    client = MinioClient(url='http://test.invalid', user='test', secret_key='test', alias="local")
+    client.add_user('job-id-c', 'job-password')
+    subproc_mock.assert_has_calls([
+        call(['mcli', '-q', '--no-color', 'alias', 'set', 'local', 'http://test.invalid', 'test', 'test']),
+        call(['mcli', '-q', '--no-color', 'admin', 'user', 'add', 'local', 'job-id-c', 'job-password']),
+    ])
+
+
+@patch("minioclient.Minio", autospec=True)
+@patch("subprocess.check_call")
+def test_minio_remove_user(subproc_mock, minio_mock):
+    client = MinioClient(url='http://test.invalid', user='test', secret_key='test', alias="local")
+    client.remove_user('username')
+    subproc_mock.assert_has_calls([
+        call(['mcli', '-q', '--no-color', 'alias', 'set', 'local', 'http://test.invalid', 'test', 'test']),
+        call(['mcli', '-q', '--no-color', 'admin', 'user', 'remove', 'local', 'username']),
+    ])
+
+
+@patch("subprocess.check_call")
+@patch("minioclient.tempfile.NamedTemporaryFile", autospec=True)
+def test_minio_add_user_policy_add(named_temp_mock, subproc_mock):
+    temp_mock = MagicMock()
+    temp_mock.name = '/tmp/temp_file'
+    named_temp_mock.return_value.__enter__.return_value = temp_mock
+    client = MinioClient(url='http://test.invalid', user='test', secret_key='test', alias="local")
+    client.apply_user_policy('policy_name', 'username', 'bucket_name', ['127.0.0.1/32', '1.2.3.4/32'])
+    temp_mock.write.assert_called_once_with(b"""{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Sid": "AllowGroupToSeeBucketListInTheConsole",
+            "Action": ["s3:ListAllMyBuckets", "s3:GetBucketLocation"],
+            "Effect": "Allow",
+            "Resource": ["arn:aws:s3:::*"],
+            "Condition":
+            {
+                "IpAddress": {
+                    "aws:SourceIp": [
+                        "127.0.0.1/32","1.2.3.4/32"
+                    ]
+                }
+            }
+        },
+        {
+            "Sid": "AllowListingOfJobSpecificFolder",
+            "Action": ["s3:ListBucket"],
+            "Effect": "Allow",
+            "Resource": ["arn:aws:s3:::*"],
+            "Condition":{
+               "StringLike": {
+                  "s3:prefix": ["bucket_name/*", "${aws:username}"]
+               },
+               "IpAddress": {
+                   "aws:SourceIp": [
+                       "127.0.0.1/32","1.2.3.4/32"
+                   ]
+               }
+            }
+        },
+        {
+            "Sid": "AllowAllS3ActionsInJobSpecificFolder",
+            "Action": ["s3:*"],
+            "Effect":"Allow",
+            "Resource": ["arn:aws:s3:::bucket_name/*"],
+            "Condition": {
+               "IpAddress": {
+                   "aws:SourceIp": [
+                       "127.0.0.1/32","1.2.3.4/32"
+                   ]
+               }
+            }
+        }
+    ]
+}""")
+    subproc_mock.assert_has_calls([
+        call(['mcli', '-q', '--no-color', 'alias', 'set', 'local', 'http://test.invalid', 'test', 'test']),
+        call(['mcli', '-q', '--no-color', 'admin', 'policy', 'add', 'local', 'policy_name', '/tmp/temp_file']),
+        call(['mcli', '-q', '--no-color', 'admin', 'policy', 'set', 'local', 'policy_name', 'user=username'])])
+
+
+@patch("subprocess.check_call")
+def test_minio_remove_user_policy(subproc_mock):
+    client = MinioClient(url='http://test.invalid', user='test', secret_key='test', alias="local")
+    client.remove_user_policy('policy_name', 'username')
+
+    subproc_mock.assert_has_calls([
+        call(['mcli', '-q', '--no-color', 'alias', 'set', 'local', 'http://test.invalid', 'test', 'test']),
+        call(['mcli', '-q', '--no-color', 'admin', 'policy', 'unset', 'local', 'policy_name', 'user=username']),
+        call(['mcli', '-q', '--no-color', 'admin', 'policy', 'remove', 'local', 'policy_name'])])
