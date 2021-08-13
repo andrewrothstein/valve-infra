@@ -122,12 +122,22 @@ def post_job():
                 return None, 406, f"No machines found matching the tags {wanted_tags}"
 
     class JobRequest:
-        def __init__(self, request, version, raw_job, target, callback_endpoint):
+        def __init__(self, request, version, raw_job, target, callback_endpoint,
+                     job_bucket_initial_state_tarball_file=None, job_id=None):
             self.request = request
             self.version = version
             self.raw_job = raw_job
             self.target = target
             self.callback_endpoint = callback_endpoint
+
+            # Clients may specify a starting state for the job bucket,
+            # this will be a tarball that is extracted prior to the
+            # job starting.
+            self.job_bucket_initial_state_tarball_file = job_bucket_initial_state_tarball_file
+
+            # The executor will ensure job IDs are unique, but use the
+            # client-provided prefix for as a naming convention.
+            self.job_id = job_id
 
             # Callback validation
             if callback_endpoint[0] is None:
@@ -186,6 +196,11 @@ def post_job():
                 raise ValueError("The metadata file has the wrong mimetype: "
                                  "{job_file.mimetype}} instead of application/x-yaml")
 
+            initial_state_tarball_file = request.files.get('job_bucket_initial_state_tarball_file', None)
+            if initial_state_tarball_file and initial_state_tarball_file.mimetype != "application/octet-stream":
+                raise ValueError("The job_bucket_initial_state_tarball file has the wrong mimetype: "
+                                 "{initial_state_tarball_file.mimetype}} instead of application/octet-stream")
+
             # Create a Job object
             raw_job = job_file.read().decode()
             job = Job.from_job(raw_job)
@@ -204,7 +219,9 @@ def post_job():
             endpoint = (remote_addr, callback.get("port"))
 
             super().__init__(request=request, version=1, raw_job=raw_job,
-                             target=job_target, callback_endpoint=endpoint)
+                             target=job_target, callback_endpoint=endpoint,
+                             job_bucket_initial_state_tarball_file=initial_state_tarball_file,
+                             job_id=metadata.get('job_id'))
 
     parsed = JobRequest.parse(flask.request)
 

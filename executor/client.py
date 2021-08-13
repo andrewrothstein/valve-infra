@@ -2,10 +2,12 @@
 
 from logging import getLogger, getLevelName, Formatter, StreamHandler
 from dataclasses import dataclass
+from tarfile import TarFile
 
 import traceback
 import argparse
 import requests
+import tempfile
 import termios
 import select
 import socket
@@ -37,7 +39,7 @@ class Response:
 
 class Job:
     def __init__(self, executor_url, job_desc, wait_if_busy=False, callback_host=None,
-                 machine_tags=None, machine_id=None):
+                 machine_tags=None, machine_id=None, job_id=None, share_directory=None):
         self.executor_url = executor_url
         self.job_desc = job_desc
         self.wait_if_busy = wait_if_busy
@@ -45,6 +47,14 @@ class Job:
 
         self.machine_tags = machine_tags
         self.machine_id = machine_id
+        self.job_id = job_id
+        self.share_directory = share_directory
+
+    def _create_archive(self):
+        with (tempfile.NamedTemporaryFile(mode='wb', suffix='tar.gz', delete=False) as fp,
+              TarFile.open(fileobj=fp, mode='w:gz') as tar):
+            tar.add(self.share_directory, arcname="")
+            return fp.name
 
     def _parse_response(self, r):
         try:
@@ -62,6 +72,27 @@ class Job:
             raise ValueError(f"Unsupported response version {version}")
 
     def _setup_connection(self):
+        def queue_job(**kwargs):
+            first_wait = True
+
+            while True:
+                r = requests.post(f"{self.executor_url}/api/v1/jobs", **kwargs)
+                response = self._parse_response(r)
+
+                if r.status_code == 200:
+                    return True, response
+                elif r.status_code == 409 and self.wait_if_busy:
+                    if first_wait:
+                        print("No machines available for the job, waiting: ", end="", flush=True)
+                        first_wait = False
+                    else:
+                        print(".", end="", flush=True)
+                    time.sleep(1)
+                else:
+                    print(f"\nERROR: Could not queue the work: \"{response.error_msg}\"", file=sys.stderr)
+
+                    return False, response
+
         # Set up a TCP server
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as tcp_server:
             tcp_server.bind(('', 0))
@@ -71,6 +102,7 @@ class Job:
             # Queue the job
             metadata = {
                 "version": 1,
+                "job_id": self.job_id,
                 "callback": {
                     "port": local_port
                 }
@@ -86,7 +118,76 @@ class Job:
 
             files = [('metadata', ('metadata', json.dumps(metadata), 'application/json')),
                      ('job', ('job', self.job_desc, 'application/x-yaml'))]
+            if self.share_directory:
+                print("Packing up the share_directory")
+                archive_path = self._create_archive()
+                archive_stats = os.stat(archive_path)
+                print("--> Wrote %s bytes..." % archive_stats.st_size)
 
+                with open(archive_path, 'rb') as archive_file:
+                    files.append(('job_bucket_initial_state_tarball_file',
+                                  ('job_bucket_initial_state_tarball_file',
+                                   archive_file,
+                                   'application/octet-stream')))
+
+                    success, response = queue_job(files=files)
+                    if not success:
+                        return None, response
+            else:
+                success, response = queue_job(files=files)
+                if not success:
+                    return None, response
+
+            # We should not have a connection queued, accept it with a timeout
+            print(f"Waiting for the executor to connect to our local port {local_port}")
+            tcp_server.settimeout(5)
+            try:
+                sock, _ = tcp_server.accept()
+            except socket.timeout:
+                raise ValueError("The server failed to initiate a connection")
+
+            # Set the resulting socket's timeout to blocking
+            sock.settimeout(None)
+
+        return sock, response
+
+        # Set up a TCP server
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as tcp_server:
+            tcp_server.bind(('', 0))
+            tcp_server.listen(1)
+            local_port = tcp_server.getsockname()[1]
+
+            # Queue the job
+            metadata = {
+                "version": 1,
+                "job_id": self.job_id,
+                "callback": {
+                    "port": local_port
+                }
+            }
+            if self.callback_host is not None:
+                metadata['callback']['host'] = self.callback_host
+
+            if self.machine_id is not None or (self.machine_tags is not None and len(self.machine_tags) > 0):
+                metadata['target'] = {
+                    "id": self.machine_id,
+                    "tags": self.machine_tags
+                }
+
+            files = [('metadata', ('metadata', json.dumps(metadata), 'application/json')),
+                     ('job', ('job', self.job_desc, 'application/x-yaml'))]
+            if self.share_directory:
+                print("Packing up the share_directory")
+                archive_path = self._create_archive()
+                archive_stats = os.stat(archive_path)
+                print("--> Wrote %s bytes..." % archive_stats.st_size)
+
+                # TODO: Delete this file after calling requests
+                archive_file = open(archive_path, 'rb')
+                files.append(('job_bucket_initial_state_tarball_file',
+                              ('job_bucket_initial_state_tarball_file',
+                               archive_file,
+                               'application/octet-stream')))
             first_wait = True
             while True:
                 r = requests.post(f"{self.executor_url}/api/v1/jobs", files=files)
@@ -253,20 +354,32 @@ class Job:
 
     @classmethod
     def from_file(cls, executor_url, path, wait_if_busy=False,
-                  callback_host=None, machine_tags=None, machine_id=None):
+                  callback_host=None, machine_tags=None, machine_id=None,
+                  share_directory=None, job_id=None):
         with open(path) as f:
             job_desc = f.read()
 
         return cls(executor_url, job_desc, wait_if_busy=wait_if_busy,
                    callback_host=callback_host, machine_tags=machine_tags,
-                   machine_id=machine_id)
+                   machine_id=machine_id, share_directory=share_directory,
+                   job_id=job_id)
 
 
 def run_job(args):
-    job = Job.from_file(args.executor_url, args.job_id_prefix, args.job, args.wait,
-                        callback_host=args.callback, machine_tags=args.machine_tag,
-                        machine_id=args.machine_id)
-    status = job.start(args)
+    # Perform validation on the share directory
+    if args.share_directory:
+        if not os.path.isdir(args.share_directory):
+            if os.path.exists(args.share_directory):
+                raise ValueError("The share directory is not a folder")
+            else:
+                os.makedirs(args.share_directory)
+
+    job = Job.from_file(executor_url=args.executor_url, path=args.job,
+                        wait_if_busy=args.wait, job_id=args.job_id,
+                        callback_host=args.callback, machine_tags=args.machine_tags,
+                        machine_id=args.machine_id, share_directory=args.share_directory)
+
+    status = job.run()
     logger.info("status: %s", status)
     sys.exit(status.status_code)
 
@@ -289,6 +402,10 @@ if __name__ == '__main__':
                             help="Tag of the machine that should be running the job. Overrides the job's target.")
     run_parser.add_argument("-i", "--machine-id",
                             help="ID of the machine that should run the job. Overrides the job's target.")
+    run_parser.add_argument("-s", "--share-directory",
+                            help=("Directory that will be forwarded to the job, and whose changes will be "
+                                  "forwarded back to"))
+    run_parser.add_argument("-j", "--job-id", help="Identifier for the job, if you have one already.")
     run_parser.add_argument("job", help='Job that should be run')
     run_parser.set_defaults(func=run_job)
 

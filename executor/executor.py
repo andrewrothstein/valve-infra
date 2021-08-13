@@ -387,15 +387,18 @@ class JobBucket:
 
     @classmethod
     def from_job_request(cls, minio, request):
-        bucket_name = f"job-{request.job_id}"
+        if request.job_id:
+            bucket_name = f"job-{request.job_id}"
 
-        try:
-            return cls(minio, bucket_name=bucket_name,
-                       initial_state_tarball_file=request.job_bucket_initial_state_tarball_file)
-        except ValueError:
-            now = datetime.utcnow().timestamp()
-            return cls(minio, bucket_name=f"{bucket_name}-{now}",
-                       initial_state_tarball_file=request.job_bucket_initial_state_tarball_file)
+            try:
+                return cls(minio, bucket_name=bucket_name,
+                           initial_state_tarball_file=request.job_bucket_initial_state_tarball_file)
+            except ValueError:
+                now = datetime.utcnow().timestamp()
+                return cls(minio, bucket_name=f"{bucket_name}-{now}",
+                           initial_state_tarball_file=request.job_bucket_initial_state_tarball_file)
+        else:
+            return None
 
 
 class Executor(Thread):
@@ -414,6 +417,7 @@ class Executor(Thread):
         self.job_ready = Event()
         self.job_config = None
         self.job_console = None
+        self.job_bucket = None
 
         # Remote artifacts (typically over HTTPS) are stored in our
         # local minio instance which is exposed over HTTP to the
@@ -431,20 +435,27 @@ class Executor(Thread):
         if self.state != MachineState.IDLE:
             raise ValueError(f"The machine isn't idle: Current state is {self.state.name}")
 
+        # Prepare the job bucket
+        self.job_bucket = JobBucket.from_job_request(self.minio, job_request)
+        if self.job_bucket:
+            self.job_bucket.create_owner_credentials("dut",
+                                                     whitelisted_ips=[f'{self.machine.ip_address}/32'])
+
         # Bit nasty to render twice, but better than duplicating
         # template render in the various call-sites within
         # executor. Rendering it up front reduces the chances for
         # mistakes. (Meta-point: using an HTTP query to specify the
         # "target" could avoid this duplication of work, and might
         # actually make more sense)
-        job = Job.render_with_machine(job_request.raw_job, self.machine)
+        job = Job.render_with_resources(job_request.raw_job, self.machine, self.job_bucket)
         logger.debug("renderered job:\n%s", job)
 
         self.state = MachineState.QUEUED
         self.job_request = job_request
         self.job_config = job
-        self.job_console = JobConsole(self.machine.id, job_request.callback_endpoint,
-                                      self.job_config.console_patterns,
+        self.job_console = JobConsole(self.machine.id,
+                                      client_endpoint=job_request.callback_endpoint,
+                                      console_patterns=self.job_config.console_patterns,
                                       client_version=job_request.version)
         self.job_ready.set()
 
@@ -478,9 +489,14 @@ class Executor(Thread):
         logger.info("Caching the kernel...")
         self._cache_remote_artifact("kernel", deploy_strt.kernel_url,
                                     deploy_cnt.kernel_url)
+
         logger.info("Caching the initramfs...")
         self._cache_remote_artifact("initramfs", deploy_strt.initramfs_url,
                                     deploy_cnt.initramfs_url)
+
+        if self.job_bucket:
+            logger.info("Initializing the job bucket with the client's data")
+            self.job_bucket.setup()
 
     def run(self):
         def session_init():
@@ -535,6 +551,8 @@ class Executor(Thread):
                 self.job_console.close()
                 self.job_console = None
                 self.machine.boots.remove_pxelinux_config(self.machine.mac_address)
+                if self.job_bucket:
+                    del self.job_bucket
 
             # Interruptible sleep
             for i in range(cooldown_delay_s):
