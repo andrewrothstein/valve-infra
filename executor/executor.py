@@ -2,7 +2,7 @@
 
 from datetime import datetime
 from threading import Thread, Event
-from collections import defaultdict
+from collections import defaultdict, namedtuple
 from urllib.parse import urlsplit
 from enum import Enum
 
@@ -16,8 +16,10 @@ import config
 
 import traceback
 import requests
-
+import tempfile
+import secrets
 import select
+import shutil
 import socket
 import time
 
@@ -319,6 +321,81 @@ class SergentHartman:
     @property
     def is_available(self):
         return config.EXECUTOR_REGISTRATION_JOB or config.EXECUTOR_BOOTLOOP_JOB
+
+
+class JobBucket:
+    Credentials = namedtuple('Credentials', ['username', 'password', 'policy_name'])
+
+    def __init__(self, minio, bucket_name, initial_state_tarball_file=None):
+        self.minio = minio
+        self.name = bucket_name
+
+        self._credentials = dict()
+
+        if initial_state_tarball_file:
+            self.initial_state_tarball_file = tempfile.NamedTemporaryFile("w+b")
+            shutil.copyfileobj(initial_state_tarball_file, self.initial_state_tarball_file)
+            self.initial_state_tarball_file.seek(0)
+        else:
+            self.initial_state_tarball_file = None
+
+        self.minio.make_bucket(bucket_name)
+
+    def remove(self):
+        self.minio.remove_bucket(self.name)
+
+        for credentials in self._credentials.values():
+            self.minio.remove_user_policy(credentials.policy_name, credentials.username)
+            self.minio.remove_user(credentials.username)
+
+    def __del__(self):
+        try:
+            self.remove()
+        except Exception:
+            traceback.print_exc()
+
+    def credentials(self, role):
+        return self._credentials.get(role)
+
+    def create_owner_credentials(self, role, user_name=None, password=None, whitelisted_ips=None):
+        if user_name is None:
+            user_name = f"{self.name}-{role}"
+
+        if password is None:
+            password = secrets.token_hex(16)
+
+        if whitelisted_ips is None:
+            whitelisted_ips = []
+
+        policy_name = f"policy_{user_name}"
+
+        self.minio.add_user(user_name, password)
+
+        try:
+            self.minio.apply_user_policy(policy_name, user_name, self.name, whitelisted_ips)
+        except Exception:
+            self.minio.remove_user(user_name)
+
+        credentials = self.Credentials(user_name, password, policy_name)
+        self._credentials[role] = credentials
+
+        return credentials
+
+    def setup(self):
+        if self.initial_state_tarball_file:
+            self.minio.extract_archive(self.initial_state_tarball_file, self.name)
+
+    @classmethod
+    def from_job_request(cls, minio, request):
+        bucket_name = f"job-{request.job_id}"
+
+        try:
+            return cls(minio, bucket_name=bucket_name,
+                       initial_state_tarball_file=request.job_bucket_initial_state_tarball_file)
+        except ValueError:
+            now = datetime.utcnow().timestamp()
+            return cls(minio, bucket_name=f"{bucket_name}-{now}",
+                       initial_state_tarball_file=request.job_bucket_initial_state_tarball_file)
 
 
 class Executor(Thread):
