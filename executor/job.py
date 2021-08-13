@@ -329,9 +329,12 @@ class Job:
             deployment_continue.update(deployment.get('continue', {}))
             data['deployment_continue'] = deployment_continue
 
+            data['bucket'] = self.context.get('bucket')
+
             return Job(**data)
 
-    def __init__(self, version, deadline, target, timeouts, console_patterns, deployment_start, deployment_continue):
+    def __init__(self, version, deadline, target, timeouts, console_patterns, deployment_start,
+                 deployment_continue, bucket=None):
         self.version = version
         self.deadline = deadline
         self.target = target
@@ -341,7 +344,7 @@ class Job:
         self.deployment_continue = deployment_continue
 
     @classmethod
-    def from_job(cls, job_yml):
+    def from_job(cls, job_yml, bucket=None):
         j = yaml.safe_load(job_yml)
 
         default_timeouts = {
@@ -349,13 +352,16 @@ class Job:
         }
 
         try:
-            schema = cls.Schema(context={'default_timeouts': default_timeouts})
+            schema = cls.Schema(context={
+                'default_timeouts': default_timeouts,
+                'bucket': bucket,
+            })
             return schema.load(j)
         except ValidationError as e:
             raise ValueError(str(e))
 
     @classmethod
-    def render_with_machine(cls, job_str, machine):
+    def render_with_resources(cls, job_str, machine, bucket=None):
         template_params = {
             "ready_for_service": machine.ready_for_service,
             "machine_id": machine.id,
@@ -363,14 +369,23 @@ class Job:
             "local_tty_device": machine.local_tty_device,
             **{k.lower(): v for k, v in config.job_environment_vars().items()},
         }
+
+        if bucket:
+            dut_creds = bucket.credentials('dut')
+
+            template_params["minio_url"] = bucket.minio.url
+            template_params["job_bucket"] = bucket.name
+            template_params["job_bucket_access_key"] = dut_creds.username
+            template_params["job_bucket_secret_key"] = dut_creds.password
+
         rendered_job_str = Template(job_str).render(**template_params)
         return cls.from_job(rendered_job_str)
 
     @classmethod
-    def from_path(cls, job_template_path, machine):
+    def from_path(cls, job_template_path, machine, bucket=None):
         with open(job_template_path, "r") as f_template:
             template_str = f_template.read()
-            return Job.render_with_machine(template_str, machine)
+            return Job.render_with_resources(template_str, machine, bucket)
 
     def __str__(self):
         return f"""<Job:

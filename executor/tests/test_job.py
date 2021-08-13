@@ -1,7 +1,7 @@
 from datetime import datetime, timedelta
 from freezegun import freeze_time
 import pytest
-from unittest.mock import patch
+from unittest.mock import patch, MagicMock
 
 from job import Target, Timeout, Timeouts, ConsoleState, _multiline_string, Deployment, Job
 
@@ -415,6 +415,20 @@ class MockMachine:
         return "ttyS0"
 
 
+class MockBucket:
+    @property
+    def name(self):
+        return "bucket_name"
+
+    @property
+    def minio(self):
+        return MagicMock(url="minio_url")
+
+    @property
+    def credentials(self):
+        return MagicMock(dut=("access", "secret"))
+
+
 @patch('config.job_environment_vars')
 def test_Job__sample(job_env):
     job_env.return_value = {'MINIO_URL': 'testing-url',
@@ -468,8 +482,7 @@ deployment:
 
 @patch('config.job_environment_vars')
 def test_Job__from_machine(job_env):
-    job_env.return_value = {'MINIO_URL': 'testing-url',
-                            'NTP_PEER': '10.42.0.1'}
+    job_env.return_value = {'NTP_PEER': '10.42.0.1'}
 
     simple_job = """
 version: 1
@@ -488,7 +501,7 @@ deployment:
     initramfs:
       url: "initramfs_url"
 """
-    job = Job.render_with_machine(simple_job, MockMachine())
+    job = Job.render_with_resources(simple_job, MockMachine(), MockBucket())
 
     assert job.version == 1
     assert job.deadline == datetime.max
@@ -498,7 +511,7 @@ deployment:
 
     assert job.deployment_start.kernel_url == "kernel_url"
     assert job.deployment_start.initramfs_url == "initramfs_url"
-    assert job.deployment_start.kernel_cmdline == "my testing-url start cmdline 10.42.0.1"
+    assert job.deployment_start.kernel_cmdline == "my minio_url start cmdline 10.42.0.1"
 
     assert job.deployment_continue.kernel_url == job.deployment_start.kernel_url
     assert job.deployment_continue.initramfs_url == job.deployment_start.initramfs_url
