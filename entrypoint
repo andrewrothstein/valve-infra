@@ -92,7 +92,7 @@ mcli policy set public minio/boot
 mcli policy set public minio/jobs
 
 # Download a default kernel and initramfs for our infra
-upload_to_minio_if_missing https://gitlab.freedesktop.org/mupuf/boot2container/-/releases/v0.7/downloads/initramfs.linux_amd64.cpio.xz /boot/boot2container_2021_04_22.cpio.xz
+upload_to_minio_if_missing https://gitlab.freedesktop.org/mupuf/boot2container/-/releases/v0.8/downloads/initramfs.linux_amd64.cpio.xz /boot/boot2container_2021_04_22.cpio.xz
 mcli cp minio/boot/boot2container_2021_04_22.cpio.xz minio/boot/default_boot2container.cpio.xz
 
 upload_to_minio_if_missing https://gitlab.freedesktop.org/mupuf/valve-infra/-/jobs/10929520/artifacts/raw/linux/v5.12-for-valve-ci /boot/default_kernel_2021_06_16
