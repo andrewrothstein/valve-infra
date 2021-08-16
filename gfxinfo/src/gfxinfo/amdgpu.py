@@ -112,6 +112,8 @@ class AMDGPU:
             "SIENNA_CICHLID": "NAVI21",
             "NAVY_FLOUNDER": "NAVI22",
             "DIMGREY_CAVEFISH": "NAVI23",
+            "BEIGE_GOBY": "NAVI24",
+            "YELLOW_CARP": "REMBRANDT",
         }
 
         return codenames.get(self.amdgpu_codename, self.amdgpu_codename)
@@ -164,10 +166,13 @@ class AMDGPU:
             # Unknowns
             "MULLINS": "UNK",
             "TOPAZ": "UNK",
+            "CYAN_SKILLFISH": "UNK",
             "NAVI21": "UNK",
             "VANGOGH": "UNK",
             "NAVI22": "UNK",
             "NAVI23": "UNK",
+            "NAVI24": "UNK",
+            "REMBRANDT": "UNK",
             "ALDEBARAN": "UNK",
         }
 
@@ -222,12 +227,15 @@ class AMDGPU:
             "NAVI10": "RDNA1",
             "NAVI12": "RDNA1",
             "NAVI14": "RDNA1",
+            "CYAN_SKILLFISH": "RDNA1",
 
             # RDNA2
             "NAVI21": "RDNA2",
             "NAVI22": "RDNA2",
             "NAVI23": "RDNA2",
+            "NAVI24": "RDNA2",
             "VANGOGH": "RDNA2",
+            "REMBRANDT": "RDNA2",
         }
 
         return architectures.get(self.codename)
