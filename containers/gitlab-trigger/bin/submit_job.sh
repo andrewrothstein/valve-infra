@@ -10,7 +10,7 @@ echo "=========== JOB YAML ================="
 cat "$1"
 echo "=========== END OF JOB YAML ==========="
 
-python3 "$__D"/client.py -w run "$1"
+python3 "$__D"/client.py run -w "$1"
 __JOB_RESULT=$?
 
 mkdir -pv results
