@@ -1,11 +1,54 @@
 from unittest.mock import call, patch, MagicMock
 from urllib.parse import urlparse
 import config
+import json
 
-from minioclient import MinioClient, generate_whitelist_str
+from minioclient import MinioClient, MinIOPolicyStatement, generate_policy
 from minio.error import S3Error
 
 import pytest
+
+
+def test_generate_policy():
+    statement1 = MinIOPolicyStatement()
+    statement2 = MinIOPolicyStatement(buckets=['bucket1', 'bucket2'],
+                                      actions=["action1", "action2"],
+                                      source_ips=["ip1", "ip2"])
+    statement3 = MinIOPolicyStatement(buckets=['bucket2'],
+                                      actions=["action1", "action3"],
+                                      allow=False, not_source_ips=["ip3"])
+
+    assert generate_policy([statement1, statement2, statement3]) == {
+        "Version": "2012-10-17",
+        "Statement": [
+            {
+                "Action": ["s3:*"],
+                "Effect": "Allow",
+                "Resource": ['arn:aws:s3:::*', 'arn:aws:s3:::*/*'],
+            },
+            {
+                "Action": ["action1", "action2"],
+                "Effect": "Allow",
+                "Resource": ['arn:aws:s3:::bucket1', 'arn:aws:s3:::bucket2',
+                             'arn:aws:s3:::bucket1/*', 'arn:aws:s3:::bucket2/*'],
+                "Condition": {
+                    "IpAddress": {
+                        "aws:SourceIp": ["ip1", "ip2"]
+                    }
+                }
+            },
+            {
+                "Action": ["action1", "action3"],
+                "Effect": "Deny",
+                "Resource": ['arn:aws:s3:::bucket2', 'arn:aws:s3:::bucket2/*'],
+                "Condition": {
+                    "NotIpAddress": {
+                        "aws:SourceIp": ["ip3"]
+                    }
+                }
+            }
+        ]
+    }
 
 
 @patch("minioclient.Minio", autospec=True)
@@ -122,12 +165,6 @@ def test_remove_bucket(subproc_mock, minio_mock):
         call(['mcli', '-q', '--no-color', 'rb', '--force', 'local/test-id'])])
 
 
-def test_generate_whitelist_str():
-    assert generate_whitelist_str([]) == '"0.0.0.0/0"'
-    assert generate_whitelist_str(['localhost']) == '"localhost"'
-    assert generate_whitelist_str(['localhost', '1.2.3.4/32']) == '"localhost","1.2.3.4/32"'
-
-
 @patch("minioclient.Minio", autospec=True)
 @patch("subprocess.check_call")
 def test_minio_add_user(subproc_mock, minio_mock):
@@ -156,56 +193,15 @@ def test_minio_add_user_policy_add(named_temp_mock, subproc_mock):
     temp_mock = MagicMock()
     temp_mock.name = '/tmp/temp_file'
     named_temp_mock.return_value.__enter__.return_value = temp_mock
+
+    policy_statements = [MinIOPolicyStatement(['bucket'])]
+    expected_policy = generate_policy(policy_statements)
+
     client = MinioClient(url='http://test.invalid', user='test', secret_key='test', alias="local")
-    client.apply_user_policy('policy_name', 'username', 'bucket_name', ['127.0.0.1/32', '1.2.3.4/32'])
-    temp_mock.write.assert_called_once_with(b"""{
-    "Version": "2012-10-17",
-    "Statement": [
-        {
-            "Sid": "AllowGroupToSeeBucketListInTheConsole",
-            "Action": ["s3:ListAllMyBuckets", "s3:GetBucketLocation"],
-            "Effect": "Allow",
-            "Resource": ["arn:aws:s3:::*"],
-            "Condition":
-            {
-                "IpAddress": {
-                    "aws:SourceIp": [
-                        "127.0.0.1/32","1.2.3.4/32"
-                    ]
-                }
-            }
-        },
-        {
-            "Sid": "AllowListingOfJobSpecificFolder",
-            "Action": ["s3:ListBucket"],
-            "Effect": "Allow",
-            "Resource": ["arn:aws:s3:::*"],
-            "Condition":{
-               "StringLike": {
-                  "s3:prefix": ["bucket_name/*", "${aws:username}"]
-               },
-               "IpAddress": {
-                   "aws:SourceIp": [
-                       "127.0.0.1/32","1.2.3.4/32"
-                   ]
-               }
-            }
-        },
-        {
-            "Sid": "AllowAllS3ActionsInJobSpecificFolder",
-            "Action": ["s3:*"],
-            "Effect":"Allow",
-            "Resource": ["arn:aws:s3:::bucket_name/*"],
-            "Condition": {
-               "IpAddress": {
-                   "aws:SourceIp": [
-                       "127.0.0.1/32","1.2.3.4/32"
-                   ]
-               }
-            }
-        }
-    ]
-}""")
+    client.apply_user_policy('policy_name', 'username', policy_statements=policy_statements)
+
+    temp_mock.write.assert_called_once_with(json.dumps(expected_policy).encode())
+
     subproc_mock.assert_has_calls([
         call(['mcli', '-q', '--no-color', 'alias', 'set', 'local', 'http://test.invalid', 'test', 'test']),
         call(['mcli', '-q', '--no-color', 'admin', 'policy', 'add', 'local', 'policy_name', '/tmp/temp_file']),

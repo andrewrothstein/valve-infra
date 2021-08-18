@@ -11,7 +11,7 @@ from pdu import PDUState
 from message import JobStatus
 from job import Job
 from logger import logger
-from minioclient import MinioClient
+from minioclient import MinioClient, MinIOPolicyStatement
 import config
 
 import traceback
@@ -439,7 +439,9 @@ class JobBucket:
         self.minio.add_user(user_name, password)
 
         try:
-            self.minio.apply_user_policy(policy_name, user_name, self.name, whitelisted_ips)
+            self.minio.apply_user_policy(policy_name, user_name,
+                                         [MinIOPolicyStatement(buckets=[self.name],
+                                                               source_ips=[whitelisted_ips])])
         except Exception:
             self.minio.remove_user(user_name)
 

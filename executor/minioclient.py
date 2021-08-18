@@ -1,70 +1,59 @@
 from urllib.parse import urlparse
+from dataclasses import dataclass, field
+from collections import defaultdict
 from tarfile import TarFile
-from jinja2 import Template
 from minio import Minio
 from minio.error import S3Error
+from typing import List
+
 import subprocess
 import tempfile
 import requests
 import config
+import json
 
 
-job_policy = """{
-    "Version": "2012-10-17",
-    "Statement": [
-        {
-            "Sid": "AllowGroupToSeeBucketListInTheConsole",
-            "Action": ["s3:ListAllMyBuckets", "s3:GetBucketLocation"],
-            "Effect": "Allow",
-            "Resource": ["arn:aws:s3:::*"],
-            "Condition":
-            {
-                "IpAddress": {
-                    "aws:SourceIp": [
-                        {{ ip_whitelist }}
-                    ]
-                }
-            }
-        },
-        {
-            "Sid": "AllowListingOfJobSpecificFolder",
-            "Action": ["s3:ListBucket"],
-            "Effect": "Allow",
-            "Resource": ["arn:aws:s3:::*"],
-            "Condition":{
-               "StringLike": {
-                  "s3:prefix": ["{{ bucket_name }}/*", "${aws:username}"]
-               },
-               "IpAddress": {
-                   "aws:SourceIp": [
-                       {{ ip_whitelist }}
-                   ]
-               }
-            }
-        },
-        {
-            "Sid": "AllowAllS3ActionsInJobSpecificFolder",
-            "Action": ["s3:*"],
-            "Effect":"Allow",
-            "Resource": ["arn:aws:s3:::{{ bucket_name }}/*"],
-            "Condition": {
-               "IpAddress": {
-                   "aws:SourceIp": [
-                       {{ ip_whitelist }}
-                   ]
-               }
-            }
+@dataclass
+class MinIOPolicyStatement:
+    # NOTE: Using the default factory to avoid mutable defaults
+    buckets: List[str] = field(default_factory=lambda: ["*"])
+    actions: List[str] = field(default_factory=lambda: ["s3:*"])
+    allow: bool = True
+
+    # Conditions
+    source_ips: List[str] = None
+    not_source_ips: List[str] = None
+
+
+def generate_policy(statements):
+    def nesteddict():
+        return defaultdict(nesteddict)
+
+    rendered_statements = []
+    for s in statements:
+        resources = [f"arn:aws:s3:::{b}" for b in s.buckets]
+        resources.extend([f"arn:aws:s3:::{b}/*" for b in s.buckets])
+
+        statement = {
+            'Action': s.actions,
+            'Effect': "Allow" if s.allow else "Deny",
+            'Resource': resources,
         }
-    ]
-}"""
 
+        conditions = nesteddict()
+        if s.source_ips and len(s.source_ips) > 0:
+            conditions["IpAddress"]["aws:SourceIp"] = s.source_ips
+        if s.not_source_ips and len(s.not_source_ips) > 0:
+            conditions["NotIpAddress"]["aws:SourceIp"] = s.not_source_ips
+        if len(conditions) > 0:
+            statement["Condition"] = conditions
 
-# TODO: use the template engine to implement this in a more understandable way
-def generate_whitelist_str(whitelist):
-    if whitelist is None or len(whitelist) == 0:
-        return '"0.0.0.0/0"'
+        rendered_statements.append(statement)
 
-    return ",".join(list(map(lambda x: "\"" + x + "\"", whitelist)))
+    return {
+        "Version": "2012-10-17",
+        "Statement": rendered_statements
+    }
 
 
 class MinioClient():
@@ -87,9 +76,12 @@ class MinioClient():
 
         # Some operations can only be used using the commandline tool,
         # so initialize it
-        subprocess.check_call(
-            ["mcli", "-q", "--no-color", "alias", "set", self.alias, url,
-             self.user, self.secret_key])
+        try:
+            subprocess.check_call(
+                ["mcli", "-q", "--no-color", "alias", "set", self.alias, url,
+                 self.user, self.secret_key])
+        except subprocess.CalledProcessError:  # pragma: nocover
+            raise ValueError("Invalid credentials") from None
 
     def is_local_url(self, url):
         return url.startswith(f"{self.url}/")
@@ -135,11 +127,10 @@ class MinioClient():
         subprocess.check_call(["mcli", "-q", "--no-color", "admin", "user", "remove",
                                self.alias, user_id])
 
-    def apply_user_policy(self, policy_name, user_id, bucket_name, ip_whitelist):  # pragma: nocover
+    def apply_user_policy(self, policy_name, user_id, policy_statements):
         with tempfile.NamedTemporaryFile(suffix='json') as f:
-            rendered_policy = Template(job_policy).render(bucket_name=bucket_name,
-                                                          ip_whitelist=generate_whitelist_str(ip_whitelist))
-            f.write(rendered_policy.encode('utf-8'))
+            policy = generate_policy(policy_statements)
+            f.write(json.dumps(policy).encode())
             f.flush()
 
             subprocess.check_call(["mcli", "-q", "--no-color", "admin", "policy",
