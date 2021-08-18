@@ -6,4 +6,7 @@ RUN set -ex \
            dnf -y clean all
 COPY containers/gitlab-trigger/bin/ensure_container.sh /usr/local/bin
 COPY containers/gitlab-trigger/bin/submit_job.sh /usr/local/bin
+
+# TODO: Package the client in pip
 COPY executor/client.py /usr/local/bin
+COPY executor/message.py /usr/local/bin
