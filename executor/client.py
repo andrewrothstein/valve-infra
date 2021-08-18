@@ -421,4 +421,9 @@ if __name__ == '__main__':
     run_parser.set_defaults(func=run_job)
 
     args = parser.parse_args()
-    args.func(args)
+
+    try:
+        args.func(args)
+    except AttributeError:
+        parser.print_help()
+        sys.exit(0)
