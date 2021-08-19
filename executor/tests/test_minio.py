@@ -73,6 +73,15 @@ def test_client_instantiation__custom_params(subproc_mock, minio_mock):
                                           "toto", "http://hello-world", "accesskey", "secret_key"])
 
 
+@patch("minioclient.Minio", autospec=True)
+@patch("subprocess.check_call")
+def test_client_instantiation__no_aliases(subproc_mock, minio_mock):
+    MinioClient(url="http://hello-world", user="accesskey", secret_key="secret_key", alias=None)
+    minio_mock.assert_called_once_with(endpoint="hello-world", access_key="accesskey",
+                                       secret_key="secret_key", secure=False)
+    subproc_mock.assert_not_called()
+
+
 @patch("subprocess.check_call")
 def test_is_local_url(subproc_mock):
     minio = MinioClient(url="http://10.42.0.1:9000")

@@ -76,12 +76,13 @@ class MinioClient():
 
         # Some operations can only be used using the commandline tool,
         # so initialize it
-        try:
-            subprocess.check_call(
-                ["mcli", "-q", "--no-color", "alias", "set", self.alias, url,
-                 self.user, self.secret_key])
-        except subprocess.CalledProcessError:  # pragma: nocover
-            raise ValueError("Invalid credentials") from None
+        if alias is not None:
+            try:
+                subprocess.check_call(
+                    ["mcli", "-q", "--no-color", "alias", "set", self.alias, url,
+                     self.user, self.secret_key])
+            except subprocess.CalledProcessError:  # pragma: nocover
+                raise ValueError("Invalid credentials") from None
 
     def is_local_url(self, url):
         return url.startswith(f"{self.url}/")
@@ -116,18 +117,26 @@ class MinioClient():
     # NOTE: Using minioclient's remove_bucket requires first to empty the
     # bucket. Use the CLI version for now.
     def remove_bucket(self, bucket_name):
+        assert self.alias is not None
+
         subprocess.check_call(["mcli", "-q", "--no-color", "rb", "--force",
                                f'{self.alias}/{bucket_name}'])
 
     def add_user(self, user_id, password):
+        assert self.alias is not None
+
         subprocess.check_call(["mcli", "-q", "--no-color", "admin", "user", "add",
                                self.alias, user_id, password])
 
     def remove_user(self, user_id):
+        assert self.alias is not None
+
         subprocess.check_call(["mcli", "-q", "--no-color", "admin", "user", "remove",
                                self.alias, user_id])
 
     def apply_user_policy(self, policy_name, user_id, policy_statements):
+        assert self.alias is not None
+
         with tempfile.NamedTemporaryFile(suffix='json') as f:
             policy = generate_policy(policy_statements)
             f.write(json.dumps(policy).encode())
@@ -139,6 +148,8 @@ class MinioClient():
                                    self.alias, policy_name, f"user={user_id}"])
 
     def remove_user_policy(self, policy_name, user_id):
+        assert self.alias is not None
+
         subprocess.check_call(["mcli", "-q", "--no-color", "admin", "policy", "unset",
                                self.alias, policy_name, f"user={user_id}"])
 
