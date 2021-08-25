@@ -442,8 +442,9 @@ class JobBucket:
             self.minio.apply_user_policy(policy_name, user_name,
                                          [MinIOPolicyStatement(buckets=[self.name],
                                                                source_ips=[whitelisted_ips])])
-        except Exception:
+        except Exception as e:
             self.minio.remove_user(user_name)
+            raise e from None
 
         credentials = self.Credentials(user_name, password, policy_name)
         self._credentials[role] = credentials
