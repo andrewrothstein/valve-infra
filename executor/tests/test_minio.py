@@ -210,6 +210,17 @@ def test_minio_groups_user_is_in(subproc_mock, _, minio_mock):
     ])
 
 
+@patch("minioclient.Minio", autospec=True)
+@patch("subprocess.check_call")
+def test_minio_add_user_to_group(subproc_mock, minio_mock):
+    client = MinioClient(url='http://test.invalid', user='test', secret_key='test', alias="local")
+    client.add_user_to_group('username', 'groupname')
+    subproc_mock.assert_has_calls([
+        call(['mcli', '-q', '--no-color', 'alias', 'set', 'local', 'http://test.invalid', 'test', 'test']),
+        call(['mcli', '-q', '--no-color', 'admin', 'group', 'add', 'local', 'groupname', 'username']),
+    ])
+
+
 @patch("subprocess.check_call")
 @patch("minioclient.tempfile.NamedTemporaryFile", autospec=True)
 def test_minio_add_user_policy_add(named_temp_mock, subproc_mock):

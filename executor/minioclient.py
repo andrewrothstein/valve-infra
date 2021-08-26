@@ -146,6 +146,12 @@ class MinioClient():
                                           "user", "info", self.alias, user_id])
         return json.loads(output).get('memberOf', [])
 
+    def add_user_to_group(self, user_id, group_name):
+        assert self.alias is not None
+
+        subprocess.check_call(["mcli", "-q", "--no-color", "admin", "group", "add",
+                               self.alias, group_name, user_id])
+
     def apply_user_policy(self, policy_name, user_id, policy_statements):
         assert self.alias is not None
 
