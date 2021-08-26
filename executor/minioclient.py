@@ -56,6 +56,8 @@ def generate_policy(statements):
     }
 
 
+# TODO: rename the methods to be on the form $object_$operation
+# to make auto-completion work more efficiently.
 class MinioClient():
     def __init__(self,
                  url=config.MINIO_URL,
@@ -133,6 +135,16 @@ class MinioClient():
 
         subprocess.check_call(["mcli", "-q", "--no-color", "admin", "user", "remove",
                                self.alias, user_id])
+
+    def groups_user_is_in(self, user_id=None):
+        assert self.alias is not None
+
+        if user_id is None:
+            user_id = self.user
+
+        output = subprocess.check_output(["mcli", "-q", "--no-color", "--json", "admin",
+                                          "user", "info", self.alias, user_id])
+        return json.loads(output).get('memberOf', [])
 
     def apply_user_policy(self, policy_name, user_id, policy_statements):
         assert self.alias is not None

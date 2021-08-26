@@ -196,6 +196,20 @@ def test_minio_remove_user(subproc_mock, minio_mock):
     ])
 
 
+@patch("minioclient.Minio", autospec=True)
+@patch("subprocess.check_call")
+@patch("subprocess.check_output", return_value="""{"status": "success", "accessKey": "username",
+    "userStatus": "enabled", "memberOf": ["group1", "group2"]}""")
+def test_minio_groups_user_is_in(subproc_mock, _, minio_mock):
+    client = MinioClient(url='http://test.invalid', user='test', secret_key='test', alias="local")
+    assert client.groups_user_is_in() == ["group1", "group2"]
+    assert client.groups_user_is_in('username') == ["group1", "group2"]
+    subproc_mock.assert_has_calls([
+        call(['mcli', '-q', '--no-color', '--json', 'admin', 'user', 'info', 'local', 'test']),
+        call(['mcli', '-q', '--no-color', '--json', 'admin', 'user', 'info', 'local', 'username'])
+    ])
+
+
 @patch("subprocess.check_call")
 @patch("minioclient.tempfile.NamedTemporaryFile", autospec=True)
 def test_minio_add_user_policy_add(named_temp_mock, subproc_mock):
