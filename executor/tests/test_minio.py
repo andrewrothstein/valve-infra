@@ -53,7 +53,7 @@ def test_generate_policy():
 
 @patch("minioclient.Minio", autospec=True)
 @patch("subprocess.check_call")
-def test_client_instanciation__defaults(subproc_mock, minio_mock):
+def test_client_instantiation__defaults(subproc_mock, minio_mock):
     MinioClient()
     minio_mock.assert_called_once_with(endpoint=urlparse(config.MINIO_URL).netloc,
                                        access_key=config.MINIO_USER, secret_key=config.MINIO_ROOT_PASSWORD,
@@ -65,7 +65,7 @@ def test_client_instanciation__defaults(subproc_mock, minio_mock):
 
 @patch("minioclient.Minio", autospec=True)
 @patch("subprocess.check_call")
-def test_client_instanciation__custom_params(subproc_mock, minio_mock):
+def test_client_instantiation__custom_params(subproc_mock, minio_mock):
     MinioClient(url="http://hello-world", user="accesskey", secret_key="secret_key", alias="toto")
     minio_mock.assert_called_once_with(endpoint="hello-world", access_key="accesskey",
                                        secret_key="secret_key", secure=False)
