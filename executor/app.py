@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+from dataclasses import dataclass
 from datetime import datetime
 
 import traceback
@@ -12,6 +13,7 @@ import json
 from executor import SergentHartman, MachineState
 from gitlab_runner import GitlabRunnerAPI
 from mars import MarsClient, Machine
+from minioclient import MinioClient
 from boots import BootService
 from client import JobStatus
 from job import Job, Target
@@ -86,6 +88,12 @@ def machine_detail_proxy(machine_id):
     return proxy_request_to_mars(f"{mars.mars_base_url}/api/v1/machine/{machine_id}/")
 
 
+@dataclass
+class MinIOCredentials:
+    access_key: str
+    secret_key: str
+
+
 @app.route('/api/v1/jobs', methods=['POST'])
 def post_job():
     def find_suitable_machine(target):
@@ -125,12 +133,15 @@ def post_job():
 
     class JobRequest:
         def __init__(self, request, version, raw_job, target, callback_endpoint,
-                     job_bucket_initial_state_tarball_file=None, job_id=None):
+                     job_bucket_initial_state_tarball_file=None, job_id=None,
+                     minio_credentials=None, minio_groups=None):
             self.request = request
             self.version = version
             self.raw_job = raw_job
             self.target = target
             self.callback_endpoint = callback_endpoint
+            self.minio_credentials = minio_credentials
+            self.minio_groups = minio_groups
 
             # Clients may specify a starting state for the job bucket,
             # this will be a tarball that is extracted prior to the
@@ -223,16 +234,61 @@ def post_job():
             remote_addr = callback.get("host", request.remote_addr)
             endpoint = (remote_addr, callback.get("port"))
 
+            # Parse the minio-related arguments request
+            minio = metadata.get('minio', {})
+            minio_credentials = minio.get('credentials', {})
+            credentials = MinIOCredentials(access_key=minio_credentials.get("access_key"),
+                                           secret_key=minio_credentials.get("secret_key"))
+
             super().__init__(request=request, version=1, raw_job=raw_job,
                              target=job_target, callback_endpoint=endpoint,
                              job_bucket_initial_state_tarball_file=initial_state_tarball_file,
-                             job_id=metadata.get('job_id'))
+                             job_id=metadata.get('job_id'),
+                             minio_credentials=credentials,
+                             minio_groups=minio.get('groups', []))
+
+    def check_minio_credentials(job_request):
+        credentials = job_request.minio_credentials
+
+        # If no groups are requested, then exit directly
+        if job_request.minio_groups is None or len(job_request.minio_groups) == 0:
+            return True, ""
+
+        # Some groups are requested, make sure some credentials have been set
+        if credentials is None:
+            return False, "Requested access to some groups, but the credentials are missing"
+
+        # Make sure all the requested groups are in the list of groups the
+        # provided-credentials have access to
+        try:
+            timestamp = int(datetime.now().timestamp())
+            client = MinioClient(user=credentials.access_key,
+                                 secret_key=credentials.secret_key,
+                                 alias=f"a_{job_request.job_id}-{timestamp}")
+
+            user_groups = set(client.groups_user_is_in())
+            for group in job_request.minio_groups:
+                if group not in user_groups:
+                    return False, (f"The provided MinIO credentials do not belong to the group {group}")
+
+            return True, ""
+        except ValueError:
+            return False, "Invalid MinIO credentials"
+        finally:
+            try:
+                client.remove_alias()
+            except UnboundLocalError:
+                pass
 
     parsed = JobRequest.parse(flask.request)
 
-    machine, error_code, error_msg = find_suitable_machine(parsed.target)
-    if machine is not None:
-        machine.executor.start_job(parsed)
+    ok, error_msg = check_minio_credentials(parsed)
+    if ok:
+        machine, error_code, error_msg = find_suitable_machine(parsed.target)
+        if machine is not None:
+            machine.executor.start_job(parsed)
+    else:
+        error_code = 403
 
     if parsed.version == 0:
         response = {

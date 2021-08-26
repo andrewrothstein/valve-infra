@@ -11,7 +11,7 @@ from pdu import PDUState
 from message import JobStatus
 from job import Job
 from logger import logger
-from minioclient import MinioClient, MinIOPolicyStatement
+from minioclient import MinioClient, MinIOPolicyStatement, generate_policy
 import config
 
 import traceback
@@ -22,6 +22,7 @@ import random
 import select
 import shutil
 import socket
+import json
 import time
 
 
@@ -424,12 +425,16 @@ class JobBucket:
     def credentials(self, role):
         return self._credentials.get(role)
 
-    def create_owner_credentials(self, role, user_name=None, password=None, whitelisted_ips=None):
+    def create_owner_credentials(self, role, user_name=None, password=None,
+                                 groups=None, whitelisted_ips=None):
         if user_name is None:
             user_name = f"{self.name}-{role}"
 
         if password is None:
             password = secrets.token_hex(16)
+
+        if groups is None:
+            groups = []
 
         if whitelisted_ips is None:
             whitelisted_ips = []
@@ -438,13 +443,24 @@ class JobBucket:
 
         self.minio.add_user(user_name, password)
 
+        policy_statements = [
+            MinIOPolicyStatement(buckets=[self.name], source_ips=whitelisted_ips)
+        ]
+        if len(whitelisted_ips) > 0:
+            restrict_to_whitelisted_ips = MinIOPolicyStatement(allow=False, not_source_ips=whitelisted_ips)
+            policy_statements.append(restrict_to_whitelisted_ips)
+        policy = json.dumps(generate_policy(policy_statements))
+        logger.debug(f"Applying the MinIO policy: {policy}")
+
         try:
-            self.minio.apply_user_policy(policy_name, user_name,
-                                         [MinIOPolicyStatement(buckets=[self.name],
-                                                               source_ips=[whitelisted_ips])])
+            self.minio.apply_user_policy(policy_name, user_name, policy_statements)
         except Exception as e:
             self.minio.remove_user(user_name)
             raise e from None
+
+        # Add the user to the wanted list of groups
+        for group_name in groups:
+            self.minio.add_user_to_group(user_name, group_name)
 
         credentials = self.Credentials(user_name, password, policy_name)
         self._credentials[role] = credentials
@@ -517,7 +533,7 @@ class Executor(Thread):
         # Prepare the job bucket
         self.job_bucket = JobBucket.from_job_request(self.minio, job_request)
         if self.job_bucket:
-            self.job_bucket.create_owner_credentials("dut",
+            self.job_bucket.create_owner_credentials("dut", groups=job_request.minio_groups,
                                                      whitelisted_ips=[f'{self.machine.ip_address}/32'])
 
         # Bit nasty to render twice, but better than duplicating

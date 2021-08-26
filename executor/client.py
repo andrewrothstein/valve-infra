@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 from logging import getLogger, getLevelName, Formatter, StreamHandler
+from collections import namedtuple
 from dataclasses import dataclass
 from tarfile import TarFile
 
@@ -40,7 +41,8 @@ class Response:
 
 class Job:
     def __init__(self, executor_url, job_desc, wait_if_busy=False, callback_host=None,
-                 machine_tags=None, machine_id=None, job_id=None, share_directory=None):
+                 machine_tags=None, machine_id=None, job_id=None, share_directory=None,
+                 minio_creds=None, minio_groups=None):
         self.executor_url = executor_url
         self.job_desc = job_desc
         self.wait_if_busy = wait_if_busy
@@ -50,6 +52,8 @@ class Job:
         self.machine_id = machine_id
         self.job_id = job_id
         self.share_directory = share_directory
+        self.minio_creds = minio_creds
+        self.minio_groups = minio_groups if minio_groups is not None else []
 
     def _create_archive(self):
         with (tempfile.NamedTemporaryFile(mode='wb', suffix='tar.gz', delete=False) as fp,
@@ -104,12 +108,22 @@ class Job:
             metadata = {
                 "version": 1,
                 "job_id": self.job_id,
+                "minio": {
+                    "credentials": {},
+                    "groups": self.minio_groups
+                },
                 "callback": {
                     "port": local_port
                 }
             }
             if self.callback_host is not None:
                 metadata['callback']['host'] = self.callback_host
+
+            if self.minio_creds is not None:
+                metadata['minio']['credentials'] = {
+                    "access_key": self.minio_creds.access_key,
+                    "secret_key": self.minio_creds.secret_key
+                }
 
             if self.machine_id is not None or (self.machine_tags is not None and len(self.machine_tags) > 0):
                 metadata['target'] = {
@@ -366,14 +380,16 @@ class Job:
     @classmethod
     def from_file(cls, executor_url, path, wait_if_busy=False,
                   callback_host=None, machine_tags=None, machine_id=None,
-                  share_directory=None, job_id=None):
+                  share_directory=None, job_id=None,
+                  minio_creds=None, minio_groups=None):
         with open(path) as f:
             job_desc = f.read()
 
         return cls(executor_url, job_desc, wait_if_busy=wait_if_busy,
                    callback_host=callback_host, machine_tags=machine_tags,
                    machine_id=machine_id, share_directory=share_directory,
-                   job_id=job_id)
+                   job_id=job_id, minio_creds=minio_creds,
+                   minio_groups=minio_groups)
 
 
 def run_job(args):
@@ -385,10 +401,23 @@ def run_job(args):
             else:
                 os.makedirs(args.share_directory)
 
+    minio_creds = None
+    if args.minio_auth:
+        MinIOCredentials = namedtuple('MinIOCredentials', ['access_key', 'secret_key'])
+
+        fields = args.minio_auth.split(':')
+        if len(fields) == 2:
+            access, secret = fields
+            minio_creds = MinIOCredentials(access, secret)
+        else:
+            raise ValueError("Incorrect format for the --minio-auth parameter. "
+                             "Format: <Access Key>:<Secret Key>")
+
     job = Job.from_file(executor_url=args.executor_url, path=args.job,
                         wait_if_busy=args.wait, job_id=args.job_id,
                         callback_host=args.callback, machine_tags=args.machine_tags,
-                        machine_id=args.machine_id, share_directory=args.share_directory)
+                        machine_id=args.machine_id, share_directory=args.share_directory,
+                        minio_creds=minio_creds, minio_groups=args.minio_group)
 
     status = job.run()
     logger.info("status: %s", status)
@@ -417,6 +446,12 @@ if __name__ == '__main__':
                             help=("Directory that will be forwarded to the job, and whose changes will be "
                                   "forwarded back to"))
     run_parser.add_argument("-j", "--job-id", help="Identifier for the job, if you have one already.")
+    run_parser.add_argument("-a", "--minio-auth", default=os.environ.get('VALVE_MINIO_AUTH_CREDENTIALS'),
+                            help="MinIO credentials that has access to all the groups specified using '-g'")
+    run_parser.add_argument("-g", "--minio-group", action="append",
+                            help=("Add the MinIO job user to the specified group. Requires valid "
+                                  "credentials specified using '--minio-auth' which already "
+                                  "have access this group"))
     run_parser.add_argument("job", help='Job that should be run')
     run_parser.set_defaults(func=run_job)
 
