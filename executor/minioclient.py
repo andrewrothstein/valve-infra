@@ -86,6 +86,10 @@ class MinioClient():
             except subprocess.CalledProcessError:  # pragma: nocover
                 raise ValueError("Invalid credentials") from None
 
+    def remove_alias(self):
+        if self.alias is not None:
+            subprocess.check_call(["mcli", "-q", "--no-color", "alias", "rm", self.alias])
+
     def is_local_url(self, url):
         return url.startswith(f"{self.url}/")
 
