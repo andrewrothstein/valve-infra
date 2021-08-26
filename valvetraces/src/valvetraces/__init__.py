@@ -9,14 +9,19 @@ from getpass import getpass
 import base64
 import hashlib
 import humanize
+from functools import partial
 import os
 import re
 import requests
 import click
+import sys
 
 from enum import Enum
 from PIL import Image
 from gfxinfo import find_gpu, VulkanInfo
+
+
+naturalsize = partial(humanize.naturalsize, binary=True)
 
 
 class App:
@@ -122,7 +127,7 @@ class Trace:
 
     @property
     def human_size(self):
-        return humanize.naturalsize(self.size, binary=True)
+        return naturalsize(self.size)
 
     def __str__(self):
         return f"<Trace {self.id}, {self.filename}, size {self.human_size}>"
@@ -239,14 +244,36 @@ class Client:
         with open(trace_path, 'wb') as f:
             with requests.get(trace.url, stream=True) as r:
                 r.raise_for_status()
-
+                content_length = int(r.headers.get('content-length', 0))
+                print('Downloading {} of size {}'.format(
+                    trace_name,
+                    naturalsize(content_length) if content_length > 0 else 'Unknown'))
+                total_downloaded = 0
+                previous_pc_downloaded = 0
+                chunk_size = 1024 * 1024
                 # Reading all the available data without limiting the
                 # chunk size is problematic when using SSL
                 # connections. Limit the chunk size:
                 # https://bugs.python.org/issue42853
-                for chunk in r.iter_content(chunk_size=1048576):
+                for chunk in r.iter_content(chunk_size=chunk_size):
                     f.write(chunk)
-
+                    if content_length == 0:
+                        # This shouldn't happen, since the Mango
+                        # server returns Content-Length, no progress
+                        # info if we don't get a length back from the
+                        # server
+                        continue
+                    total_downloaded += len(chunk)
+                    pc_downloaded = int(100.0 * total_downloaded/content_length)
+                    # Log roughly every 2% downloaded, or end of stream.
+                    if pc_downloaded - previous_pc_downloaded >= 2 or len(chunk) < chunk_size:
+                        sys.stdout.write('\rDownloaded {}/{} {:0.2f}%'.format(naturalsize(total_downloaded),
+                                                                              naturalsize(content_length),
+                                                                              pc_downloaded))
+                        sys.stdout.flush()
+                        previous_pc_downloaded = pc_downloaded
+                sys.stdout.write('\n')
+                sys.stdout.flush()
         return trace_path
 
     def _find_app(self, app_id):
