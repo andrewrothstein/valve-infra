@@ -1,0 +1,17 @@
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Action": [
+                "s3:ListAllMyBuckets",
+                "s3:ListenNotification",
+                "s3:ListenBucketNotification",
+                "s3:GetBucketLocation",
+                "s3:ListBucket",
+                "s3:GetObject"
+            ],
+            "Effect": "Allow",
+            "Resource": ["arn:aws:s3:::valvetraces", "arn:aws:s3:::valvetraces/*"]
+        }
+    ]
+}

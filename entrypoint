@@ -12,6 +12,7 @@ export PERMANENT_MOUNT=${PERMANENT_MOUNT:-/mnt/permanent}
 export REGISTRY_MOUNT=${REGISTRY_MOUNT:-/mnt/tmp/registry}
 export PRIVATE_INTERFACE=${PRIVATE_INTERFACE:-private}
 export MINIO_ROOT_PASSWORD=${MINIO_ROOT_PASSWORD:-`tr -dc [:alnum:] < /dev/urandom | head -c 32`}
+export VALVETRACES_MINIO_PASSWORD=${VALVETRACES_MINIO_PASSWORD:-`tr -dc [:alnum:] < /dev/urandom | head -c 32`}
 export MINIO_URL=${MINIO_URL:-http://10.42.0.1:9000}
 export FDO_PROXY_REGISTRY=${FDO_PROXY_REGISTRY:-http://10.42.0.1:8002}
 export LOCAL_REGISTRY=${LOCAL_REGISTRY:-http://10.42.0.1:8004}
@@ -85,6 +86,17 @@ done
 mcli mb --ignore-existing minio/jobs minio/boot/
 mcli policy set public minio/boot
 mcli policy set public minio/jobs
+
+# Create a valvetraces bucket and user
+mcli mb --ignore-existing minio/valvetraces
+mcli admin user add minio valvetraces $VALVETRACES_MINIO_PASSWORD
+mcli admin policy add minio u_valvetraces minio_policies/valvetraces.json
+mcli admin policy set minio u_valvetraces user=valvetraces
+
+# Create a valvetraces-ro group, and add the valvetraces user to it
+mcli admin group add minio valvetraces-ro valvetraces
+mcli admin policy add minio g_valvetraces-ro minio_policies/valvetraces-ro.json
+mcli admin policy set minio g_valvetraces-ro group=valvetraces-ro
 
 # Download a default kernel and initramfs for our infra
 b2c_version=boot2container_2021_08_17.cpio.xz
