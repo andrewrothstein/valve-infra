@@ -146,6 +146,7 @@ class SessionEndMessage(Message):
         }
 
         if job_bucket:
+            # TODO: Grant only read rights to the client
             job_bucket.create_owner_credentials("client")
             parameters['job_bucket'] = {
                 "minio_access_url": job_bucket.access_url("client"),
