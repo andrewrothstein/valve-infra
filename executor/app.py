@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 
+from datetime import datetime
+
 import traceback
 import requests
 import config
@@ -137,6 +139,9 @@ def post_job():
 
             # The executor will ensure job IDs are unique, but use the
             # client-provided prefix for as a naming convention.
+            if job_id is None:
+                now = int(datetime.utcnow().timestamp())
+                job_id = f"untitled-{now}"
             self.job_id = job_id
 
             # Callback validation

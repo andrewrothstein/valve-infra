@@ -18,6 +18,7 @@ import traceback
 import requests
 import tempfile
 import secrets
+import random
 import select
 import shutil
 import socket
@@ -463,18 +464,17 @@ class JobBucket:
 
     @classmethod
     def from_job_request(cls, minio, request):
-        if request.job_id:
-            bucket_name = f"job-{request.job_id}"
-
-            try:
-                return cls(minio, bucket_name=bucket_name,
-                           initial_state_tarball_file=request.job_bucket_initial_state_tarball_file)
-            except ValueError:
-                now = datetime.utcnow().timestamp()
-                return cls(minio, bucket_name=f"{bucket_name}-{now}",
-                           initial_state_tarball_file=request.job_bucket_initial_state_tarball_file)
-        else:
-            return None
+        # Generate a job id
+        bucket_name = f"job-{request.job_id}"
+        try:
+            return cls(minio, bucket_name=bucket_name,
+                       initial_state_tarball_file=request.job_bucket_initial_state_tarball_file)
+        except ValueError:
+            # The bucket already exists, let's try to make it more unique!
+            now = int(datetime.utcnow().timestamp())
+            rand_int = random.randrange(10e6)
+            return cls(minio, bucket_name=f"{bucket_name}-{now}-{rand_int}",
+                       initial_state_tarball_file=request.job_bucket_initial_state_tarball_file)
 
 
 class Executor(Thread):
