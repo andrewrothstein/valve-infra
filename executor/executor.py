@@ -543,7 +543,7 @@ class Executor(Thread):
         # "target" could avoid this duplication of work, and might
         # actually make more sense)
         job = Job.render_with_resources(job_request.raw_job, self.machine, self.job_bucket)
-        logger.debug("renderered job:\n%s", job)
+        logger.debug("rendered job:\n%s", job)
 
         self.state = MachineState.QUEUED
         self.job_request = job_request
