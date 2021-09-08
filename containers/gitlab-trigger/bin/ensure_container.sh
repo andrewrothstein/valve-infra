@@ -122,7 +122,7 @@ function build_container() {
 
     "$3" "$__TEST_CONTAINER" "$__TEST_CONTAINER_MOUNT"
 
-    $__BUILDAH_COMMIT $__TEST_CONTAINER "$2"
+    $__BUILDAH_COMMIT $__TEST_CONTAINER "$2" || sleep 5 && $__BUILDAH_COMMIT $__TEST_CONTAINER "$2"
 
     # Pushing may fail, apparently. I (cturner) have never seen it
     # fail, but I have seen other race conditions in these tools, so
