@@ -12,10 +12,11 @@ cat "$1"
 echo "=========== END OF JOB YAML ==========="
 set -x
 
-python3 "$__D"/client.py run -w "$1"
-__JOB_RESULT=$?
-
+ls -l results
+[ -d results ] && rm -rf results
 mkdir -pv results
-wget --progres=dot:giga -O - http://${__ARTIFACTS}/jobs/${CI_JOB_ID}-artifacts.tgz | tar zxf - -C results
+touch results/"${CI_JOB_NAME}".stamp
+python3 "$__D"/client.py run -w "$1" -j "$CI_JOB_NAME" -s results
+__JOB_RESULT=$?
 
 exit $__JOB_RESULT
