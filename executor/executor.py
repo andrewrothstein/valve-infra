@@ -482,10 +482,12 @@ class JobBucket:
         return f'{endpoint.scheme}://{credentials}{endpoint.netloc}'
 
     @classmethod
-    def from_job_request(cls, minio, request):
+    def from_job_request(cls, minio, request, machine):
         # Generate a job id
-        bucket_name = f"job-{request.job_id}"
+        bucket_name = MinioClient.create_valid_bucket_name(f"job-{machine.id}-{request.job_id}")
+
         try:
+            # BUG: It seems like this is not a reliable way to detect re-use of existing buckets...
             return cls(minio, bucket_name=bucket_name,
                        initial_state_tarball_file=request.job_bucket_initial_state_tarball_file)
         except ValueError:
@@ -531,7 +533,7 @@ class Executor(Thread):
             raise ValueError(f"The machine isn't idle: Current state is {self.state.name}")
 
         # Prepare the job bucket
-        self.job_bucket = JobBucket.from_job_request(self.minio, job_request)
+        self.job_bucket = JobBucket.from_job_request(self.minio, job_request, self.machine)
         if self.job_bucket:
             self.job_bucket.create_owner_credentials("dut", groups=job_request.minio_groups,
                                                      whitelisted_ips=[f'{self.machine.ip_address}/32'])
