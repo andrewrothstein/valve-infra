@@ -1,28 +1,27 @@
 from . import find_gpu, VulkanInfo
+import sys
+import json
 
 if gpu := find_gpu('/tmp'):
-    print(gpu.tags())
+    gfxinfo = {'tags': list(gpu.tags())}
     if info := VulkanInfo.construct():
-        print(f"vk:vram_size:{info.VRAM_heap.GiB_size}_GiB")
-        print(f"vk:gtt_size:{info.GTT_heap.GiB_size}_GiB")
-
+        gfxinfo["vk:vram_size_gib"] = "%.2f" % info.VRAM_heap.GiB_size
+        gfxinfo["vk:gtt_size_gib"] = "%.2f" % info.GTT_heap.GiB_size
         if info.mesa_version is not None:
-            print(f"mesa:version:{info.mesa_version}")
+            gfxinfo["mesa:version"] = info.mesa_version
         if info.mesa_git_version is not None:
-            print(f"mesa:git:version:{info.mesa_git_version}")
-
+            gfxinfo["mesa:git:version"] = info.mesa_git_version
         if info.device_name is not None:
-            print(f"vk:device:name:{info.device_name}")
-
+            gfxinfo["vk:device:name"] = info.device_name
         if info.device_type is not None:
-            print(f"vk:device:type:{info.device_type.name}")
-
+            gfxinfo["vk:device:type"] = info.device_type.name
         if info.api_version is not None:
-            print(f"vk:api:version:{info.driver_name}")
-
+            gfxinfo["vk:api:version"] = info.api_version
         if info.driver_name is not None:
-            print(f"vk:driver:name:{info.driver_name}")
-    else:
-        print("could not retrieve vulkan info")
+            gfxinfo["vk:driver:name"] = info.driver_name
+    json.dump(gfxinfo, sys.stdout)
+    sys.stdout.write("\n")
+    sys.exit(0)
 else:
-    print("No suitable GPU")
+    json.dump({"error": "No suitable GPU"})
+    sys.exit(1)
