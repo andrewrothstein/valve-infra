@@ -81,11 +81,14 @@ function pipeline_container() {
     # Fetch the gitlab-trigger specific tools and place them into the
     # pipeline container so we don't have to do it per job.
     mkdir -p .gitlab-ci/b2c
-    __COMMIT_FILES=(.gitlab-ci/b2c/b2c.yml.jinja2.jinja2 .gitlab-ci/b2c/generate_b2c.py)
+    __COMMIT_FILES=(.gitlab-ci/prepare-artifacts.sh .gitlab-ci/b2c/b2c.yml.jinja2.jinja2 .gitlab-ci/b2c/generate_b2c.py)
     for i in "${__COMMIT_FILES[@]}"; do
         wget --progres=dot:binary --no-cache -O "$i" "$CI_PROJECT_URL/-/raw/cturner/b2c-traces-runner/$i"
     done
-
+    # Fetch the traces runner and modify the built artefact
+    mkdir -pv ./install/valve
+    wget --progres=dot:binary --no-cache -O ./install/valve/traces-runner.sh "$CI_PROJECT_URL/-/raw/cturner/b2c-traces-runner/.gitlab-ci/valve/traces-runner.sh"
+    chmod +x ./install/valve/traces-runner.sh
     popd
 }
 
