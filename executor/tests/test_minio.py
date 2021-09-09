@@ -262,3 +262,19 @@ def test_minio_remove_user_policy(subproc_mock):
         call(['mcli', '-q', '--no-color', 'alias', 'set', 'local', 'http://test.invalid', 'test', 'test']),
         call(['mcli', '-q', '--no-color', 'admin', 'policy', 'unset', 'local', 'policy_name', 'user=username']),
         call(['mcli', '-q', '--no-color', 'admin', 'policy', 'remove', 'local', 'policy_name'])])
+
+
+def test_create_valid_bucket_name():
+    # Name is too short
+    assert MinioClient.create_valid_bucket_name("") == "b--x"
+    assert MinioClient.create_valid_bucket_name("ab") == "b--ab"
+
+    # Name is too long
+    bucket_name = "rhjfklsahjfkdlsahuifeohwuiafohuiofhueioahufieohauiefohuaieofhuiffdsarewfgdsa"
+    assert len(MinioClient.create_valid_bucket_name(bucket_name)) == 63
+
+    # Wrong characters
+    assert MinioClient.create_valid_bucket_name("/*_~!@#$%^&*()_+|") == "x-----------------x"
+
+    # IP address
+    assert MinioClient.create_valid_bucket_name("192.168.5.4") == "ip-192.168.5.4"

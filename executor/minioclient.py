@@ -3,14 +3,17 @@ from dataclasses import dataclass, field
 from collections import defaultdict
 from tarfile import TarFile
 from minio import Minio
+from minio.helpers import check_bucket_name
 from minio.error import S3Error
 from typing import List
 
 import subprocess
+import ipaddress
 import tempfile
 import requests
 import config
 import json
+import re
 
 
 @dataclass
@@ -177,3 +180,38 @@ class MinioClient():
 
         subprocess.check_call(["mcli", "-q", "--no-color", "admin", "policy", "remove",
                                self.alias, policy_name])
+
+    @classmethod
+    def create_valid_bucket_name(cls, base_name):
+        # Bucket names can consist only of lowercase letters, numbers, dots (.), and hyphens (-)
+        name = re.sub(r'[^a-z0-9\-\.]', '-', base_name)
+
+        # Bucket names must be between 3 and 63 characters long.
+        if len(name) < 3:
+            name = "b--" + name
+
+        # Bucket names must begin and end with a letter or number.
+        # Bucket names can't begin with xn-- (for buckets created after February 2020)
+        if name.startswith('xn--') or name[0] == '.' or name[0] == '-':
+            name = 'x' + name
+        if name[-1] == '.' or name[-1] == '-':
+            name += 'x'
+
+        # Bucket names must not be formatted as an IP address (for example, 192.168.5.4)
+        try:
+            ipaddress.ip_address(name)
+
+            # The name is an ip address, add a prefix!
+            name = "ip-" + name
+        except ValueError:
+            # The name isn't an IP address, all is good!
+            pass
+
+        # Bucket names must be between 3 and 63 characters long.
+        if len(name) >= 63:
+            name = name[0:63]
+
+        # Do the final checks
+        check_bucket_name(name)
+
+        return name
