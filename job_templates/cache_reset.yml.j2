@@ -1,0 +1,35 @@
+version: 1
+
+# Rules to match for a machine to qualify
+target:
+  id: machine_id
+
+timeouts:
+  first_console_activity:  # This limits the time it can take to receive the first console log
+    minutes: 2
+    retries: 5
+  console_activity:  # Reset every time we receive a message from the logs
+    minutes: 30
+    retries: 0
+  overall:           # Maximum time the job can take, not overrideable by the "continue" deployment
+    hours: 1
+    retries: 0
+    # no retries possible here
+
+console_patterns:
+    session_end:
+        regex: "^.*It's now safe to turn off your computer\r$"
+    job_success:
+        regex: "^.*Execution is over, pipeline status: 0\r$"
+
+# Environment to deploy
+deployment:
+  # Initial boot
+  start:
+    kernel:
+      url: "{{ minio_url }}/boot/default_kernel"
+      cmdline:
+        - console={{ local_tty_device }},115200 SALAD.machine_id={{ machine_id }}
+        - b2c.cache_device=reset b2c.poweroff_delay=15 loglevel=6
+    initramfs:
+      url: "{{ minio_url }}/boot/default_boot2container.cpio.xz"
