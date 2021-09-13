@@ -5,12 +5,13 @@ try:
 except Exception:
     from backports.cached_property import cached_property
 from dataclasses import dataclass, field
-from typing import List, Any
+from typing import List
 import datetime
 import base64
 import hashlib
 import humanize
 from functools import partial
+import json
 import os
 import io
 import re
@@ -21,13 +22,13 @@ import shutil
 import minio
 from pathlib import Path
 import subprocess
-import operator
 from urllib.parse import urlparse
 import fnmatch
+import operator
 import xml.sax.saxutils
 
 from enum import Enum
-# from PIL import Image
+from PIL import Image
 
 naturalsize = partial(humanize.naturalsize, binary=True)
 ensure_dir = partial(os.makedirs, exist_ok=True)
@@ -146,6 +147,46 @@ class Trace:
         return f"<Trace {self.id}, {self.filename}, size {self.human_size}>"
 
 
+class Job:
+    def __init__(self, client, job_blob):
+        self.client = client
+        self.id = job_blob.get('id')
+        self.name = job_blob.get('name')
+        self.metadata = job_blob.get('metadata')
+
+    def report_trace_execution(self, trace, frames, metadata=None, status=None, logs_path=None):
+        print(f"Uploading {len(frames)} frames from {trace}")
+
+        # TODO: Review the blob upload procedure with Simon and clean it up
+        frame_blobs = dict()
+        for frame_id, frame_path in frames.items():
+            try:
+                f_size = naturalsize(os.stat(frame_path).st_size)
+            except Exception:
+                continue
+
+            file_name = os.path.basename(frame_path)
+
+            print(f"  - Uploading Frame {frame_id} ({f_size})")
+            blob = self.client._upload_frame_blob(frame_path, file_name)
+            frame_blobs[frame_id] = blob.signed_id
+
+        # Create the trace execution
+        params = {
+            "trace_exec": {
+                "job_id": self.id,
+                "trace_id": trace.id,
+                "metadata": metadata,
+                "status": status,
+                "logs": None,  # TODO: Needs work!
+            },
+            "frame_blobs": frame_blobs,
+            # TODO: Set the GPU PCI ID
+        }
+        r = self.client._post("/api/v1/trace_execs", params=params)
+        return r.get('id')
+
+
 class Client:
     def __init__(self, url, username=None):
         self.url = url
@@ -177,6 +218,13 @@ class Client:
 
     def _post(self, path, params):
         r = requests.post(f"{self.url}{path}", allow_redirects=False, cookies=self.login(), json=params)
+
+        if r.status_code == 500:
+            print(f"Got an error: url={self.url}{path}, params={params}, ret={r.text}")
+        elif r.status_code == 409:
+            # TODO: Add an option to ignore some errors
+            return r.json()
+
         r.raise_for_status()
 
         return r.json()
@@ -278,7 +326,7 @@ class Client:
 
             return base64.b64encode(hash_md5.digest()).decode()
 
-    def _upload_blob(self, filepath, name, data_checksum):
+    def _upload_blob(self, filepath, name, data_checksum, image_checksum=None):
         with open(filepath, "rb") as f:
             # Check the file size
             f.seek(0, os.SEEK_END)
@@ -289,7 +337,8 @@ class Client:
             r_blob = self._post("/rails/active_storage/direct_uploads",
                                 {"blob": {"filename": name, "byte_size": file_size,
                                           "content_type": "application/octet-stream",
-                                          "checksum": data_checksum}})
+                                          "checksum": data_checksum,
+                                          "image_checksum": image_checksum}})
             blob = Blob(r_blob)
 
             # Send the file to the bucket
@@ -350,54 +399,31 @@ class Client:
     def _upload_frame_blob(self, filepath, name):
         image_md5 = hashlib.md5(Image.open(filepath).convert(mode="RGBA").tobytes())
         img_checksum = base64.b64encode(image_md5.digest()).decode()
+
         # Check if frame already exists on server
         r = self._post("/api/v1/image_checksum", {"checksum": img_checksum})
-        if "accepted" not in r:
+        if "id" in r:
             return Blob(r, new=False)
 
         # Generate the MD5 hash for the bucket
         data_checksum = self._data_checksum(filepath)
 
-        return self._upload_blob(filepath, name, data_checksum)
+        return self._upload_blob(filepath, name, data_checksum,
+                                 image_checksum=img_checksum)
 
-    def upload_frames(self, trace_id, frames, job_id, machine_tags):
-        if not machine_tags:
-            machine_tags = list(self.machine_tags)
-
-        pattern = re.compile(r'(?P<frame_id>\d+$)')
-        for frame in frames:
-            file_name = os.path.basename(frame)
-            without_ext, _ = os.path.splitext(frame)
-            m = pattern.search(without_ext)
-            if m is None:
-                print(f"Couldn't identify \"{frame}\" 's frame id. "
-                      "Skipping ...")
-                continue
-            r = self._post(
-                "/api/v1/trace_execs",
-                params={"trace_exec": {"trace_id": trace_id,
-                                       "job_id": job_id}})
-            trace_exec_id = r.get('id')
-            frame_id = int(m.groupdict({}).get('frame_id'))
-            blob = self._upload_frame_blob(frame, file_name)
-            r = self._post(
-                '/api/v1/traces/{}/trace_frames/{}/frame_outputs'.format(
-                    trace_id, frame_id),
-                params={"frame_output":
-                        {"upload": blob.signed_id,
-                         "trace_id": trace_id,
-                         "metadata": {"machine_tags": machine_tags},
-                         "trace_frame_id": frame_id,
-                         "trace_exec_id": trace_exec_id}})
-
-    def create_job(self):
-        machine_tags = list(self.machine_tags)
-        r = self._post("/api/v1/jobs",
-                       params={"job": {"metadata": {"machine_tags": machine_tags}}})
-        return(r.get('id'))
-
-    def complete_job(self, job_id):
-        self._get("/api/v1/jobs/{}/complete".format(job_id))
+    def job_get_or_create(self, name, metadata=None, timeline_metadata=None, is_released_code=False):
+        # The object will be created if it does not exist already,
+        # otherwise, it will return the job that has the same name
+        params = {
+            "job": {
+                "name": name,
+                "metadata": metadata,
+                "timeline_metadata": timeline_metadata,
+                "is_released_code": is_released_code
+            }
+        }
+        job = self._post("/api/v1/jobs", params=params)
+        return Job(self, job)
 
 
 def job_id():
@@ -627,6 +653,101 @@ def generate_job_commands(trace, path):
         print(f'ERROR: Unknown trace type {trace_type}')
 
 
+class GfxInfo:
+    def __init__(self, fields):
+        self.machine_tags = fields.get('tags', {})
+
+        self.vram_size_gib = fields.get("vk:vram_size_gib", 0)
+        self.gtt_size_gib = fields.get("vk:gtt_size_gib", 0)
+
+        self.driver_name = fields.get("vk:driver:name", "N/A")
+        self.driver_version = fields.get('mesa:version', 'N/A')
+        self.driver_git_version = fields.get('mesa:git:version', 'N/A')
+
+        self.device_name = fields.get('vk:device:name', 'N/A')
+        self.device_type = fields.get('vk:device:type', 'N/A')
+
+    @property
+    def all_fields(self):
+        return {
+            "machine_tags": self.machine_tags,
+            "driver": {
+                "name": self.driver_name,
+                "version": self.driver_version,
+                "git_version": self.driver_git_version,
+            },
+            "device": {
+                "name": self.device_name,
+                "type": self.device_type,
+            },
+            "memory": {
+                "vram_size_gib": self.vram_size_gib,
+                "gtt_size_gib": self.gtt_size_gib,
+            }
+        }
+
+
+def report_to_valvetraces_website(client, run_name, result_folder):
+    def is_postmerge():
+        return "CI_MERGE_REQUEST_ID" not in os.environ
+
+    def parse_gfxinfo():
+        try:
+            with open(f"{result_folder}/gfxinfo.json") as f:
+                return GfxInfo(json.loads(f.read()))
+        except Exception:
+            return GfxInfo({})
+
+    def create_trace_exec(dir_entry, gfx_info, trace):
+        has_started = False
+        has_ended = False
+        logs_path = None
+
+        frames = dict()
+        for entry in os.scandir(path=dir_entry.path):
+            if entry.name == ".started":
+                has_started = True
+            elif entry.name == ".done":
+                has_ended = True
+            elif entry.name.endswith('.log'):
+                logs_path = entry.path
+            elif entry.name.endswith('.png'):
+                try:
+                    frame_id = int(Path(entry.name).stem)
+                    frames[str(frame_id)] = entry.path
+                except Exception as e:
+                    print(e)
+
+        if has_started:
+            status = 0 if has_ended else 1
+        else:
+            status = None
+
+        job.report_trace_execution(metadata=gfx_info.all_fields,
+                                   trace=trace,
+                                   frames=frames,
+                                   status=status,
+                                   logs_path=logs_path)
+
+    # Get the list of traces
+    traces = {str(t.id): t for t in client.list_traces([])}
+
+    # Get the machine tags
+    gfx_info = parse_gfxinfo()
+
+    # Create the job in the website
+    job = traces_client.job_get_or_create(run_name,
+                                          timeline_metadata={"project": os.environ.get('CI_PROJECT_PATH_SLUG')},
+                                          is_released_code=is_postmerge())
+
+    # Walk the tree of results
+    for entry in os.scandir(path=result_folder):
+        if entry.is_dir():
+            trace = traces.get(entry.name.split('-')[0])
+            if trace and f'{trace.id}-{trace.filename}'.startswith(entry.name):
+                create_trace_exec(entry, gfx_info, trace)
+
+
 def traces_under_gb(traces_list, gb: float):
     """Return a list of traces from `traces_list` that are less than
     `gb` in total size. There's more than one way to solve a
@@ -691,7 +812,11 @@ def run_job(traces_client, args):
     with open(os.path.join(job_folder_path, "junit.xml"), "w") as f:
         f.write(generate_junit_report(job_folder_path))
 
-    # Now, the results are in results/, go through them all and upload to the Mango server
+    report_to_valvetraces_website(traces_client, args.run_name, job_folder_path)
+
+
+def report_results(traces_client, args):
+    report_to_valvetraces_website(traces_client, args.run_name, args.results)
 
 
 if __name__ == '__main__':
@@ -700,6 +825,7 @@ if __name__ == '__main__':
                         default=os.environ.get("VALVETRACES_SERVER", 'https://linux-perf.steamos.cloud'))
     parser.add_argument("-u", '--valvetraces-user', dest='valvetraces_user',
                         default=os.environ.get("VALVETRACES_USERNAME", None))
+    parser.add_argument("-r", '--run-name', dest='run_name', required=True)
 
     subparsers = parser.add_subparsers()
 
@@ -738,6 +864,10 @@ if __name__ == '__main__':
     run_parser.add_argument('--secure', default=False,
                             help='Whether to use TLS to connect to the Minio endpoint. Default is False.')
     run_parser.set_defaults(func=run_job)
+
+    report_parser = subparsers.add_parser('report', help='Report an already-created run')
+    report_parser.add_argument('results', help='Folder containing the results to report')
+    report_parser.set_defaults(func=report_results)
 
     args = parser.parse_args()
 
