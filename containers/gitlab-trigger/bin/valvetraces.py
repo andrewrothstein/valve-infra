@@ -627,55 +627,11 @@ def generate_job_commands(trace, path):
         print(f'ERROR: Unknown trace type {trace_type}')
 
 
-if __name__ == '__main__':
-    parser = argparse.ArgumentParser(prog='Valve trace runner')
-    parser.add_argument("-m", '--minio-url', dest='minio_url',
-                        default=os.environ.get("VALVETRACES_MINIO_URL", "http://localhost:9000"),
-                        help='URL to the Minio service')
-    parser.add_argument('-u', '--user',
-                        default=os.environ.get('VALVETRACES_MINIO_USER', 'valvetraces'),
-                        help='User to access Minio with, default is "traces".')
-    # REVIEW: Is there a way to have this pick its value from an
-    # environment variable *and* be a required argument, that is,
-    # absence of the environment variable won't require special casing
-    # after argument parsing?
-    parser.add_argument('-p', '--access-token',
-                        default=os.environ.get('VALVETRACES_BUCKET_PASSWORD', None),
-                        help='Access token for the traces bucket in the Minio instance.')
-    parser.add_argument('-b', '--bucket', default=os.environ.get('VALVETRACES_BUCKET', 'valvetraces'),
-                        help='The name of the bucket to cache matching traces into. Defaults to "valvetraces"')
-    parser.add_argument('--traces-db', default=os.environ.get('VALVETRACES_TRACES_DB', '/traces'),
-                        help='The path to directory containing all available traces. Defaults to /traces')
-    parser.add_argument('--executor-client', default=os.environ.get('VALVETRACES_EXECUTOR_CLIENT', 'client.py'),
-                        help='The path to the executor client command')
-    parser.add_argument('--executor-job-path', default=os.environ.get('VALVETRACES_EXECUTOR_JOB', 'b2c.yml.jinja2'),
-                        help='The path to the job definition for the executor to run')
-    parser.add_argument('--minio-valvetraces-group-name', default=os.environ.get('VALVETRACES_GROUP_NAME', "valvetraces-ro"),
-                        help="The group name to add the job user to for valve traces bucket access")
-    parser.add_argument('--local-run', default=False, action='store_true',
-                        help="Do not submit any jobs, useful for development")
-    parser.add_argument('--only-smallest', type=int, choices=range(1, 1024),
-                        help="Only collect the N smallest traces. Useful for quick tests and impoverished DUTs!")
-    parser.add_argument('--skip-trace-download', default=False, action='store_true',
-                        help="Do not attempt to resync remote trace files")
-    parser.add_argument('--generate-job-folder-only', default=False, action='store_true',
-                        help="Do not try to replay the traces, just generate the job folder")
-    parser.add_argument('--secure', default=False,
-                        help='Whether to use TLS to connect to the Minio endpoint. Default is False.')
-
-    args = parser.parse_args()
-
+def run_job(traces_client, args):
     if args.access_token is None:
         print("ERROR: No access token given to the client")
         sys.exit(1)
 
-    traces_server_url = os.environ.get('VALVETRACES_SERVER', 'https://linux-perf.steamos.cloud')
-    traces_server_username = os.environ.get('VALVETRACES_USERNAME', None)
-    if traces_server_username is None:
-        print("ERROR: No traces server username specified")
-        sys.exit(1)
-
-    traces_client = Client(url=traces_server_url, username=traces_server_username)
     minio_client = minio.Minio(
         endpoint=urlparse(args.minio_url).netloc,
         access_key=args.user,
@@ -719,3 +675,65 @@ if __name__ == '__main__':
         f.write(generate_junit_report(job_folder_path))
 
     # Now, the results are in results/, go through them all and upload to the Mango server
+
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser(prog='Valve trace runner')
+    parser.add_argument("-s", '--valvetraces-url', dest='valvetraces_url',
+                        default=os.environ.get("VALVETRACES_SERVER", 'https://linux-perf.steamos.cloud'))
+    parser.add_argument("-u", '--valvetraces-user', dest='valvetraces_user',
+                        default=os.environ.get("VALVETRACES_USERNAME", None))
+
+    subparsers = parser.add_subparsers()
+
+    run_parser = subparsers.add_parser('run', help='Run the traces and report')
+    run_parser.add_argument("-m", '--minio-url', dest='minio_url',
+                            default=os.environ.get("VALVETRACES_MINIO_URL", "http://localhost:9000"),
+                            help='URL to the Minio service')
+    run_parser.add_argument('-u', '--user',
+                            default=os.environ.get('VALVETRACES_MINIO_USER', 'valvetraces'),
+                            help='User to access Minio with, default is "traces".')
+    # REVIEW: Is there a way to have this pick its value from an
+    # environment variable *and* be a required argument, that is,
+    # absence of the environment variable won't require special casing
+    # after argument parsing?
+    run_parser.add_argument('-p', '--access-token',
+                            default=os.environ.get('VALVETRACES_BUCKET_PASSWORD', None),
+                            help='Access token for the traces bucket in the Minio instance.')
+    run_parser.add_argument('-b', '--bucket', default=os.environ.get('VALVETRACES_BUCKET', 'valvetraces'),
+                            help='The name of the bucket to cache matching traces into. Defaults to "valvetraces"')
+    run_parser.add_argument('--traces-db', default=os.environ.get('VALVETRACES_TRACES_DB', '/traces'),
+                            help='The path to directory containing all available traces. Defaults to /traces')
+    run_parser.add_argument('--executor-client', default=os.environ.get('VALVETRACES_EXECUTOR_CLIENT', 'client.py'),
+                            help='The path to the executor client command')
+    run_parser.add_argument('--executor-job-path', default=os.environ.get('VALVETRACES_EXECUTOR_JOB', 'b2c.yml.jinja2'),
+                            help='The path to the job definition for the executor to run')
+    run_parser.add_argument('--minio-valvetraces-group-name', default=os.environ.get('VALVETRACES_GROUP_NAME', "valvetraces-ro"),
+                            help="The group name to add the job user to for valve traces bucket access")
+    run_parser.add_argument('--local-run', default=False, action='store_true',
+                            help="Do not submit any jobs, useful for development")
+    run_parser.add_argument('--only-smallest', type=int, choices=range(1, 1024),
+                            help="Only collect the N smallest traces. Useful for quick tests and impoverished DUTs!")
+    run_parser.add_argument('--skip-trace-download', default=False, action='store_true',
+                            help="Do not attempt to resync remote trace files")
+    run_parser.add_argument('--generate-job-folder-only', default=False, action='store_true',
+                            help="Do not try to replay the traces, just generate the job folder")
+    run_parser.add_argument('--secure', default=False,
+                            help='Whether to use TLS to connect to the Minio endpoint. Default is False.')
+    run_parser.set_defaults(func=run_job)
+
+    args = parser.parse_args()
+
+    if args.valvetraces_user is None:
+        print("ERROR: No traces server username specified")
+        sys.exit(1)
+
+    traces_client = Client(url=args.valvetraces_url, username=args.valvetraces_user)
+
+    try:
+        entrypoint = args.func
+    except AttributeError:
+        parser.print_help()
+        sys.exit(0)
+
+    entrypoint(traces_client, args)
