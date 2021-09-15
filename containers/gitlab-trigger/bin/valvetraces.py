@@ -627,6 +627,22 @@ def generate_job_commands(trace, path):
         print(f'ERROR: Unknown trace type {trace_type}')
 
 
+def traces_under_gb(traces_list, gb: float):
+    """Return a list of traces from `traces_list` that are less than
+    `gb` in total size. There's more than one way to solve a
+    bin-packing problem like this, here the choice is to return the
+    most traces that will fit, rather than the least."""
+    max_bytes = gb * 1024**3
+    taken_bytes = 0
+    selected_traces = []
+    for trace in sorted(traces_list, key=operator.attrgetter('size')):
+        taken_bytes += trace.size
+        if taken_bytes >= max_bytes:
+            break
+        selected_traces.append(trace)
+    return selected_traces
+
+
 def run_job(traces_client, args):
     if args.access_token is None:
         print("ERROR: No access token given to the client")
@@ -639,8 +655,9 @@ def run_job(traces_client, args):
         secure=args.secure)
 
     traces_to_cache = traces_client.list_traces([])
-    if args.only_smallest:
-        traces_to_cache = sorted(traces_to_cache, key=operator.attrgetter('size'))[:args.only_smallest]
+    if args.max_trace_db_size_gb is not None:
+        traces_to_cache = traces_under_gb(traces_to_cache, args.max_trace_db_size_gb)
+
     if not args.skip_trace_download:
         cache_all_traces_to_local_minio(minio_client, args.bucket, traces_to_cache)
 
@@ -712,8 +729,8 @@ if __name__ == '__main__':
                             help="The group name to add the job user to for valve traces bucket access")
     run_parser.add_argument('--local-run', default=False, action='store_true',
                             help="Do not submit any jobs, useful for development")
-    run_parser.add_argument('--only-smallest', type=int, choices=range(1, 1024),
-                            help="Only collect the N smallest traces. Useful for quick tests and impoverished DUTs!")
+    run_parser.add_argument('--max-trace-db-size-gb', type=float,
+                            help="Stop collecting traces when the total download size would exceed N GB. Useful for quick tests and impoverished DUTs!")
     run_parser.add_argument('--skip-trace-download', default=False, action='store_true',
                             help="Do not attempt to resync remote trace files")
     run_parser.add_argument('--generate-job-folder-only', default=False, action='store_true',
