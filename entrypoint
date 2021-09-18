@@ -6,19 +6,24 @@ set -o errexit
 set -o pipefail
 #set -o xtrace
 
-# Use the provided configuration, and use defaults if missing
-export TMP_MOUNT=${TMP_MOUNT:-/mnt/tmp}
-export PERMANENT_MOUNT=${PERMANENT_MOUNT:-/mnt/permanent}
-export REGISTRY_MOUNT=${REGISTRY_MOUNT:-/mnt/tmp/registry}
-export PRIVATE_INTERFACE=${PRIVATE_INTERFACE:-private}
-export MINIO_ROOT_PASSWORD=${MINIO_ROOT_PASSWORD:-`tr -dc [:alnum:] < /dev/urandom | head -c 32`}
-export VALVETRACES_MINIO_PASSWORD=${VALVETRACES_MINIO_PASSWORD:-`tr -dc [:alnum:] < /dev/urandom | head -c 32`}
-export MINIO_URL=${MINIO_URL:-http://10.42.0.1:9000}
-export FDO_PROXY_REGISTRY=${FDO_PROXY_REGISTRY:-http://10.42.0.1:8002}
-export LOCAL_REGISTRY=${LOCAL_REGISTRY:-http://10.42.0.1:8004}
-export FARM_NAME=${FARM_NAME:?Must be defined as an environment variable - think of something unique to your farm!}
-export GITLAB_REGISTRATION_TOKEN=${GITLAB_REGISTRATION_TOKEN:?Must be defined as an environment variable}
-export GITLAB_ACCESS_TOKEN=${GITLAB_ACCESS_TOKEN:?Must be defined as an environment variable}
+# Generate a configuration file based on the default values, or the
+# overriding env vars
+[ -d ./config/ ] || mkdir ./config/
+echo -e "TMP_MOUNT=${TMP_MOUNT:-/mnt/tmp}
+PERMANENT_MOUNT=${PERMANENT_MOUNT:-/mnt/permanent}
+REGISTRY_MOUNT=${REGISTRY_MOUNT:-/mnt/tmp/registry}
+PRIVATE_INTERFACE=${PRIVATE_INTERFACE:-private}
+MINIO_ROOT_PASSWORD=${MINIO_ROOT_PASSWORD:-`tr -dc [:alnum:] < /dev/urandom | head -c 32`}
+VALVETRACES_MINIO_PASSWORD=${VALVETRACES_MINIO_PASSWORD:-`tr -dc [:alnum:] < /dev/urandom | head -c 32`}
+MINIO_URL=${MINIO_URL:-http://10.42.0.1:9000}
+FDO_PROXY_REGISTRY=${FDO_PROXY_REGISTRY:-http://10.42.0.1:8002}
+LOCAL_REGISTRY=${LOCAL_REGISTRY:-http://10.42.0.1:8004}
+FARM_NAME=${FARM_NAME:?Must be defined as an environment variable - think of something unique to your farm!}
+GITLAB_REGISTRATION_TOKEN=${GITLAB_REGISTRATION_TOKEN:?Must be defined as an environment variable}
+GITLAB_ACCESS_TOKEN=${GITLAB_ACCESS_TOKEN:?Must be defined as an environment variable}
+" > ./config/prod.env
+
+. ./config/prod.env
 
 [ -d "$TMP_MOUNT" ] || mkdir "$TMP_MOUNT"
 [ -d "$PERMANENT_MOUNT" ] || mkdir "$PERMANENT_MOUNT"
