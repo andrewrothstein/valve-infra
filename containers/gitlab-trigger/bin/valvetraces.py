@@ -5,6 +5,7 @@ try:
 except Exception:
     from backports.cached_property import cached_property
 from dataclasses import dataclass, field
+from multiprocessing import Pool
 from typing import List
 import datetime
 import base64
@@ -15,6 +16,7 @@ import json
 import os
 import io
 import re
+import traceback
 import requests
 import argparse
 import sys
@@ -154,23 +156,7 @@ class Job:
         self.name = job_blob.get('name')
         self.metadata = job_blob.get('metadata')
 
-    def report_trace_execution(self, trace, frames, metadata=None, status=None, logs_path=None):
-        print(f"Uploading {len(frames)} frames from {trace}")
-
-        # TODO: Review the blob upload procedure with Simon and clean it up
-        frame_blobs = dict()
-        for frame_id, frame_path in frames.items():
-            try:
-                f_size = naturalsize(os.stat(frame_path).st_size)
-            except Exception:
-                continue
-
-            file_name = os.path.basename(frame_path)
-
-            print(f"  - Uploading Frame {frame_id} ({f_size})")
-            blob = self.client._upload_frame_blob(frame_path, file_name)
-            frame_blobs[frame_id] = blob.signed_id
-
+    def report_trace_execution(self, trace, frame_blobs, metadata=None, status=None, logs_path=None):
         # Create the trace execution
         params = {
             "trace_exec": {
@@ -687,6 +673,17 @@ class GfxInfo:
         }
 
 
+def upload_frame(client, frame_path):
+    file_name = os.path.basename(frame_path)
+    blob = client._upload_frame_blob(frame_path, file_name)
+
+    return blob.signed_id
+
+
+def error_callback(result):
+    print(f"ERROR: {result}")
+
+
 def report_to_valvetraces_website(client, run_name, result_folder):
     def is_postmerge():
         return "CI_MERGE_REQUEST_ID" not in os.environ
@@ -698,12 +695,12 @@ def report_to_valvetraces_website(client, run_name, result_folder):
         except Exception:
             return GfxInfo({})
 
-    def create_trace_exec(dir_entry, gfx_info, trace):
+    def queue_trace_execution_tasks(pool, dir_entry, gfx_info, trace):
         has_started = False
         has_ended = False
         logs_path = None
 
-        frames = dict()
+        frames_tasks = dict()
         for entry in os.scandir(path=dir_entry.path):
             if entry.name == ".started":
                 has_started = True
@@ -714,7 +711,7 @@ def report_to_valvetraces_website(client, run_name, result_folder):
             elif entry.name.endswith('.png'):
                 try:
                     frame_id = int(Path(entry.name).stem)
-                    frames[str(frame_id)] = entry.path
+                    frames_tasks[frame_id] = pool.apply_async(upload_frame, (client, entry.path), error_callback=error_callback)
                 except Exception as e:
                     print(e)
 
@@ -723,11 +720,7 @@ def report_to_valvetraces_website(client, run_name, result_folder):
         else:
             status = None
 
-        job.report_trace_execution(metadata=gfx_info.all_fields,
-                                   trace=trace,
-                                   frames=frames,
-                                   status=status,
-                                   logs_path=logs_path)
+        return (frames_tasks, status)
 
     # Get the list of traces
     traces = {str(t.id): t for t in client.list_traces([])}
@@ -740,12 +733,38 @@ def report_to_valvetraces_website(client, run_name, result_folder):
                                           timeline_metadata={"project": os.environ.get('CI_PROJECT_PATH_SLUG')},
                                           is_released_code=is_postmerge())
 
-    # Walk the tree of results
-    for entry in os.scandir(path=result_folder):
-        if entry.is_dir():
-            trace = traces.get(entry.name.split('-')[0])
-            if trace and f'{trace.id}-{trace.filename}'.startswith(entry.name):
-                create_trace_exec(entry, gfx_info, trace)
+    # Perform the upload in multiple processes
+    with Pool(processes=max(os.cpu_count(), 10)) as pool:
+        print("Scan the entire directory structure")
+        trace_execs = dict()
+        for entry in os.scandir(path=result_folder):
+            if entry.is_dir():
+                trace = traces.get(entry.name.split('-')[0])
+                if trace and f'{trace.id}-{trace.filename}'.startswith(entry.name):
+                    trace_execs[trace] = queue_trace_execution_tasks(pool, entry, gfx_info, trace)
+
+        # Create all the trace execution objects
+        for trace, params in trace_execs.items():
+            frames_tasks, status = params
+
+            try:
+                print(f"Uploading the results from {trace}")
+
+                frame_blobs = dict()
+                for frame_id, task in frames_tasks.items():
+                    if not task.ready():
+                        print(f" - Waiting on the upload of the frame {frame_id}")
+
+                    frame_blobs[str(frame_id)] = task.get()
+
+                job.report_trace_execution(metadata=gfx_info.all_fields,
+                                        trace=trace,
+                                        frame_blobs=frame_blobs,
+                                        status=status,
+                                        logs_path=None)
+            except Exception:
+                traceback.print_exc()
+                print("Ignoring this trace execution")
 
 
 def traces_under_gb(traces_list, gb: float):
