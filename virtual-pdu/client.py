@@ -1,4 +1,5 @@
 import time
+import sys
 import socket
 import struct
 from contextlib import contextmanager
@@ -39,6 +40,9 @@ if args.outlet:
 
 print(num_ports, "outlets available on the PDU")
 if args.status:
+    if args.outlet is None:
+        print("no outlet given")
+        sys.exit(1)
     cmd = args.outlet << 2 | 0x03
     with conn(args.host, args.port) as s:
         s.sendall(cmd.to_bytes(4, byteorder='big'))
