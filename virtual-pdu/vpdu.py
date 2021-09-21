@@ -8,7 +8,8 @@ import subprocess
 import sys
 import time
 
-BRIDGE = 'br0'
+
+BRIDGE = 'vivianbr0'
 
 
 def check_bridge():
