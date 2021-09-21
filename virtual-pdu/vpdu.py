@@ -159,7 +159,14 @@ class PDUTCPHandler(socketserver.StreamRequestHandler):
 
 
 if __name__ == "__main__":
-    HOST, PORT = "localhost", 9191
+    port = 9191
+    if len(sys.argv) > 1:
+        try:
+            port = int(sys.argv[1])
+        except:
+            pass
+    print('Listening on port', port)
+    HOST, PORT = "localhost", port
 
     # Create the server, binding to localhost on port 9999
     try:
