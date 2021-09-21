@@ -8,7 +8,6 @@ import subprocess
 import sys
 import time
 
-TAP_IDX = 0
 BRIDGE = 'br0'
 
 
@@ -20,28 +19,6 @@ def check_bridge():
         subprocess.check_call(['ip', 'link', 'add', 'name', BRIDGE, 'type', 'bridge'])
         subprocess.check_call(['ip', 'addr', 'add', '10.42.0.1/24', 'dev', BRIDGE])
         subprocess.check_call(['ip', 'link', 'set', BRIDGE, 'up'])
-
-
-# TODO, could simplify this by plugging directory into br0, lose some
-# firewalling tricks, but might be worth it... Doesn't seem the
-# "typical way" to do this kind of thing based on my research tho.
-def get_tap():
-    global TAP_IDX
-    tap = f'tap{TAP_IDX}'
-    while os.path.isdir(f'/sys/class/net/{tap}'):
-        TAP_IDX += 1
-        tap = f'tap{TAP_IDX}'
-    print("chosen tap", tap)
-    subprocess.check_call(['ip', 'tuntap', 'add', 'mode', 'tap', tap])
-    subprocess.check_call(['ip', 'link', 'set', tap, 'up'])
-    subprocess.check_call(['ip', 'link', 'set', tap, 'master', BRIDGE])
-    return tap
-
-
-def rm_tap(tap):
-    subprocess.check_call(['ip', 'link', 'set', tap, 'nomaster'])
-    subprocess.check_call(['ip', 'link', 'set', tap, 'down'])
-    subprocess.check_call(['ip', 'tuntap', 'del', 'mode', 'tap', tap])
 
 
 def get_disk(index):
@@ -64,18 +41,15 @@ def gen_mac(index):
 
 check_bridge()
 OUTLETS = [
-    {'tap': get_tap(),
-     'mac': gen_mac(i),
+    {'mac': gen_mac(i),
      'disk': get_disk(i),
      'serial_sock': f'/run/salad_socks/machine{i}.socket',
      'state': PowerState.OFF} for i in range(16)
 ]
 
-
 def cleanup():
     global OUTLETS
     for machine in OUTLETS:
-        rm_tap(machine['tap'])
         os.remove(machine['disk'])
 
 
@@ -88,12 +62,10 @@ def reset_stdout():
 
 
 class DUT:
-    def __init__(self, tap, mac, disk, serial_sock):
-        self.tap = tap
+    def __init__(self, mac, disk, serial_sock):
         self.disk = disk
         log_name = datetime.now().strftime(f'dut-log-{mac.replace(":", "")}-%H%M%S-%d%m%Y.log')
-        self.qemu = subprocess.Popen(
-            [
+        cmd = [
                 'qemu-system-x86_64',
                 '-machine', 'pc-q35-6.0,accel=kvm',
                 '-m', '1024',
@@ -102,11 +74,12 @@ class DUT:
 	        '-chardev', f'file,id=logfile,path={log_name}',
                 '-chardev', f'socket,id=foo,path={serial_sock},server=on,wait=off,logfile={log_name}',
                 '-device', 'pci-serial,chardev=foo',
-                '-netdev', f'tap,id=net0,ifname={tap},script=no,downscript=no',
-                '-device', f'virtio-net-pci,netdev=net0,bootindex=1,mac={mac}',
+                '-nic', f'bridge,br=vivianbr0,mac={mac},model=virtio-net-pci',
                 '-vga', 'virtio',
              ]
-        )
+        print('starting DUT:', ' '.join(cmd))
+        self.qemu = subprocess.Popen(cmd)
+
 
     def stop(self):
         self.qemu.terminate()
@@ -161,8 +134,7 @@ class PDUTCPHandler(socketserver.StreamRequestHandler):
                 print('already ON')
                 self.wfile.write(b'\x01')
             else:
-                machine['instance'] = DUT(machine['tap'],
-                                          machine['mac'],
+                machine['instance'] = DUT(machine['mac'],
                                           machine['disk'],
                                           machine['serial_sock'])
                 machine['state'] = PowerState.ON
