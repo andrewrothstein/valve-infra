@@ -1,6 +1,5 @@
 from logger import logger
 
-import socket
 import serial
 import re
 
@@ -90,12 +89,12 @@ class SerialConsoleStream(ConsoleStream):
         self.device.close()
 
 
-class UnixDomainSocketConsoleStream(ConsoleStream):
-    def __init__(self, path):
-        super().__init__(path)
+class TCPConsoleStream(ConsoleStream):
+    def __init__(self, accepted_sock):
+        super().__init__('netconsole@%s:%d' % accepted_sock[1])
 
-        self.sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-        self.sock.connect(path)
+        logger.info("Opening %s", self.stream_name)
+        self.sock = accepted_sock[0]
         self.ping_re = re.compile(b"SALAD.ping$")
         self._line_buffer = b""
 
@@ -118,5 +117,5 @@ class UnixDomainSocketConsoleStream(ConsoleStream):
         return data
 
     def close(self):
-        logger.info("Closing the %s unix socket", self.stream_name)
+        logger.info("Closing %s", self.stream_name)
         self.sock.close()

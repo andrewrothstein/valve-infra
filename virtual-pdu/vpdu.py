@@ -10,6 +10,10 @@ import time
 
 
 BRIDGE = 'vivianbr0'
+SALAD_TCP_CONSOLE_PORT = os.getenv("SALAD_TCPCONSOLE_PORT", 8100)
+NUM_PORTS = 16
+DUT_DISK_SIZE = '32G'
+OUTLETS = []
 
 
 def check_bridge():
@@ -45,6 +49,7 @@ OUTLETS = [
     {'mac': gen_mac(i),
      'disk': get_disk(i),
      'serial_sock': f'/run/salad_socks/machine{i}.socket',
+     'monitor_port': 4444 + i,
      'state': PowerState.OFF} for i in range(16)
 ]
 
@@ -67,20 +72,21 @@ class DUT:
         self.disk = disk
         log_name = datetime.now().strftime(f'dut-log-{mac.replace(":", "")}-%H%M%S-%d%m%Y.log')
         cmd = [
-                'qemu-system-x86_64',
-                '-machine', 'pc-q35-6.0,accel=kvm',
-                '-m', '1024',
-                '-smp', '2,sockets=2,cores=1,threads=1',
-                '-hda', disk,
-	        '-chardev', f'file,id=logfile,path={log_name}',
-                '-chardev', f'socket,id=foo,path={serial_sock},server=on,wait=off,logfile={log_name}',
-                '-device', 'pci-serial,chardev=foo',
-                '-nic', f'bridge,br=vivianbr0,mac={mac},model=virtio-net-pci',
-                '-vga', 'virtio',
-             ]
+            'qemu-system-x86_64',
+            '-machine', 'pc-q35-6.0,accel=kvm',
+            '-m', '1024',
+            '-smp', '2,sockets=2,cores=1,threads=1',
+            '-hda', disk,
+            '-vga', 'virtio',
+            '-boot', 'n',
+            '-nic', f'bridge,br=vivianbr0,mac={mac},model=virtio-net-pci',
+            # Not decided if I want this feature, can be handy though!
+            # '-serial', 'mon:telnet::4444,server=on,wait=off',
+            '-chardev', f'socket,id=saladtcp,host=localhost,port={SALAD_TCP_CONSOLE_PORT},server=off',
+            '-device', 'pci-serial,chardev=saladtcp',
+        ]
         print('starting DUT:', ' '.join(cmd))
         self.qemu = subprocess.Popen(cmd)
-
 
     def stop(self):
         self.qemu.terminate()

@@ -1,15 +1,18 @@
 from threading import Thread
 from logger import logger
 
-from console import SerialConsoleStream, UnixDomainSocketConsoleStream
+from console import (
+    SerialConsoleStream,
+    TCPConsoleStream
+)
 from tcpserver import SerialConsoleTCPServer
 
-import glob
 import os
 import serial.tools.list_ports
 import traceback
 import threading
 import select
+import socket
 from itertools import chain
 
 
@@ -19,9 +22,16 @@ class Salad(Thread):
 
         self._stop_event = threading.Event()
 
+        netconsole_port = os.getenv("SALAD_TCPCONSOLE_PORT", 8100)
+        self._netconsole_server_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        netconsole_server_addr = ('', netconsole_port)
+        self._netconsole_server_sock.bind(netconsole_server_addr)
+        self._netconsole_server_sock.listen(1)
+
         self._machines = {}
         self._serial_devs = {}
         self._external_socket_streams = {}
+        self._netconsole_streams = {}
 
     @property
     def machines(self):
@@ -55,13 +65,6 @@ class Salad(Thread):
             logger.warning(f"Serial device {old_dev} got removed")
             del self._serial_devs[old_dev]
 
-        sockets_parent_dir = os.getenv('SALAD_RUNTIME_SOCKETS_PATH', '/run/salad_socks')
-        sockets_glob = os.path.join(sockets_parent_dir, '*.socket')
-        for path in glob.glob(sockets_glob):
-            if path not in self._external_socket_streams:
-                logger.info("Monitoring external Unix Domain Socket: %s", path)
-                self._external_socket_streams[path] = UnixDomainSocketConsoleStream(path)
-
     def stop(self):
         self._stop_event.set()
         self.join()
@@ -77,14 +80,15 @@ class Salad(Thread):
             self._update_ports()
 
             fd_to_ser_console = dict([(p.fileno(), p) for p in self._serial_devs.values()])
-            fd_to_unix_console = dict([(s.fileno(), s) for s in self._external_socket_streams.values()])
+            fd_to_netconsole = dict([(s.fileno(), s) for s in self._netconsole_streams.values()])
             fd_to_machine_server = dict([(m.fileno_server, m) for m in self._machines.values()])
             fd_to_machine_client = dict([(m.fileno_client, m) for m in self._machines.values() if m.fileno_client is not None])
-            rlist, _, _ = select.select(list(chain(fd_to_ser_console,
-                                                   fd_to_machine_server,
-                                                   fd_to_machine_client,
-                                                   fd_to_unix_console)),
-                                        [], [], 1.0)
+            ready_fds = list(chain(fd_to_ser_console,
+                                   fd_to_machine_server,
+                                   fd_to_machine_client,
+                                   fd_to_netconsole))
+            ready_fds.append(self._netconsole_server_sock.fileno())
+            rlist, _, _ = select.select(ready_fds, [], [], 1.0)
             for fd in rlist:
                 try:
                     if fd in fd_to_ser_console:
@@ -99,23 +103,26 @@ class Salad(Thread):
                             self.send_to_console_listener(ser, buf)
                         except serial.SerialException:
                             logger.warning(traceback.format_exc())
-                    elif fd in fd_to_unix_console:
-                        # DUT's stdout/err: Virtual serial -> Socket
-                        console = fd_to_unix_console[fd]
+                    elif fd in fd_to_netconsole:
+                        # DUT's stdout/err: Netconsole -> Socket
+                        console = fd_to_netconsole[fd]
                         try:
                             buf = console.recv()
                             if len(buf) == 0:
                                 console.close()
-                                del self._external_socket_streams[console.stream_name]
+                                del self._netconsole_streams[console.stream_name]
                                 continue
-
                             self.send_to_console_listener(console, buf)
                         except ConnectionResetError:
                             console.close()
-                            del self._external_socket_streams[console.stream_name]
+                            del self._netconsole_streams[console.stream_name]
                     elif fd in fd_to_machine_server:
                         # Incoming connections
                         fd_to_machine_server[fd].accept()
+                    elif fd == self._netconsole_server_sock.fileno():
+                        console_client = self._netconsole_server_sock.accept()
+                        console = TCPConsoleStream(console_client)
+                        self._netconsole_streams[console.stream_name] = console
                     elif fd in fd_to_machine_client:
                         # DUT's stdin: Socket -> Console
                         machine = fd_to_machine_client[fd]
