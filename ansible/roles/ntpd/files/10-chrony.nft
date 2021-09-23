@@ -1,0 +1,8 @@
+#!/usr/sbin/nft -f
+
+table inet filter {
+	chain input {
+        # allow ntpd
+        iifname "private" udp dport 123 accept comment "accept NTPd on private iface"
+	}
+}

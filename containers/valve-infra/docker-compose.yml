@@ -58,14 +58,6 @@ services:
     restart: unless-stopped
     volumes:
       - /run/salad_socks:/run/salad_socks
-  ntpd:
-    image: registry.freedesktop.org/mupuf/valve-infra/chrony
-    cap_add:
-      - SYS_TIME
-    environment:
-      - CHRONY_SERVERS=0.pool.ntp.org,1.pool.ntp.org,2.pool.ntp.org
-    ports:
-      - 123:123/udp
   fdo_proxy_registry:
     image: registry.freedesktop.org/mupuf/valve-infra/docker-registry
     environment:

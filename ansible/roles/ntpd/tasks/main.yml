@@ -1,0 +1,30 @@
+---
+- name: Installing chrony
+  become: true
+  pacman:
+    state: present
+    name:
+      - chrony
+
+- name: Enable chrony service
+  become: true
+  ansible.builtin.systemd:
+    name: 'chronyd'
+    enabled: yes
+
+- name: Setting NTP servers for Chrony
+  ansible.builtin.lineinfile:
+    path: /etc/chrony.conf
+    regexp: '^[#!;%] allow .+'
+    line: "allow {{ private_interface_ip }}/24"
+  notify: 'Restart chrony'
+
+- name: Adding firewall rule for Chrony
+  become: true
+  ansible.builtin.copy:
+    src: 10-chrony.nft
+    dest: /etc/nftables.d/10-chrony.nft
+    owner: root
+    group: root
+    mode: '0644'
+  notify: 'Restart nftables'
