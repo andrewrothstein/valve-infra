@@ -350,36 +350,5 @@ def run(ctx):  # pragma: nocover
     boots.stop()
 
 
-@cli.group()
-@click.pass_context
-def gitlab(ctx):  # pragma: nocover
-    # ensure that ctx.obj exists and is a dict (in case `cli()` is called
-    # by means other than the `if` block below)
-    ctx.ensure_object(dict)
-
-    if "GITLAB_API" not in ctx.obj:
-        print("ERROR: Can't use the gitlab command without GitLab support")
-        ctx.abort()
-
-
-@gitlab.command()
-@click.pass_context
-def remove_runners(ctx,):  # pragma: nocover
-    gl = ctx.obj['GITLAB_RUNNER'].gl
-    farm_name = ctx.obj['FARM_NAME']
-
-    runners = list(filter(lambda r: r.description.startswith(f'{farm_name}-'),
-                          gl.runners.list(all=True)))
-    if not click.confirm(f'About to remove {len(runners)} runners for the '
-                         f' {farm_name} farm, are you sure?',
-                         default=False):
-        return
-
-    for runner in runners:
-        if runner.description.startswith(f'{farm_name}-'):
-            print(f"removing {runner.description}")
-            runner.delete()
-
-
 if __name__ == '__main__':  # pragma: nocover
     cli()
