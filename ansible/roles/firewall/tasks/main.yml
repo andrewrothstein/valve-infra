@@ -1,0 +1,44 @@
+---
+- name: Installing nftables
+  become: true
+  pacman:
+    state: present
+    name:
+      - nftables
+
+- name: Enable nftables service
+  become: true
+  ansible.builtin.systemd:
+    name: nftables
+    enabled: yes
+
+- name: Creating nftables.d
+  become: true
+  ansible.builtin.file:
+    path: /etc/nftables.d
+    state: directory
+    owner: root
+    mode: 0755
+
+- name: Installing nftables config
+  become: true
+  ansible.builtin.copy:
+    src: nftables.conf
+    dest: /etc/nftables.conf
+    owner: root
+    group: root
+    mode: '0644'
+  notify: 'Restart nftables'
+
+- name: Installing nftables rules
+  become: true
+  ansible.builtin.copy:
+    src: "{{ item }}"
+    dest: "/etc/nftables.d/{{ item }}"
+    owner: root
+    group: root
+    mode: '0644'
+  with_items:
+    - 00-base.nft
+    - 99-log-dropped.nft
+  notify: 'Restart nftables'

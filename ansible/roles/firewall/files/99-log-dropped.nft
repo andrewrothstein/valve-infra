@@ -1,0 +1,15 @@
+#!/usr/bin/nft -f
+table inet filter {
+    chain input {
+        # log dropped connections (for debugging)
+        log prefix "INPUT DROP: " flags all drop
+    }
+    chain output {
+        # log dropped connections (for debugging)
+        log prefix "OUTPUT DROP: " flags all drop
+    }
+    chain forward {
+        # log dropped connections (for debugging)
+        log prefix "FORWARD DROP: " flags all drop
+    }
+}

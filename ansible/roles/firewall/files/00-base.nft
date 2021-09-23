@@ -1,0 +1,27 @@
+#!/usr/bin/nft -f
+table inet filter {
+    chain input {
+        type filter hook input priority filter; policy drop;
+        ct state { established, related } accept
+        ct state invalid drop
+        iifname "lo" accept comment "accept incoming on lo"
+        iifname "docker*" accept comment "accept incoming on docker*"
+        iifname "private" accept comment "accept incoming on private"
+
+        # allow ping
+        ip protocol icmp accept
+        meta l4proto ipv6-icmp accept
+
+        # allow ssh
+        tcp dport ssh accept comment "accept SSH"
+    }
+    chain output {
+        # drop all outbound requests except those to something in the
+        # list of allowed IP addresses
+        type filter hook output priority 0; policy drop;
+
+        oifname "docker*" accept comment "accept outgoing to docker*"
+        oifname "private" accept comment "accept outgoing to private"
+        oifname "veth*" accept
+    }
+}
