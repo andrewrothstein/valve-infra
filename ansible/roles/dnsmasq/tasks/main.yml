@@ -1,0 +1,85 @@
+---
+# currently built/installed by ci-install, until the nftset patch is in a release
+# also see: https://lists.thekelleys.org.uk/pipermail/dnsmasq-discuss/2021q3/015413.html
+#
+#- name: Installing dnsmasq
+#  become: true
+#  pacman:
+#    state: present
+#    name:
+#      - dnsmasq
+
+- name: Enable dnsmasq service
+  become: true
+  ansible.builtin.systemd:
+    name: dnsmasq
+    enabled: yes
+
+- name: Reading mirrorlist
+  no_log: true
+  ansible.builtin.set_fact:
+    mirror_urls: '{{ mirror_urls | default([]) | union([item | regex_search("^Server =.*")]) }}'
+  with_lines:
+    - cat /etc/pacman.d/mirrorlist
+  changed_when: false
+
+- name: Getting mirror domains
+  no_log: true
+  ansible.builtin.set_fact:
+    mirror_domains: '{{ mirror_domains | default([]) | union([item.split("/")[2]]) }}'
+  with_items: "{{ mirror_urls }}"
+  when: item
+  changed_when: false
+
+- name: Installing dnsmasq config
+  become: true
+  ansible.builtin.template:
+    src: dnsmasq.conf.j2
+    dest: /etc/dnsmasq.conf
+    backup: true
+    mode: 0644
+  notify: 'Restart dnsmasq'
+
+- name: Installing dnsmasq nftables rules
+  become: true
+  ansible.builtin.copy:
+    src: 10-dnsmasq.nft
+    dest: /etc/nftables.d/10-dnsmasq.nft
+    owner: root
+    group: root
+    mode: '0644'
+  notify: 'Restart nftables'
+
+- name: Enable systemd-resolved service
+  become: true
+  ansible.builtin.systemd:
+    name: systemd-resolved
+    enabled: yes
+
+# required when running ansible in an arch-chroot, or else the symlink step
+# will fail
+- name: Umounting resolv.conf (if running in chroot)
+  ansible.posix.mount:
+    path: /etc/resolv.conf
+    state: unmounted
+
+- name: Symlinking /etc/resolv.conf
+  become: true
+  ansible.builtin.file:
+    src: /run/systemd/resolve/stub-resolv.conf
+    dest: /etc/resolv.conf
+    owner: root
+    group: root
+    state: link
+    force: yes
+  changed_when: false
+
+- name: Installing systemd-resolved config
+  become: true
+  ansible.builtin.copy:
+    src: resolved.conf
+    dest: /etc/systemd/resolved.conf
+    owner: root
+    group: root
+    mode: '0644'
+  notify: 'Restart systemd-resolved'

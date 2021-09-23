@@ -1,0 +1,24 @@
+#!/usr/bin/nft -f
+table inet filter {
+    # note: dnsmasq will add to this set at runtime, as it resolves
+    # "acceptable" domains to IPs
+    set allowed_addresses {
+        type ipv4_addr
+        flags interval
+        elements = {
+            127.0.0.1,          # loopback
+            127.0.0.53,         # systemd-resolved stub
+            192.168.1.0/24,     # Private IP block
+            10.42.0.0/24,       # Private IP block
+            10.0.2.0/24,        # Private IP block
+            172.16.0.0/12,      # Private IP block
+            46.23.90.166,       # tchar server
+            1.1.1.1,            # DNS
+            8.8.8.8,            # DNS
+            8.8.4.4,            # DNS
+        }
+    }
+    chain output {
+        meta nfproto ipv4 ip daddr @allowed_addresses accept;
+    }
+}

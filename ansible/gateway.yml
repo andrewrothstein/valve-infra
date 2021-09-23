@@ -5,8 +5,37 @@
     perm_mount: /mnt/permanent
     prod_env_file: "{{ perm_mount }}/infra.env"
     config_env_file: "{{ perm_mount }}/config.env"
+    whitelisted_domains:
+      # Arch Linux / system admin
+      - ntp.org
+      - archlinux.thaller.ws
+      - alpinelinux.org
+
+      # CI valve-infra
+      - debian.org
+      - docker.com
+      - docker.io
+      - freedesktop.org
+      - gitlab.freedesktop.org
+      - kernel.org
+      - minio.io
+
+      # others (cdn, etc)
+      - amazonaws.com
+      - fastlydns.net
+      - files.pythonhosted.org
+      - mirror.lty.me
+      - packet.net
+      - phinau.de
+      - pypi.org
+      - pythonhosted.org
+      - ripe.net
+      - steamos.cloud
+      - storage.googleapis.com
+      - tedata.net
 
   roles:
     - base
     - firewall
     - ntpd
+    - dnsmasq
