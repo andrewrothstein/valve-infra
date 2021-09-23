@@ -39,3 +39,4 @@
     - firewall
     - ntpd
     - dnsmasq
+    - dashboard

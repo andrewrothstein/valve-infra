@@ -1,0 +1,45 @@
+---
+- name: Installing dashboard requirements
+  become: true
+  pacman:
+    state: present
+    name:
+      - jq
+      - tmux
+      - tmuxp
+
+# TODO: dashboard should run as a non-root user...
+- name: Creating tmuxp config dir
+  become: true
+  ansible.builtin.file:
+    path: /root/.tmuxp
+    state: directory
+    owner: root
+    mode: 0755
+
+- name: Installing dashboard config
+  become: true
+  ansible.builtin.template:
+    src: "dashboard.yml.j2"
+    dest: /root/.tmuxp/dashboard.yml
+    owner: root
+    group: root
+    mode: 0644
+
+- name: Installing bash_login
+  become: true
+  ansible.builtin.copy:
+    src: bash_login.rc
+    dest: /root/.bash_login
+    owner: root
+    group: root
+    mode: 0755
+
+- name: Installing tmux.conf
+  become: true
+  ansible.builtin.copy:
+    src: tmux.conf
+    dest: /root/.tmux.conf
+    owner: root
+    group: root
+    mode: 0644
