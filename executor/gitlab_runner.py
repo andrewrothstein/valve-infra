@@ -32,7 +32,7 @@ class GitlabRunnerConfig:
         # don't need to re-query, but it removes some corner cases of
         # people faffing manually on the server side
         return filter(self.runner_is_managed_by_our_farm,
-                      self.gl.runners.list())
+                      self.gl.runners.list(all=True))
 
     def unregister(self, runner):
         """Remove the given runner from the server."""
