@@ -1,9 +1,40 @@
 stages:
+- prep
+- lint
 - containers
 - python
 
 variables:
   GIT_SUBMODULE_STRATEGY: recursive
+  FDO_DISTRIBUTION_TAG: 'valve-infra-arch-ansible-2021-11-01'
+
+include:
+  - project: 'freedesktop/ci-templates'
+    ref: 14731f78c23c7b523a85a26a068ade9ac1ecd2f3
+    file: '/templates/arch.yml'
+
+build-arch-ansible-container:
+  stage: prep
+  extends: .fdo.container-build@arch
+  rules:
+    - changes:
+      - .gitlab-ci.yml
+  variables:
+    FDO_DISTRIBUTION_PACKAGES: "ansible ansible-lint"
+
+ansible:
+  stage: lint
+  extends: .fdo.distribution-image@arch
+  rules:
+    - changes:
+      - ansible/**/*
+      - .gitlab-ci.yml
+  script:
+    # ansible complains if the dir is world-writeable:
+    - chmod -R o-w ansible
+    - cd ansible
+    - ansible-lint
+    - ansible-playbook --syntax-check gateway.yml
 
 .python_package base:
   image: python:3.9

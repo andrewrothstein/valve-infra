@@ -1,0 +1,7 @@
+skip_list:
+  # suppress failures about missing ansible galaxy info
+  - meta-no-info
+
+enable_list:
+  # fail if builtins are not using fqcn
+  - fqcn-builtins
