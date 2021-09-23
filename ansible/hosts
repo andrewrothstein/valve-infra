@@ -1,0 +1,7 @@
+ansible_connection=ssh
+
+[gateway]
+localhost
+
+#[gateway-qemu]
+# some qemu address?

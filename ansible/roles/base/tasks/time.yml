@@ -1,0 +1,14 @@
+---
+# Modified from: https://github.com/lbischof/ansible-playbooks
+
+- name: Enable timesyncd
+  become: true
+  ansible.builtin.systemd:
+    name: systemd-timesyncd
+    enabled: true
+
+- name: get timedatectl status
+  ansible.builtin.command: /usr/bin/timedatectl status
+  changed_when: false
+  register: timedatectl_result
+  when: ansible_service_mgr == "systemd"

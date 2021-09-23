@@ -1,0 +1,21 @@
+---
+- include_tasks: time.yml
+
+- name: Update pacman cache
+  become: true
+  pacman:
+    update_cache: true
+    upgrade: false
+  changed_when: false
+
+- name: Installing base packages
+  become: true
+  pacman:
+    state: present
+    name:
+      - vim
+      - dhcpcd
+      - python
+      - python-netifaces
+      - tmux
+      - tmuxp
