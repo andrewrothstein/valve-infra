@@ -1,0 +1,235 @@
+#!/bin/bash
+
+# Copyright © 2021 Valve Corporation
+# Script to start a virtual testing harness for Valve's graphics
+# infrastructure.
+
+set -ex
+
+usage() {
+    echo "Usage: $0 TODO TODO TODO"
+}
+
+__host_bridge_name='vivianbr0'
+
+__docker_port=2375
+__executor_port=8000
+__mars_port=8001
+__salad_port=8100
+__minio_port=9000
+__ssh_port=60022
+__vpdu_port=9191
+
+__disk_img=
+
+__gateway_monitor_socket='gateway_monitor.sock'
+__gateway_qemu_log_file='gateway_qemu.log'
+__gateway_public_mac_addr='DE:AD:BE:EF:00:11'
+__gateway_private_mac_addr='DE:AD:BE:EF:00:12'
+
+__mars_admin_name='admin'
+__mars_admin_password='password'
+
+__initial_fleet_size=2
+
+if [ -z ${1+x} ]; then
+    usage
+    exit 1
+fi
+
+while test -n "$1"; do
+    case "$1" in
+        --help*|-h*)
+            usage
+	    exit 1
+            ;;
+	--host-bridge-name=*)
+	    __host_bridge_name="${1#--host-bridge-name=}"
+	    ;;
+	--gateway-monitor-socket=*)
+	    __gateway_monitor_socket="${1#--gateway-monitor-socket=}"
+	    ;;
+	--gateway-disk-img=*)
+	    __disk_img="${1#--gateway-disk-img=}"
+            ;;
+	--gateway-public-mac-addr=*)
+	    __gateway_public_mac_addr="${1#--gateway-public-mac-addr=}"
+	    ;;
+	--gateway-private-mac-addr=*)
+	    __gateway_private_mac_addr="${1#--gateway-private-mac-addr=}"
+	    ;;
+        --docker-port=*)
+            __docker_port="${1#--docker-port=}"
+            ;;
+        --executor-port=*)
+            __executor_port="${1#--executor-port=}"
+            ;;
+        --mars-port=*)
+            __mars_port="${1#--mars-port=}"
+            ;;
+        --salad-port=*)
+            __salad_port="${1#--salad-port=}"
+            ;;
+        --minio-port=*)
+            __minio_port="${1#--minio-port=}"
+            ;;
+        --minio-admin-name=*)
+            __mars_admin_name="${1#--minio-admin-name=}"
+            ;;
+        --minio-admin-password=*)
+            __mars_admin_password="${1#--minio-admin-password=}"
+            ;;
+        --ssh-port=*)
+            __ssh_port="${1#--ssh-port=}"
+            ;;
+        --initial-fleet-size=*)
+            __initial_fleet_size=="${1#--initial-fleet-size=}"
+            ;;
+        start|"test-installer"|"integration-tests")
+            cmd="$1"
+            break
+            ;;
+        *)
+            echo "Error, unexpected argument $1"
+            exit 1
+            ;;
+    esac
+    shift
+done
+
+__gateway_nic_opts="-nic user,ipv6=off,mac=$__gateway_public_mac_addr,hostfwd=tcp::$__ssh_port-:22,hostfwd=tcp::$__executor_port-:80,hostfwd=tcp::$__mars_port-:8000,hostfwd=tcp::$__docker_port-:2375,hostfwd=tcp::$__salad_port-:$__salad_port,hostfwd=tcp::$__minio_port-:9000,model=virtio-net-pci -nic bridge,br=$__host_bridge_name,mac=$__gateway_private_mac_addr,model=virtio-net-pci"
+
+start_gateway() {
+    # TODO export a 9P share into /root/valve-infra to support
+    # host-local editing of the infra code?
+    [ -f $__disk_img ] || ( echo "$__disk_image is not a file" && exit 1 )
+    echo "Starting gateway..."
+    qemu-system-x86_64 \
+	-daemonize \
+	-hda $__disk_img \
+	-boot c \
+        -monitor unix:"$__gateway_monitor_socket",server,nowait \
+	$__gateway_nic_opts \
+	$BOOT_MODE \
+	-m 4G \
+	-enable-kvm
+    __gateway_qemu_pid=$!
+    echo "Started gateway"
+}
+
+wait_for_endpoint() {
+    local port=$1
+    local endpoint=$2
+
+    echo "Waiting for http://localhost:$port/$endpoint to respond..."
+    { local prev_shell_config=$-; set +x; } 2>/dev/null
+    while ! curl -sL "http://localhost:$port/$endpoint" ; do
+	sleep 0.1
+    done
+    set "-$prev_shell_config"
+}
+
+start_vpdu() {
+    python vpdu.py --port "$__vpdu_port" &
+    __vpdu_pid=$!
+}
+stop_vpdu() {
+    echo "Killing VPDU($__vpdu_pid)"
+    kill -INT "$__vpdu_pid"
+}
+
+provision_infra() {
+    wait_for_endpoint "$__mars_port" "api/v1/machines"
+
+    # Do not fail if this username already exists...
+    docker -H tcp://localhost:"$__docker_port" \
+	exec app_mars_1 env \
+	DJANGO_SUPERUSER_PASSWORD="$__mars_admin_password" \
+	./manage.py createsuperuser --username "$__mars_admin_name" \
+	--noinput --email=eva.lu.ator@vivian.org || true
+}
+
+create_host_bridge() {
+    if ! ip link show "$__host_bridge_name" 2>&1>/dev/null ; then
+	sudo ip link add name "$__host_bridge_name" type bridge
+	sudo ip link set "$__host_bridge_name" up
+	sudo iptables -I FORWARD -m physdev --physdev-is-bridged -j ACCEPT
+    else
+	echo "Host bridge $__host_bridge_name already exists"
+    fi
+}
+remove_host_bridge() {
+    if ip link show "$__host_bridge_name" 2>&1>/dev/null ; then
+	sudo ip link set "$__host_bridge_name" down
+	sudo ip link del name "$__host_bridge_name" type bridge
+	# TODO: Should we get rid of this? Maybe it already existed on the system, eh...
+	# iptables -I FORWARD -m physdev --physdev-is-bridged -j ACCEPT
+    fi
+}
+
+cleanup() {
+    echo "Performing cleanup"
+    stop_vpdu
+    # Gracefully powerdown the gateway, I've noticed the disk can
+    # become corrupted without being gentle.
+    echo "system_powerdown" | socat - unix-connect:"$__gateway_monitor_socket"
+    rm "$__gateway_monitor_socket"
+    remove_host_bridge
+}
+
+test_installer() {
+    while test -n "$1"; do
+        case "$1" in
+            --iso=*)
+                __iso="${1#--iso=}"
+                ;;
+            --gateway-disk-img=*)
+                __gateway_disk_img="${1#--gateway-disk-img=}"
+                ;;
+            *)
+                __passthru="$__passthru $1"
+                ;;
+        esac
+        shift
+    done
+
+    [ -z "$__iso"] && echo "ERROR: --iso required" && exit 1
+    [ -z "$__gateway_disk_img"] && echo "ERROR: --gateway-disk-img required" && exit 1
+
+    # TODO: Allow specifying differing block device topologies
+    qemu-system-x86_64 \
+	-drive file="$__gateway_disk_img",if=none,id=nvm \
+	-device nvme,serial=deadbeef,drive=nvm \
+	-cdrom "$__iso" \
+	-boot d \
+	$__gateway_nic_opts \
+	$BOOT_MODE \
+	-m 4G \
+	-display sdl \
+	-enable-kvm \
+	-serial stdio
+}
+
+case "$cmd" in
+    start)
+	if test -z "$__disk_img"; then
+	    echo "ERROR: Give a path to the disk image to use for the gateway VM"
+	    exit 1
+	fi
+	trap cleanup EXIT
+	create_host_bridge
+	start_vpdu
+	start_gateway
+	provision_infra || true
+	while true ; do
+	    sleep 1
+	done
+	;;
+    test-installer)
+	test_installer "$@"
+	;;
+    integration-tests)
+	echo "WIP: No tests yet!"
+	exit 1
+	;;
+esac

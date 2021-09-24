@@ -1,0 +1,168 @@
+#+title: Vivian user manual
+
+* Overview
+
+Vivian is the virtual deployment of the Valve graphics testing
+infrastructure. It's purpose to allow developers to end-to-end test
+every aspect of the infrastructure without needing to setup a farm.
+
+This has multiple benefits,
+
+  - Easier development. Every aspect of the system can be debugged in
+    isolation, and changes to any component can be done with a tight
+    feedback loop, without having to wait for real-world devices and
+    their inherent latency.
+  - Better testing. With a virtual infrastructure, integration tests
+    can be performed automatically.
+  - Better interfaces, you can't hide hacks when you've got to make
+    everything work in virtual-land. It can be very fussy!
+
+* Quickstart
+
+Generate an ISO installer image using the ci-installer project.
+
+Test that the installer works,
+
+#+begin_src shell-script
+  ./vivian test-installer \
+	   --iso=../../ci-installer/output/tchar-virt-2021.09.26-x86_64-installer.iso \
+	   --gateway-disk-img=tchar-gateway-disk-dnsmasq-whitelist.qcow2
+#+end_src
+
+- TODO: Add support to test different machine typologies.
+
+Now, start the virtual gateway,
+
+: ./vivian  --gateway-disk-img=tchar-gateway-disk-dnsmasq-whitelist.qcow2 start
+
+Using the =ci-installer='s SSH key, connecting into the gateway via
+SSH is possible,
+
+#+begin_src shell-script
+  ssh -i ./output/ci-installer-test-ssh_key-2021.09.17 \
+      root@localhost -p 60022 \
+      -o StrictHostKeyChecking=no \
+      -o UserKnownHostsFile=/dev/null
+#+end_src
+
+Feel free to add SSH aliases if you like.
+
+At this point, =valve-infra= is booted and operational.
+
+There are number of port forwardings to APIs you can use from your
+development host to interrogate the virtual infrastructure.
+
+List all registered machines and their executor status,
+
+: curl -sL localhost:8080/api/v1/machines | jq
+
+List all registered PDUs
+
+: curl -sL localhost:8081/api/v1/pdu | jq
+
+Query the virtual PDUs port from the host machine,
+
+#+begin_src shell-script
+$ python client.py --status
+Connecting to localhost:9191
+16 outlets available on the PDU
+Outlet   0: OFF
+Outlet   1: OFF
+Outlet   2: OFF
+Outlet   3: OFF
+Outlet   4: OFF
+Outlet   5: OFF
+Outlet   6: OFF
+Outlet   7: OFF
+Outlet   8: OFF
+Outlet   9: OFF
+Outlet  10: OFF
+Outlet  11: OFF
+Outlet  12: OFF
+Outlet  13: OFF
+Outlet  14: OFF
+Outlet  15: OFF
+#+end_src
+
+Start a DUT on port 4,
+
+: python client.py --outlet 3 --on
+
+Reboot a DUT on port 0,
+
+: python client.py --outlet 0 --reboot
+
+And so on...
+
+You can also issue PDU client commands from the gateway VM via a
+=hostfwd= setup for you,
+
+: python client.py  --host 10.0.2.2 --port 9191 --status
+
+As before.
+
+For management of the machine database, connect to
+=http://localhost:8081/admin= in your browser.
+
+Open a shell in the valve-infra container, from the host,
+
+: DOCKER_HOST=tcp://localhost:2375 docker exec -it valve-infra sh
+
+It's often useful to monitor traffic on the infrastructure bridge, do that with,
+
+: tcpdump -i vivianbr0 -nN
+
+That's all for now!
+
+* Debugging serial consoles
+
+First, launch a dummy serial client,
+: nc -lk 9991
+
+And now,
+
+#+begin_src shell-script
+  qemu-system-x86_64 \
+      -machine pc-q35-6.0,accel=kvm \
+      -m 1024 \
+      -smp 2,sockets=2,cores=1,threads=1 \
+      -hda dut_disk0.qcow2 \
+      -vga virtio \
+      -boot n \
+      -nic bridge,br=vivianbr0,mac=52:54:00:11:22:00,model=virtio-net-pci \
+      -serial stdio \
+      -serial mon:telnet::4444,server=on,wait=off \
+      -chardev socket,id=foo,host=localhost,port=9991,server=off \
+      -device pci-serial,chardev=foo \
+      -nographic ; reset
+#+end_src
+
+First serial (=ttyS0=) will be on the stdout. Make sure the kernel
+command line has `console=ttyS0` to load up a getty.
+
+Second serial (=ttyS1=) will host the QEMU monitor, and you'll be able
+to connect like this,
+
+#+begin_src shell-script
+nc localhost 4444
+C-a c
+(qemu)
+#+end_src
+
+The monitor can be useful to hotplug USB devices, for example.
+
+Third serial port (=ttyS2=) will connect to a listening service on
+=localhost:9991=. In our case, SALAD could be this service. For
+testing, =nc= is handy.
+
+Inside the VM, you can play with the serial proxy using something
+like =picocom=,
+
+#+begin_src shell-script
+  picocom --echo /dev/ttyS2
+  hello
+#+end_src
+
+You will see =hello= in the =nc= output. Typing something back in =nc=
+will show up in =picocom=. Congrats! End-to-end test of serial
+proxying complete.

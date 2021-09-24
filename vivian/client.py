@@ -38,24 +38,32 @@ with conn(args.host, args.port) as c:
 if args.outlet:
     assert(args.outlet >= 0 and args.outlet <= num_ports)
 
+def port_state_to_str(state: int) -> str:
+    if state == 0x03:
+        return "ON"
+    elif state == 0x04:
+        return "OFF"
+    elif state == 0x05:
+        return "UNKNOWN"
+    else:
+        assert(False)
+
+
 print(num_ports, "outlets available on the PDU")
 if args.status:
     if args.outlet is None:
-        print("no outlet given")
-        sys.exit(1)
-    cmd = args.outlet << 2 | 0x03
-    with conn(args.host, args.port) as s:
-        s.sendall(cmd.to_bytes(4, byteorder='big'))
-        state = int(s.recv(1)[0])
-    print("port state %x" % state)
-    if state == 0x03:
-        print("ON")
-    elif state == 0x04:
-        print("OFF")
-    elif state == 0x05:
-        print("UNKNOWN")
+        for port in range(num_ports):
+            cmd = port << 2 | 0x03
+            with conn(args.host, args.port) as s:
+                s.sendall(cmd.to_bytes(4, byteorder='big'))
+                state = int(s.recv(1)[0])
+                print("Outlet %3d: %s" % (port, port_state_to_str(state)))
     else:
-        assert(False)
+        cmd = args.outlet << 2 | 0x03
+        with conn(args.host, args.port) as s:
+            s.sendall(cmd.to_bytes(4, byteorder='big'))
+            state = int(s.recv(1)[0])
+            print("port state %x" % port_state_to_str(state))
 if args.off or args.reboot:
     if args.all:
         print("turning off all ports")

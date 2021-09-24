@@ -8,5 +8,5 @@ config/*.env
 *.cache
 **/build/
 **/dist/
-virtual-pdu/dut_disk*
-virtual-pdu/dut-log*
+vivian/*.qcow2
+vivian/*.log

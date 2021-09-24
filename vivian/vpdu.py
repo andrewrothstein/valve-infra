@@ -1,12 +1,13 @@
+import argparse
 from datetime import datetime
 import enum
 import os
-import socket
 import socketserver
+import signal
 import struct
 import subprocess
 import sys
-import time
+import logging
 
 
 BRIDGE = 'vivianbr0'
@@ -28,8 +29,11 @@ def check_bridge():
 
 def get_disk(index):
     hda = f'dut_disk{index}.qcow2'
+    logging.info("Machine %d using disk %s", index, hda)
     if not os.path.exists(hda):
-        subprocess.run(['qemu-img', 'create', '-f', 'qcow2', hda, '32G'])
+        logging.info("Disk %s does not exist, creating it...", index, hda)
+        subprocess.run(['qemu-img', 'create', '-f', 'qcow2', hda, DUT_DISK_SIZE],
+                        stdout=subprocess.DEVNULL)
     return hda
 
 
@@ -44,19 +48,20 @@ def gen_mac(index):
     return f'52:54:00:11:22:{counter}'
 
 
-check_bridge()
 OUTLETS = [
     {'mac': gen_mac(i),
      'disk': get_disk(i),
-     'serial_sock': f'/run/salad_socks/machine{i}.socket',
      'monitor_port': 4444 + i,
      'state': PowerState.OFF} for i in range(16)
 ]
 
-def cleanup():
+
+def cleanup(signum=-1, frame=-1):
+    # You can not log inside the signal handler, buffered writers are not reentrant.
     global OUTLETS
     for machine in OUTLETS:
         os.remove(machine['disk'])
+    sys.exit(0)
 
 
 def reset_stdout():
@@ -68,7 +73,7 @@ def reset_stdout():
 
 
 class DUT:
-    def __init__(self, mac, disk, serial_sock):
+    def __init__(self, mac, disk):
         self.disk = disk
         log_name = datetime.now().strftime(f'dut-log-{mac.replace(":", "")}-%H%M%S-%d%m%Y.log')
         cmd = [
@@ -85,7 +90,7 @@ class DUT:
             '-chardev', f'socket,id=saladtcp,host=localhost,port={SALAD_TCP_CONSOLE_PORT},server=off',
             '-device', 'pci-serial,chardev=saladtcp',
         ]
-        print('starting DUT:', ' '.join(cmd))
+        logging.info('starting DUT: %s', ' '.join(cmd))
         self.qemu = subprocess.Popen(cmd)
 
     def stop(self):
@@ -96,15 +101,15 @@ class DUT:
 
 class PDUTCPHandler(socketserver.StreamRequestHandler):
     def handle(self):
-        print("client: {}".format(self.client_address[0]))
+        logging.info("client: %s", self.client_address[0])
         try:
             data = self.rfile.read(4)
             if len(data) != 4:
                 raise ValueError
             payload = int.from_bytes(data[:4], byteorder='big')
-            print("payload:", hex(payload))
+            logging.info("payload: %s", hex(payload))
         except ValueError:
-            print("Bad input", data)
+            logging.info("Bad input: %s", data)
             self.wfile.write(b'\x00')
             self.request.close()
             return
@@ -123,63 +128,78 @@ class PDUTCPHandler(socketserver.StreamRequestHandler):
         assert(reserved == 0)
 
         if not (port >= 0 and port < len(OUTLETS)):
-            print(port, "out of range")
+            logging.info("port %d out of range", port)
             self.wfile.write(b'\x00')
             return
 
         machine = OUTLETS[port]
         assert(machine)
 
-        print("cmd=", hex(cmd), "port=", port)
+        logging.info("cmd=%s on port=%d", hex(cmd), port)
 
         if cmd & 0x03 == 3:
-            print(f"status for {port}")
+            logging.info("status for port=%d", port)
             self.wfile.write(struct.pack('!B', int(machine['state'])))
         elif cmd & 0x01:
-            print(f"turning {port} ON")
+            logging.info("turning port=%d ON", port)
             if machine['state'] == PowerState.ON:
-                print('already ON')
+                logging.info('already ON')
                 self.wfile.write(b'\x01')
             else:
                 machine['instance'] = DUT(machine['mac'],
-                                          machine['disk'],
-                                          machine['serial_sock'])
+                                          machine['disk'])
                 machine['state'] = PowerState.ON
                 self.wfile.write(b'\x01')
-                print(port, "turned ON")
+                logging.info("port=%d turned ON", port)
         elif cmd & 0x02:
-            print(f"turning {port} OFF")
+            logging.info("turning port=%d OFF", port)
             if machine['state'] == PowerState.OFF:
-                print("already off")
+                logging.info("already off")
                 self.wfile.write(b'\x01')
             else:
                 assert(machine['instance'])
                 machine['instance'].stop()
                 machine['state'] = PowerState.OFF
                 self.wfile.write(b'\x01')
-                print(port, "turned OFF")
+                logging.info("port %d turned OFF", port)
         else:
             assert(cmd == 0)
-            print("return num ports")
+            logging.info("return num ports")
             self.wfile.write(struct.pack('!B', len(OUTLETS)))
 
 
 if __name__ == "__main__":
-    port = 9191
-    if len(sys.argv) > 1:
-        try:
-            port = int(sys.argv[1])
-        except:
-            pass
-    print('Listening on port', port)
-    HOST, PORT = "localhost", port
+    parser = argparse.ArgumentParser(prog='Virtual PDU')
+    parser.add_argument('--host', default='localhost')
+    parser.add_argument('--port', default=9191, type=int)
+    parser.add_argument('--log-file', default='vpdu.log', type=str)
+    parser.add_argument('--log-level', default='DEBUG', type=str)
+    parser.add_argument('--salad-console-port', default=8006, type=int)
+    parser.add_argument('--dut-disk-size', default='32G', type=str,
+                        help='In the format expected by qemu-img. Default 32G')
+
+    args = parser.parse_args()
+
+    SALAD_TCP_CONSOLE_PORT = args.salad_console_port
+    DUT_DISK_SIZE = args.dut_disk_size
+
+    signal.signal(signal.SIGINT, cleanup)
+    signal.signal(signal.SIGQUIT, cleanup)
+
+    logging.basicConfig(filename=args.log_file, encoding='utf-8',
+                        format='%(asctime)s %(levelname)s:%(message)s',
+                        filemode='w',
+                        level=getattr(logging, args.log_level.upper()))
+    logging.info('Starting... Listening on port %d', args.port)
 
     # Create the server, binding to localhost on port 9999
     try:
         socketserver.TCPServer.allow_reuse_address = True
-        with socketserver.TCPServer((HOST, PORT), PDUTCPHandler) as server:
+        with socketserver.TCPServer((args.host, args.port), PDUTCPHandler) as server:
             server.allow_reuse_address = True
             server.serve_forever()
     except KeyboardInterrupt:
-        print("Wait while resources are cleared...")
+        logging.info("KeyboardInterrupt")
         cleanup()
+    finally:
+        logging.info('Finished')
