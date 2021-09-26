@@ -3,7 +3,6 @@ from datetime import datetime
 import enum
 import os
 import socketserver
-import signal
 import struct
 import subprocess
 import sys
@@ -72,6 +71,12 @@ def reset_stdout():
         pass
 
 
+class PowerState(enum.IntEnum):
+    ON = 3
+    OFF = 4
+    ERROR = 5
+
+
 class DUT:
     def __init__(self, mac, disk):
         self.disk = disk
@@ -87,16 +92,31 @@ class DUT:
             '-nic', f'bridge,br=vivianbr0,mac={mac},model=virtio-net-pci',
             # Not decided if I want this feature, can be handy though!
             # '-serial', 'mon:telnet::4444,server=on,wait=off',
-            '-chardev', f'socket,id=saladtcp,host=localhost,port={SALAD_TCP_CONSOLE_PORT},server=off',
+            '-chardev', f'socket,id=saladtcp,host=localhost,port={SALAD_TCP_CONSOLE_PORT},server=off,logfile={log_name}',
             '-device', 'pci-serial,chardev=saladtcp',
         ]
         logging.info('starting DUT: %s', ' '.join(cmd))
         self.qemu = subprocess.Popen(cmd)
 
     def stop(self):
+        # TODO, graceful, like the gateway code.
         self.qemu.terminate()
         self.qemu.wait()
-        reset_stdout()
+
+
+def gen_mac(index):
+    counter = format(index, '02x')
+    return f'52:54:00:11:22:{counter}'
+
+
+def get_disk(index):
+    hda = f'dut_disk{index}.qcow2'
+    logging.info("Machine %d using disk %s", index, hda)
+    if not os.path.exists(hda):
+        logging.info("Disk %s does not exist, creating it...", hda)
+        subprocess.run(['qemu-img', 'create', '-f', 'qcow2', hda, DUT_DISK_SIZE],
+                       stdout=subprocess.DEVNULL)
+    return hda
 
 
 class PDUTCPHandler(socketserver.StreamRequestHandler):
@@ -172,6 +192,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(prog='Virtual PDU')
     parser.add_argument('--host', default='localhost')
     parser.add_argument('--port', default=9191, type=int)
+    parser.add_argument('--num-ports', default=16, type=int)
     parser.add_argument('--log-file', default='vpdu.log', type=str)
     parser.add_argument('--log-level', default='DEBUG', type=str)
     parser.add_argument('--salad-console-port', default=8006, type=int)
@@ -180,26 +201,28 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
+    logging.basicConfig(filename=args.log_file,
+                        format='%(asctime)s - %(levelname)s - %(message)s',
+                        filemode='w',
+                        level=getattr(logging, args.log_level.upper()))
+
     SALAD_TCP_CONSOLE_PORT = args.salad_console_port
     DUT_DISK_SIZE = args.dut_disk_size
 
-    signal.signal(signal.SIGINT, cleanup)
-    signal.signal(signal.SIGQUIT, cleanup)
+    OUTLETS = [
+        {'mac': gen_mac(i),
+         'disk': get_disk(i),
+         'monitor_port': 4444 + i,
+         'state': PowerState.OFF} for i in range(args.num_ports)
+    ]
 
-    logging.basicConfig(filename=args.log_file, encoding='utf-8',
-                        format='%(asctime)s %(levelname)s:%(message)s',
-                        filemode='w',
-                        level=getattr(logging, args.log_level.upper()))
-    logging.info('Starting... Listening on port %d', args.port)
-
-    # Create the server, binding to localhost on port 9999
+    socketserver.TCPServer.allow_reuse_address = True
     try:
-        socketserver.TCPServer.allow_reuse_address = True
         with socketserver.TCPServer((args.host, args.port), PDUTCPHandler) as server:
             server.allow_reuse_address = True
             server.serve_forever()
-    except KeyboardInterrupt:
-        logging.info("KeyboardInterrupt")
-        cleanup()
     finally:
-        logging.info('Finished')
+        logging.info("Final cleanup")
+        for machine in OUTLETS:
+            logging.info("Removing disk %s", machine['disk'])
+            os.remove(machine['disk'])
