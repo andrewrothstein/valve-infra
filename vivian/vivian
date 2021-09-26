@@ -173,6 +173,8 @@ cleanup() {
     # Gracefully powerdown the gateway, I've noticed the disk can
     # become corrupted without being gentle.
     echo "system_powerdown" | socat - unix-connect:"$__gateway_monitor_socket"
+    echo "Please wait until the gateway has gracefully shutdown..."
+    sleep 20
     rm "$__gateway_monitor_socket"
     remove_host_bridge
 }
