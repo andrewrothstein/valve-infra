@@ -7,7 +7,7 @@ RUN set -ex \
          && echo "deb http://deb.debian.org/debian buster non-free" >> /etc/apt/sources.list \
          && cat /etc/apt/sources.list \
          && apt-get update -y \
-         && apt-get install -y --no-install-recommends gcc libsnmp-dev snmp-mibs-downloader dnsmasq \
+         && apt-get install -y --no-install-recommends gcc libsnmp-dev snmp-mibs-downloader dnsmasq vim \
          && pip install --no-cache-dir -r executor/requirements.txt \
 	 && wget -O /usr/bin/mcli https://dl.min.io/client/mc/release/linux-amd64/mc \
 	 && chmod +x /usr/bin/mcli \
