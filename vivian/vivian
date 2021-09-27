@@ -228,6 +228,7 @@ case "$cmd" in
 	done
 	;;
     test-installer)
+	create_host_bridge
 	test_installer "$@"
 	;;
     integration-tests)
