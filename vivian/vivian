@@ -152,14 +152,27 @@ stop_vpdu() {
 }
 
 provision_infra() {
+    ## MaRS setup
     wait_for_endpoint "$__mars_port" "api/v1/machines"
 
+    # Setup an administrator account for the MaRS web interface
     # Do not fail if this username already exists...
     docker -H tcp://localhost:"$__docker_port" \
 	exec app_mars_1 env \
 	DJANGO_SUPERUSER_PASSWORD="$__mars_admin_password" \
 	./manage.py createsuperuser --username "$__mars_admin_name" \
 	--noinput --email=eva.lu.ator@vivian.org || true
+
+    # Add the default virtual PDU
+    curl \
+	-H "Content-Type: application/json" \
+	--request POST \
+	--data '{"name": "vpdu1", "pdu_model": "vpdu", "config": {"hostname": "10.0.2.2:'"$__vpdu_port"'"}}' \
+	http://localhost:"$__mars_port"/api/v1/pdu/
+
+    ## Executor setup
+    wait_for_endpoint "$__executor_port" "api/v1/machine"
+    # TODO: Provision a given fleet size...
 }
 
 create_host_bridge() {
