@@ -830,14 +830,16 @@ def run_job(traces_client, args):
         if not args.local_run:
             # It is assumed here the job definition has been generated and place in this file.
             # Make it an argument?
-            cp = subprocess.check_call([args.executor_client,
-                                        "run",
-                                        "-w",
-                                        "-a", f"valvetraces:{args.access_token}",
-                                        "-g", args.minio_valvetraces_group_name,
-                                        "-j", job_id(),
-                                        "-s", job_folder_path,
-                                        args.executor_job_path])
+            cp = subprocess.call([args.executor_client,
+                                  "run",
+                                  "-w",  # Wait for the machine to become available
+                                  "-a", f"valvetraces:{args.access_token}",
+                                  "-g", args.minio_valvetraces_group_name,
+                                  "-j", job_id(),
+                                  "-s", job_folder_path,
+                                  args.executor_job_path])
+
+            print(f"The client exited with the return code {cp}")
         else:
             cmd = f"find {job_folder_path} -name exec.sh -exec sh '{{}}' ';'"
             os.system(cmd)
