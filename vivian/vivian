@@ -135,7 +135,20 @@ start_vpdu() {
 }
 stop_vpdu() {
     echo "Killing VPDU($__vpdu_pid)"
-    kill -INT "$__vpdu_pid"
+    # This does not work for Python programs launched from an
+    # interactive shell, from the BASH manpage, I learned async
+    # commands will ignore SIGINT and SIGQUIT in addition to inherited
+    # handlers. Cpython doesn't bother to register the SIGINT handler
+    # for keyboard interrupts (kinda makes sense), but the seemingly
+    # innocent construction below just fails to work, when in other,
+    # simpler, cases, it works just fine. Beware!
+    #  kill -INT "$__vpdu_pid"
+    # So, instead use a special method on the server to shut it down
+    # gracefully.
+    echo -e '\x00\x00\x20\x00' | nc localhost "$__vpdu_port"
+    sleep 2
+    # Kill it off if it languishes (defensive, not seen this happen so far!)
+    kill -9 "$__vpdu_pid" || true
 }
 
 provision_infra() {

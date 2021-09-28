@@ -127,7 +127,7 @@ class PDUTCPHandler(socketserver.StreamRequestHandler):
             if len(data) != 4:
                 raise ValueError
             payload = int.from_bytes(data[:4], byteorder='big')
-            logging.info("payload: %s", hex(payload))
+            logging.info("payload: %s  %s", hex(payload), bin(payload))
         except ValueError:
             logging.info("Bad input: %s", data)
             self.wfile.write(b'\x00')
@@ -135,17 +135,21 @@ class PDUTCPHandler(socketserver.StreamRequestHandler):
             return
 
         # Protocol
-        # [0:2) operation
-        # [2:12) PDU port (0-1023)
-        # [12:32) reserved, MUST BE CHECKED TO BE 0s
+        # [0:1] operation
+        # [2:12] PDU port (0-1023)
+        # [13:31] reserved, MUST BE CHECKED TO BE 0s
         # E.g., turn 2 off
         #   echo -e '\x00\x00\x00\x0A' | nc localhost 9191
         # And then on again,
         #   echo -e '\x00\x00\x00\x09' | nc localhost 9191
         cmd = payload & 0x03
         port = (payload & 0x1FFC) >> 2
-        reserved = (payload & 0xFFFFE000) >> 12
+        shutdown = (payload & 0x2000) == 0x2000
+        reserved = (payload & 0xFFFFC000) >> 13
         assert(reserved == 0)
+
+        if shutdown:
+            setattr(self.server, '_BaseServer__shutdown_request', True)
 
         if not (port >= 0 and port < len(OUTLETS)):
             logging.info("port %d out of range", port)
