@@ -4,9 +4,12 @@ try:
     from functools import cached_property
 except Exception:
     from backports.cached_property import cached_property
+from collections import defaultdict
 from dataclasses import dataclass
 from multiprocessing import Pool
-from typing import List
+import xml.etree.ElementTree as ET
+import dataclasses
+import itertools
 import datetime
 import base64
 import hashlib
@@ -14,7 +17,6 @@ import humanize
 from functools import partial
 import json
 import os
-import io
 import re
 import traceback
 import requests
@@ -25,15 +27,34 @@ import minio
 from pathlib import Path
 import subprocess
 from urllib.parse import urlparse
-import fnmatch
 import operator
-import xml.sax.saxutils
+import pygit2
 
 from enum import Enum
 from PIL import Image
 
 naturalsize = partial(humanize.naturalsize, binary=True)
 ensure_dir = partial(os.makedirs, exist_ok=True)
+
+
+def timeit(method):
+    import time
+
+    def timed(*args, **kw):
+        ts = time.time()
+        result = method(*args, **kw)
+        te = time.time()
+
+        if 'log_time' in kw:
+            name = kw.get('log_name', method.__name__.upper())
+            kw['log_time'][name] = int((te - ts) * 1000)
+        else:
+            exec_time = int((te - ts) * 1000)
+            print(f'{method.__name__} took {exec_time} ms')
+
+        return result
+
+    return timed
 
 
 class SanitizedFieldsMixin:
@@ -47,6 +68,96 @@ class SanitizedFieldsMixin:
                 sanitized_kwargs.pop(arg)
 
         return cls(**sanitized_kwargs, **kwargs)
+
+
+@dataclass
+class Project(SanitizedFieldsMixin):
+    id: int
+    name: str
+    repo_url: str = None
+    project_url: str = None
+    base_url_for_commits: str = None
+
+
+class GitRepo:
+    def __init__(self, name, repo_path):
+        git_repo = os.path.join(repo_path, '.git')
+        if not os.path.isdir(git_repo):
+            raise ValueError(f"The path '{git_repo}' does not exist")
+
+        self.name = name
+        self.repo_path = repo_path
+        self.repo = pygit2.Repository(git_repo)
+
+    @property
+    def head(self):
+        return str(self.repo.head.target)
+
+    def find_first_accessible_commits_from_head(self, commit_oids):
+        top_commits = set()
+
+        # If HEAD of the project is in the list of oids, then no
+        # other commit is accessible. Return HEAD directly
+        if self.head in commit_oids:
+            return [self.head]
+
+        # Create a walker, hiding all the commits under the commits of interest
+        walker = self.repo.walk(self.repo.head.target, pygit2.GIT_SORT_TOPOLOGICAL)
+
+        # Restrict the commits we shall walk to the ones *above* the ones the user
+        # is looking for, as we are only interested in
+        for oid in commit_oids:
+            try:
+                walker.hide(oid)
+            except ValueError:
+                # Ignore non-existing commits
+                pass
+
+        # Look for all the commits that are accessible from HEAD until the hidden
+        # commits.
+        for commit in walker:
+            for parent in commit.parents:
+                if str(parent.oid) in commit_oids:
+                    top_commits.add(str(parent.oid))
+
+        return top_commits
+
+    def __eq__(self, other):
+        return self.name == other.name and self.repo_path == other.repo_path
+
+    def __hash__(self):
+        return hash((self.name, self.repo_path))
+
+
+@dataclass
+class Commit(SanitizedFieldsMixin):
+    id: int
+    project_id: int
+    version: str
+
+
+@dataclass
+class GPU(SanitizedFieldsMixin):
+    id: int
+    pciid: str
+    name: str
+    metadata: dict
+
+
+@dataclass
+class TraceCompatibility(SanitizedFieldsMixin):
+    id: int
+    trace_id: int
+    commit: Commit
+    project: Project
+    gpu_id: int
+    bug_id: int
+    is_working: bool
+    agreement_count: int = 1
+
+    def __str__(self):
+        is_working = "GOOD" if self.is_working else "BAD"
+        return f"<TraceCompat for trace id {self.trace_id} on {self.project.name}'s {self.commit.version} and gpu_id={self.gpu_id}: {is_working}>"
 
 
 @dataclass
@@ -111,12 +222,12 @@ class Blob:
 @dataclass
 class Trace(SanitizedFieldsMixin):
     id: int
-    filename: str
-    metadata: dict
-    obsolete: bool
-    frames_to_capture: dict
-    url: str
-    file_size: int
+    filename: str = None
+    metadata: dict = dataclasses.field(default_factory=dict)
+    obsolete: bool = False
+    frames_to_capture: dict = dataclasses.field(default_factory=dict)
+    url: str = None
+    file_size: int = 0
 
     @property
     def size(self):
@@ -221,6 +332,52 @@ class Client:
 
         return App.from_api(r)
 
+    def gpu_get_by_pciid(self, pciid):
+        for gpu_dict in self._get("/api/v1/gpus"):
+            gpu = GPU.from_api(gpu_dict)
+            if gpu.pciid == pciid:
+                return gpu
+
+        return None
+
+    def trace_list_compatibly_reports(self, gpu_pciid=None):
+        url = "/api/v1/trace_compatibilities"
+        if gpu_pciid:
+            url += f"?pciid={gpu_pciid}"
+
+        trace_reports = defaultdict(list)
+        for tc_dict in self._get(url):
+            try:
+                commit_dict = tc_dict.get("commit", {})
+                project = Project.from_api(commit_dict.get("project", {}))
+                commit = Commit(id=commit_dict.get('id'),
+                                project_id=project.id,
+                                version=commit_dict.get('version'))
+            except TypeError:
+                print(f"WARNING: Ignoring the following compatibility report: {tc_dict}")
+                continue
+
+            report = TraceCompatibility(id=tc_dict.get('id'), gpu_id=tc_dict.get('gpu_id'),
+                                        trace_id=tc_dict.get('trace_id'),
+                                        commit=commit, project=project,
+                                        bug_id=tc_dict.get('bug_id'),
+                                        is_working=tc_dict.get('is_working'),
+                                        agreement_count=tc_dict.get('agreement_count'))
+            trace_reports[report.trace_id].append(report)
+
+        return trace_reports
+
+    def trace_report_compatibility(self, commit_id, trace_id, gpu_id, is_working, bug=None):
+        params = {
+            "commit_id": commit_id,
+            "trace_id": trace_id,
+            "gpu_id": gpu_id,
+            "bug_id": bug.id if bug else None,
+            "is_working": is_working
+        }
+        r = self._post("/api/v1/trace_compatibilities", params=params)
+        return 'id' in r
+
     def list_traces(self, filter_machine_tags):
         tags = [re.compile(t) for t in filter_machine_tags]
 
@@ -239,6 +396,44 @@ class Client:
                 return trace
 
         raise ValueError(f"Could not find a trace named '{trace_name}' in the service")
+
+    def project_get_or_create(self, name, repo_url=None, project_url=None, base_url_for_commits=None):
+        # Avoid race conditions in project creation by first trying to create it,
+        # then if it fails, trying to find it in the list of projects.
+        params = {
+            "name": name,
+            "repo_url": repo_url,
+            "project_url": project_url,
+            "base_url_for_commits": base_url_for_commits
+        }
+        r = self._post("/api/v1//projects", params=params)
+        if 'id' in r:
+            return Project.from_api(r)
+
+        for project_dict in self._get("/api/v1/projects"):
+            project = Project.from_api(project_dict)
+            if project.name == name:
+                return project
+
+        raise ValueError("Failed to create or find the wanted project")
+
+    def commit_get_or_create(self, project, version):
+        # Avoid race conditions in commit creation by first trying to create it,
+        # then if it fails, trying to find it in the list of commits.
+        params = {
+            "project_id": project.id,
+            "version": version
+        }
+        r = self._post("/api/v1/commits", params=params)
+        if 'id' in r:
+            return Commit.from_api(r)
+
+        for commit_dict in self._get("/api/v1/commits"):
+            commit = Commit.from_api(commit_dict)
+            if commit.project_id == project.id and commit.version == version:
+                return commit
+
+        raise ValueError("Failed to create or find the wanted object")
 
     def download_trace(self, trace_name, output_folder):
         trace = self.get_trace(trace_name)
@@ -403,13 +598,91 @@ class Client:
 
 
 @dataclass
+class DedupedFrameOutput(SanitizedFieldsMixin):
+    id: int
+    url: str
+    is_acceptable: bool
+    found_in_release_code_run: bool
+    outputs_count_for_gpu: int = dataclasses.field(init=False)
+
+    # Only used to initialize other members
+    gpus: dataclasses.InitVar[list] = None
+
+    def __post_init__(self, gpus):
+        self.outputs_count_for_gpu = gpus[0].get('frame_outputs_count', 0)
+
+
+@dataclass
+class TraceExecFrameOutput(SanitizedFieldsMixin):
+    client: Client
+    gpu: GPU
+    trace_frame_id: str
+
+    id: int
+    frame_outputs_id: int = None
+    deduped_frame_output_id: int = None
+    blob_id: int = None
+    is_acceptable: bool = None
+
+    # Only used to initialize other members
+    frame_outputs: dataclasses.InitVar[dict] = None
+
+    def __post_init__(self, frame_outputs):
+        self.frame_outputs_id = frame_outputs.get('id')
+
+        deduped_frame_output = frame_outputs.get('deduped_frame_output', {})
+        self.deduped_frame_output_id = deduped_frame_output.get('id')
+        self.is_acceptable = deduped_frame_output.get("is_acceptable", False)
+        self.blob_id = deduped_frame_output.get("blob_id")
+
+    @cached_property
+    def trace_frame_stats_for_gpu(self):
+        r = self.client._get(f"/api/v1/stats/trace_frames/{self.id}?q[gpus_pciid_cont]={self.gpu.pciid}")
+        return r.get("trace_frame", {})
+
+    @property
+    def trace_deduped_frame_outputs_for_gpu(self):
+        return [DedupedFrameOutput.from_api(d) for d in self.trace_frame_stats_for_gpu.get('deduped_frames', [])]
+
+    @cached_property
+    def deduped_frame_output(self):
+        for deduped_frame in self.trace_deduped_frame_outputs_for_gpu:
+            if deduped_frame.id == self.deduped_frame_output_id:
+                return deduped_frame
+
+    @cached_property
+    def trace_has_stable_output_for_gpu(self):
+        for deduped_frame in self.trace_deduped_frame_outputs_for_gpu:
+            if deduped_frame.outputs_count_for_gpu < 20:
+                return False
+
+        return True
+
+    @property
+    def acceptability(self):
+        if self.is_acceptable is None:
+            if self.deduped_frame_output.found_in_release_code_run:
+                return (True, "The frame has not been assessed yet, but is found in already-released code")
+            elif not self.trace_has_stable_output_for_gpu:
+                return (True, "The frame has never been seen before, but the output of the trace on this GPU is unstable: Ignore!")
+            else:
+                return (False, "The frame has never been seen before, but the output of the trace on this GPU is stable: You need to review it!")
+        elif self.is_acceptable:
+            return (True, "The frame has been marked acceptable")
+        else:
+            return (True, "The frame has been marked as unacceptable, but since it is already-known we can ignore it :p")
+
+
+@dataclass
 class Job(SanitizedFieldsMixin):
     client: Client
+
     id: int
     name: str
     metadata: dict
+    is_released_code: bool = None
 
-    def report_trace_execution(self, trace, frame_blobs, metadata=None, status=None, logs_path=None):
+    def report_trace_execution(self, trace, gpu_pciid, frame_blobs, metadata=None, status=None, logs_path=None):
         # Create the trace execution
         params = {
             "trace_exec": {
@@ -420,10 +693,39 @@ class Job(SanitizedFieldsMixin):
                 "logs": None,  # TODO: Needs work!
             },
             "frame_blobs": frame_blobs,
-            # TODO: Set the GPU PCI ID
+            "pciid": gpu_pciid
         }
         r = self.client._post("/api/v1/trace_execs", params=params)
-        return r.get('id')
+
+        # Work around a rail oddity that if a field would be empty, it is not added
+        if 'trace_frames' not in r:
+            r['trace_frames'] = {}
+
+        return TraceExec.from_api(r, client=self.client)
+
+
+@dataclass
+class TraceExec(SanitizedFieldsMixin):
+    client: Client
+
+    id: int
+    job: dataclasses.InitVar[Job]
+    trace: dataclasses.InitVar[Trace]
+    gpu: dataclasses.InitVar[GPU]
+    trace_frames: dataclasses.InitVar[dict[str: TraceExecFrameOutput]]
+    execution_time: float = 0.0
+    status: str = "MISSING"
+
+    def __post_init__(self, job, trace, gpu, trace_frames):
+        self.job = Job.from_api(job, client=self.client)
+        self.trace = Trace.from_api(trace)
+        self.gpu = GPU.from_api(gpu)
+
+        self.trace_frames = dict()
+        for trace_frame_id, frame_output in trace_frames.items():
+            self.trace_frames[trace_frame_id] = TraceExecFrameOutput.from_api(frame_output,
+                                                                               gpu=self.gpu, client=self.client,
+                                                                               trace_frame_id=trace_frame_id)
 
 
 def job_id():
@@ -431,112 +733,6 @@ def job_id():
         # Be very careful not to pass a plain number as the job ID, everything explodes!
         return f'job-{os.environ["CI_JOB_ID"]}'
     return 'untitled'
-
-
-def generate_junit_report(job_folder_path):
-    def escape_for_report(s):
-        # kinda kills escape codes, but makes xmllint happier
-        escape_translator = s.maketrans('', '', '\x1b')
-        return xml.sax.saxutils.escape(s.translate(escape_translator))
-
-    #  https://www.ibm.com/docs/en/adfz/developer-for-zos/14.1.0?topic=formats-junit-xml-format
-    @dataclass
-    class TestSuite:
-        id: str
-        name: str
-        tests: int
-        failures: int
-        time: float
-
-    @dataclass
-    class Failure:
-        message: str
-        detail: str
-        type: str
-
-    @dataclass
-    class TestCase:
-        id: str
-        name: str
-        return_code: str = "MISSING"
-        runtime_seconds: float = 0
-        screenshot_filenames: List[str] = dataclass.field(default_factory=list)
-        failures: List[Failure] = dataclass.field(default_factory=list)
-
-    testcases = []
-    for root, dirs, files in os.walk(job_folder_path):
-        if root == job_folder_path:
-            continue
-
-        tracename = os.path.basename(root)
-
-        start_time, end_time, retcode = None, None, None
-
-        testcase = TestCase(id=root, name=tracename)
-
-        testcase.screenshot_filenames.extend([os.path.join(root, f) for f in fnmatch.filter(files, "*.png")])
-        testcase.screenshot_filenames.extend([os.path.join(root, f) for f in fnmatch.filter(files, "*.bmp")])
-
-        def paste_log_as_failure(failure_type):
-            trace_log_path = os.path.join(root, f"{tracename}.log")
-            if os.path.exists(trace_log_path):
-                with open(trace_log_path, "r") as f:
-                    return Failure(message="Job failed to complete", detail=f.read(), type=failure_type)
-            else:
-                return Failure(message="Job failed to complete", detail="No log available", type=failure_type)
-
-        if '.started' in files and '.done' not in files:
-            testcase.failures.append(paste_log_as_failure('DID_NOT_COMPLETE'))
-        elif len(testcase.screenshot_filenames) == 0:
-            testcase.failures.append(paste_log_as_failure('NO_FRAMES'))
-
-        if '.started' in files and '.done' in files:
-            with open(os.path.join(root, '.started'), 'r') as f:
-                lines = f.readlines()
-                start_time = datetime.datetime.strptime(lines[0].strip(), "%Y-%m-%d %H:%M:%S")
-
-            with open(os.path.join(root, '.done'), 'r') as f:
-                lines = f.readlines()
-                end_time = datetime.datetime.strptime(lines[0].strip(), "%Y-%m-%d %H:%M:%S")
-                retcode = lines[1].strip()
-
-            testcase.runtime_seconds = (end_time - start_time).total_seconds()
-            testcase.return_code = retcode
-
-        testcases.append(testcase)
-
-    ntests = len(testcases)
-    nfails = sum(len(tc.failures) for tc in testcases)
-    total_time = sum(tc.runtime_seconds for tc in testcases)
-
-    junit_report = io.StringIO()
-    junit_report.write(f"""<?xml version="1.0" encoding="UTF-8" ?>
-  <testsuites id="{job_id()}" name="Valve trace run" tests="{ntests}" failures="{nfails}" time="{total_time}">
-    <testsuite id="{job_id()}" name="Valve traces" tests="{ntests}" failures="{nfails}" time="{total_time}">""")
-    for tc in testcases:
-        junit_report.write(f"""
-      <testcase id="{tc.id}" name="{tc.name}" time="{tc.runtime_seconds}">""")
-        if len(tc.screenshot_filenames) > 0:
-            # You are only allowed on screenshot, it would seem.
-            for screenshot_fn in tc.screenshot_filenames[:1]:
-                junit_report.write(f"""
-        <system-out>[[ATTACHMENT|{screenshot_fn}]]</system-out>
-                """)
-        for failure in tc.failures:
-            junit_report.write(f"""
-        <failure message="{failure.message}" type="{failure.type}">
-Return code: {tc.return_code}
-
-{escape_for_report(failure.detail)}
-        </failure>""")
-        junit_report.write("""
-     </testcase>""")
-    junit_report.write("""
-    </testsuite>
-  </testsuites>
-""")
-
-    return junit_report.getvalue()
 
 
 def trace_name(trace):
@@ -668,6 +864,22 @@ class GfxInfo:
         self.device_type = fields.get('vk:device:type', 'N/A')
 
     @property
+    def gpu_codename(self):
+        for tag in self.machine_tags:
+            if tag.startswith('amdgpu:codename:'):
+                return tag[16:]
+
+        return None
+
+    @property
+    def gpu_pciid(self):
+        for tag in self.machine_tags:
+            if tag.startswith('amdgpu:pciid:'):
+                return tag[13:]
+
+        return None
+
+    @property
     def all_fields(self):
         return {
             "machine_tags": self.machine_tags,
@@ -687,98 +899,365 @@ class GfxInfo:
         }
 
 
-def upload_frame(client, frame_path):
-    file_name = os.path.basename(frame_path)
-    blob = client._upload_frame_blob(frame_path, file_name)
+class Report:
+    class TraceExec:
+        MIN_ACCEPTABLE_AGREEMENT_COUNT = 20
 
-    return blob.signed_id
+        def __init__(self, report, trace, folder_path):
+            self.report = report
+            self.trace = trace
+            self.folder_path = folder_path
 
+            self.start_time = None
+            self.end_time = None
+            self.retcode = None
+            self.logs_path = None
+            self.found_frames = dict()
 
-def error_callback(result):
-    print(f"ERROR: {result}")
+            self.job = None
+            self.upload_report = None
 
+            for entry in os.scandir(path=folder_path):
+                if entry.name == ".started":
+                    with open(entry.path, 'r') as f:
+                        lines = f.readlines()
+                        self.start_time = datetime.datetime.strptime(lines[0].strip(), "%Y-%m-%d %H:%M:%S")
+                elif entry.name == ".done":
+                    with open(entry.path, 'r') as f:
+                        lines = f.readlines()
+                        self.end_time = datetime.datetime.strptime(lines[0].strip(), "%Y-%m-%d %H:%M:%S")
+                        self.retcode = int(lines[1].strip())
+                elif entry.name.endswith('.log'):
+                    self.logs_path = entry.path
+                elif entry.name.endswith('.png') or entry.name.endswith('.bmp'):
+                    try:
+                        frame_id = str(int(Path(entry.name).stem))
+                        self.found_frames[frame_id] = entry.path
+                    except Exception as e:
+                        print(e)
 
-def report_to_valvetraces_website(client, run_name, result_folder):
-    def is_postmerge():
-        return "CI_MERGE_REQUEST_ID" not in os.environ
+        @cached_property
+        def logs(self):
+            if self.logs_path is not None:
+                return open(self.logs_path, 'r').read()
+            else:
+                return None
 
-    def parse_gfxinfo():
-        try:
-            with open(f"{result_folder}/gfxinfo.json") as f:
-                return GfxInfo(json.loads(f.read()))
-        except Exception:
-            return GfxInfo({})
+        @property
+        def runtime(self):
+            if self.end_time is not None:
+                return self.end_time - self.start_time
+            else:
+                return datetime.timedelta()
 
-    def queue_trace_execution_tasks(pool, dir_entry, gfx_info, trace):
-        has_started = False
-        has_ended = False
-        logs_path = None
+        @property
+        def frames(self):
+            @dataclass
+            class Frame:
+                frame_id: str
+                file_path: str
+                is_acceptable: bool
+                reason: str
 
-        frames_tasks = dict()
-        for entry in os.scandir(path=dir_entry.path):
-            if entry.name == ".started":
-                has_started = True
-            elif entry.name == ".done":
-                has_ended = True
-            elif entry.name.endswith('.log'):
-                logs_path = entry.path
-            elif entry.name.endswith('.png'):
-                try:
-                    frame_id = int(Path(entry.name).stem)
-                    frames_tasks[frame_id] = pool.apply_async(upload_frame, (client, entry.path), error_callback=error_callback)
-                except Exception as e:
-                    print(e)
+            frames = []
+            for expected_frame_id in self.trace.frames_to_capture:
+                found_frame_path = self.found_frames.get(expected_frame_id)
 
-        if has_started:
-            status = 0 if has_ended else 1
-        else:
-            status = None
+                if found_frame_path:
+                    if self.upload_report is not None:
+                        if uploaded_frame := self.upload_report.trace_frames.get(expected_frame_id):
+                            is_acceptable, reason = uploaded_frame.acceptability
+                        else:
+                            is_acceptable = False
+                            reason = "The frame is missing from the trace exec upload: assume the frame is unacceptable"
+                    else:
+                        is_acceptable = False
+                        reason = "The frame did not get uploaded and thus cannot be checked for acceptability: assume it is unacceptable"
+                elif self.expected_to_work:
+                    is_acceptable = False
+                    reason = f"The frame ID {expected_frame_id} is missing, with the trace expected to work"
+                else:
+                    is_acceptable = True
 
-        return (frames_tasks, status)
+                    deps = ", ".join(self.report.dependencies.keys()) if len(self.report.dependencies.keys()) > 0 else "None"
+                    trace_reports_count = len(self.report.trace_compatibility_reports[self.trace.id])
+                    applicable_reports_count = len(self.applicable_compatibility_reports)
 
-    # Get the list of traces
-    traces = {str(t.id): t for t in client.list_traces([])}
+                    reason = f"""The frame ID {expected_frame_id} is missing but the trace was not expected to work anyway
 
-    # Get the machine tags
-    gfx_info = parse_gfxinfo()
+Debug information:
+    - List of provided repos: {deps}
+    - # of compatibility reports for this trace on this GPU: {trace_reports_count}
+    - # of applicable reports count: {applicable_reports_count}
+    - Lowest compatibility agreement count (needs {self.MIN_ACCEPTABLE_AGREEMENT_COUNT}): {self.lowest_compatibity_agreement_count}
+"""
 
-    # Create the job in the website
-    job = traces_client.job_get_or_create(run_name,
-                                          timeline_metadata={"project": os.environ.get('CI_PROJECT_PATH_SLUG')},
-                                          is_released_code=is_postmerge())
+                frames.append(Frame(frame_id=expected_frame_id,
+                                    file_path=found_frame_path,
+                                    is_acceptable=is_acceptable,
+                                    reason=reason))
 
-    # Perform the upload in multiple processes
-    with Pool(processes=max(os.cpu_count(), 10)) as pool:
-        print("Scan the entire directory structure")
-        trace_execs = dict()
+            return frames
+
+        @property
+        def generated_all_wanted_frames(self):
+            return set(self.trace.frames_to_capture) == set(self.found_frames)
+
+        @property
+        def all_frames_acceptable(self):
+            for frame in self.frames:
+                if not frame.is_acceptable:
+                    return False
+
+            return True
+
+        @property
+        def had_successful_execution(self):
+            return self.retcode == 0 and self.generated_all_wanted_frames
+
+        @cached_property
+        def applicable_compatibility_reports(self):
+            ignored_projects = set()
+
+            # List all of the commits relevant for the trace
+            reachable_commits = defaultdict(dict)
+            for trace_report in self.report.trace_compatibility_reports[self.trace.id]:
+                if (project := self.report.dependencies.get(trace_report.project.name)) is None:
+                    # Ignore reports for unknown projects
+                    ignored_projects.add(trace_report.project.name)
+                    continue
+                reachable_commits[project][trace_report.commit.version] = trace_report
+
+            # Check for every project which commits are reachable
+            reports = defaultdict(list)
+            for found_project, commits in reachable_commits.items():
+                for commit in found_project.find_first_accessible_commits_from_head(commits.keys()):
+                    reports[found_project].append(commits[commit])
+
+            return reports
+
+        @property
+        def lowest_compatibity_agreement_count(self):
+            all_reports = list(itertools.chain(*self.applicable_compatibility_reports.values()))
+            if len(all_reports) == 0:
+                return 0
+
+            return min([r.agreement_count for r in all_reports])
+
+        @property
+        def expected_to_work(self):
+            all_reports = list(itertools.chain(*self.applicable_compatibility_reports.values()))
+            if len(all_reports) == 0:
+                return False
+
+            for report in all_reports:
+                if not report.is_working:
+                    return False
+
+            return self.lowest_compatibity_agreement_count > self.MIN_ACCEPTABLE_AGREEMENT_COUNT
+
+        @property
+        def is_success(self):
+            return self.had_successful_execution or not self.expected_to_work
+
+        def upload(self, job, frame_blobs):
+            self.job = job
+
+            gfxinfo = self.report.gfxinfo
+            self.upload_report = job.report_trace_execution(metadata=gfxinfo.all_fields,
+                                                            trace=self.trace,
+                                                            gpu_pciid=gfxinfo.gpu_pciid,
+                                                            frame_blobs=frame_blobs,
+                                                            status=self.retcode,
+                                                            logs_path=self.logs_path)
+
+            # Report back whether execution went successfully or not
+            for project_name, repo in self.report.dependencies.items():
+                project_reports = self.applicable_compatibility_reports.get(project_name)
+
+                # If the execution status agree with the existing reports for the project, re-use them!
+                if project_reports is not None and self.expected_to_work == self.had_successful_execution:
+                    for report in project_reports:
+                        self.report.client.trace_report_compatibility(report.commit_id, report.trace_id,
+                                                               report.gpu_id, self.had_successful_execution)
+                else:
+                    # We do not have existing reports to re-use for this dependency, or the outcome is different.
+                    # Create a new report!
+                    project = self.report.client.project_get_or_create(project_name)
+                    commit = self.report.client.commit_get_or_create(project, repo.head)
+                    self.report.client.trace_report_compatibility(commit.id, self.trace.id,
+                                                                  self.report.gpu.id, self.had_successful_execution)
+
+    def __init__(self, client, run_name, dependencies, result_folder):
+        self.client = client
+        self.run_name = run_name
+        self.dependencies = dependencies
+        self.result_folder = result_folder
+
+        self.trace_execs = list()
+
+        traces = {str(t.id): t for t in self.client.list_traces([])}
         for entry in os.scandir(path=result_folder):
             if entry.is_dir():
                 trace = traces.get(entry.name.split('-')[0])
                 if trace and f'{trace.id}-{trace.filename}'.startswith(entry.name):
-                    trace_execs[trace] = queue_trace_execution_tasks(pool, entry, gfx_info, trace)
+                    self.trace_execs.append(self.TraceExec(self, trace, entry.path))
 
-        # Create all the trace execution objects
-        for trace, params in trace_execs.items():
-            frames_tasks, status = params
+    @property
+    def is_postmerge(self):
+        return "CI_MERGE_REQUEST_ID" not in os.environ
 
-            try:
-                print(f"Uploading the results from {trace}")
+    @cached_property
+    def gfxinfo(self):
+        try:
+            with open(f"{self.result_folder}/gfxinfo.json") as f:
+                return GfxInfo(json.loads(f.read()))
+        except Exception:
+            return GfxInfo({})
 
-                frame_blobs = dict()
-                for frame_id, task in frames_tasks.items():
-                    if not task.ready():
-                        print(f" - Waiting on the upload of the frame {frame_id}")
+    @cached_property
+    def gpu(self):
+        return self.client.gpu_get_by_pciid(self.gfxinfo.gpu_pciid)
 
-                    frame_blobs[str(frame_id)] = task.get()
+    @cached_property
+    def trace_compatibility_reports(self):
+        return self.client.trace_list_compatibly_reports(self.gfxinfo.gpu_pciid)
 
-                job.report_trace_execution(metadata=gfx_info.all_fields,
-                                        trace=trace,
-                                        frame_blobs=frame_blobs,
-                                        status=status,
-                                        logs_path=None)
-            except Exception:
-                traceback.print_exc()
-                print("Ignoring this trace execution")
+    @classmethod
+    def upload_frame(cls, client, frame_path):
+        file_name = os.path.basename(frame_path)
+        blob = client._upload_frame_blob(frame_path, file_name)
+
+        return blob.signed_id
+
+    def error_callback(self, result):
+        print(f"ERROR: {result}")
+
+    @timeit
+    def upload(self):
+        print("Uploading the report")
+
+        # Create the job in the website
+        print(f" - Creating the job {self.run_name}")
+        job = self.client.job_get_or_create(self.run_name,
+                                            timeline_metadata={"project": os.environ.get('CI_PROJECT_PATH_SLUG')},
+                                            is_released_code=self.is_postmerge)
+
+        # Perform the upload in multiple processes
+        with Pool(processes=max(os.cpu_count(), 10)) as pool:
+            # Upload in parallel all the generated frame outputs
+            trace_execs_frame_uploads = dict()
+            for trace_exec in self.trace_execs:
+                trace_execs_frame_uploads[trace_exec] = dict()
+                for frame_id, frame_path in trace_exec.found_frames.items():
+                    async_job = pool.apply_async(self.upload_frame, (self.client, frame_path),
+                                                 error_callback=self.error_callback)
+                    trace_execs_frame_uploads[trace_exec][frame_id] = async_job
+
+            # Create all the trace execution objects
+            for trace_exec, frames_tasks in trace_execs_frame_uploads.items():
+                try:
+                    print(f" - Uploading the results from {trace_exec.trace}")
+
+                    frame_blobs = dict()
+                    for frame_id, task in frames_tasks.items():
+                        if not task.ready():
+                            print(f"   - Waiting on the upload of the frame {frame_id}")
+
+                        frame_blobs[str(frame_id)] = task.get()
+
+                    trace_exec.upload(job, frame_blobs)
+                except Exception:
+                    traceback.print_exc()
+                    print(" - Ignoring this trace execution")
+                    sys.exit(1)
+
+            print(f" - Done uploading the report")
+
+    @property
+    def all_frames(self):
+        return list(itertools.chain(*[te.frames for te in self.trace_execs]))
+
+    @property
+    def all_unacceptable_frames(self):
+        return [f for f in self.all_frames if not f.is_acceptable]
+
+    @timeit
+    def generate_junit_result(self):
+        total_time = sum([te.runtime for te in self.trace_execs], start=datetime.timedelta())
+
+        tree = ET.ElementTree("tree")
+
+        run_id = f"{self.run_name}-{self.gfxinfo.gpu_codename}"
+        testsuites = ET.Element('testsuites',
+                                id=run_id,
+                                name=f"Valve trace run for the job {self.run_name} on {self.gfxinfo.gpu_codename}",
+                                tests=str(len(self.all_frames)),
+                                failures=str(len(self.all_unacceptable_frames)),
+                                time=str(total_time.total_seconds()))
+
+        for trace_exec in self.trace_execs:
+            ts_id = f"{run_id}-{trace_exec.trace.filename}"
+            frames = trace_exec.frames
+            failed_frames = [r for r in frames if not r.is_acceptable]
+
+            ts = ET.SubElement(testsuites, "testsuite", id=ts_id,
+                               name=f"{trace_exec.trace.filename} on {self.gfxinfo.gpu_codename}",
+                               tests=str(1 + len(frames)),
+                               failures=str((0 if trace_exec.is_success else 1) + len(failed_frames)),
+                               time=str(trace_exec.runtime.total_seconds()))
+
+            ts_exec = ET.SubElement(ts, "testcase",
+                                    id=f"{ts_id}-execution",
+                                    name=f"{trace_exec.trace.filename}'s overall execution",
+                                    time=str(trace_exec.runtime.total_seconds()))
+
+            if not trace_exec.had_successful_execution:
+                ET.SubElement(ts_exec, "system-out").text = trace_exec.logs
+
+                if trace_exec.retcode is None:
+                    msg = "ERROR: The trace execution failed to complete."
+                else:
+                    msg = f"ERROR: The trace execution's exit code was {trace_exec.retcode}."
+
+                if not trace_exec.generated_all_wanted_frames:
+                    msg += " Some frames are missing."
+
+                if trace_exec.expected_to_work:
+                    ET.SubElement(ts_exec, "failure", message=msg, type="ERROR")
+
+            for frame in frames:
+                frame_element = ET.SubElement(ts, "testcase",
+                                              id=f"{ts_id}-{frame.frame_id}",
+                                              name=f"{trace_exec.trace.filename}'s frame {frame.frame_id}",
+                                              time=str(0))
+
+                system_out = ""
+                if frame.file_path:
+                    system_out += f"[[ATTACHMENT|{frame.file_path}]]\n"
+
+                if not frame.is_acceptable:
+                    ET.SubElement(frame_element, "failure", message=f"ERROR: {frame.reason}", type="ERROR")
+                else:
+                    system_out += f"\n{frame.reason}"
+
+                ET.SubElement(frame_element, "system-out").text = system_out
+
+        # Generate the final XML file
+        tree._setroot(testsuites)
+        ET.indent(tree, space="\t", level=0)
+        tree.write(os.path.join(self.result_folder, "junit.xml"), encoding="UTF-8", xml_declaration=True)
+
+    @cached_property
+    def is_success(self):
+        for trace_exec in self.trace_execs:
+            # The run was successful if all the traces executed
+            if not trace_exec.had_successful_execution and trace_exec.expected_to_work:
+                return False
+            elif not trace_exec.all_frames_acceptable:
+                return False
+
+        return True
 
 
 def traces_under_gb(traces_list, gb: float):
@@ -808,7 +1287,10 @@ def run_job(traces_client, args):
         secret_key=args.access_token,
         secure=args.secure)
 
+    # Get the list of traces we want to run
     traces_to_cache = traces_client.list_traces([])
+
+    # Limit the list of traces to fit in the storage limits of the machine
     if args.max_trace_db_size_gb is not None:
         traces_to_cache = traces_under_gb(traces_to_cache, args.max_trace_db_size_gb)
 
@@ -844,14 +1326,22 @@ def run_job(traces_client, args):
             cmd = f"find {job_folder_path} -name exec.sh -exec sh '{{}}' ';'"
             os.system(cmd)
 
-    with open(os.path.join(job_folder_path, "junit.xml"), "w") as f:
-        f.write(generate_junit_report(job_folder_path))
-
-    report_to_valvetraces_website(traces_client, args.run_name, job_folder_path)
+    args.results = job_folder_path
+    return report_results(traces_client, args)
 
 
 def report_results(traces_client, args):
-    report_to_valvetraces_website(traces_client, args.run_name, args.results)
+    # Create a dictionary of dependencies for our execution
+    dependencies = {}
+    if args.mesa:
+        dependencies["Mesa"] = GitRepo("Mesa", args.mesa)
+
+    report = Report(client=traces_client, run_name=args.run_name,
+                    dependencies=dependencies, result_folder=args.results)
+    report.upload()
+    report.generate_junit_result()
+
+    return 0 if report.is_success else 1
 
 
 if __name__ == '__main__':
@@ -861,6 +1351,7 @@ if __name__ == '__main__':
     parser.add_argument("-u", '--valvetraces-user', dest='valvetraces_user',
                         default=os.environ.get("VALVETRACES_USERNAME", None))
     parser.add_argument("-r", '--run-name', dest='run_name', required=True)
+    parser.add_argument('--mesa', help='Path to the mesa repo')
 
     subparsers = parser.add_subparsers()
 
@@ -918,4 +1409,4 @@ if __name__ == '__main__':
         parser.print_help()
         sys.exit(0)
 
-    entrypoint(traces_client, args)
+    sys.exit(entrypoint(traces_client, args))

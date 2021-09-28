@@ -3,7 +3,7 @@ FROM quay.io/buildah/stable
 RUN set -ex \
         && dnf -y update; \
            dnf -y install bash inotify-tools git python3-pip python3-jinja2 python3-requests \
-                          python3-humanize python3-pillow skopeo wget \
+                          python3-humanize python3-pillow python3-pygit2 skopeo wget \
          && pip3 install minio \
 	 && `# Needed for the client.py in executor` \
 	 && wget --progres=dot:mega -O /usr/bin/mcli https://dl.min.io/client/mc/release/linux-amd64/mc \
