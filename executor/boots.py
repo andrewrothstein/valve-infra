@@ -155,15 +155,21 @@ option:ntp-server,10.42.0.1
         self._wait_for_dnsmasq_to_fork()
 
     def _wait_for_dnsmasq_to_fork(self):  # pragma: nocover
-        while True:
+        did_fork = False
+        for _ in range(10):
             logger.debug("Waiting for dnsmasq to fork...")
             if os.path.exists(self.pid_file):
                 with open(self.pid_file) as f:
                     pid = f.read().strip()
                     if os.path.isfile(f'/proc/{pid}/status'):
+                        did_fork = True
                         break
             time.sleep(0.2)
-        logger.debug("dnsmasq is ready")
+        if did_fork:
+            logger.debug("dnsmasq is ready")
+        else:
+            logger.error("dnsmasq did not start in time")
+            sys.exit(1)
 
     def _pid(self):  # pragma: nocover
         with open(self.pid_file) as pidfile:
