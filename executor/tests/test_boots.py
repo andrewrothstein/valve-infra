@@ -76,6 +76,7 @@ def test_dnsmasq_launch(popen_mock, dnsmasq_waiter, tmp_path):
     dnsmasq_waiter.assert_called_once()
     popen_mock.assert_called_once_with(
         ['dnsmasq',
+         '--port=0',
          f'--pid-file={tmp_path}/dnsmasq.pid',
          f'--dhcp-hostsfile={tmp_path}/hosts.dhcp',
          f'--dhcp-optsfile={tmp_path}/options.dhcp',

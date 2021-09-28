@@ -131,6 +131,7 @@ option:ntp-server,10.42.0.1
         self.dnsmasq = subprocess.Popen(
             [
                 'dnsmasq',
+                '--port=0',
                 f'--pid-file={self.pid_file}',
                 f'--dhcp-hostsfile={self.hosts_file}',
                 f'--dhcp-optsfile={self.options_file}',
