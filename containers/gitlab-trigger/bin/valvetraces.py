@@ -4,7 +4,7 @@ try:
     from functools import cached_property
 except Exception:
     from backports.cached_property import cached_property
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from multiprocessing import Pool
 from typing import List
 import datetime
@@ -36,20 +36,30 @@ naturalsize = partial(humanize.naturalsize, binary=True)
 ensure_dir = partial(os.makedirs, exist_ok=True)
 
 
-class App:
-    def __init__(self, app_blob):
-        self.id = app_blob.get("id")
-        self.name = app_blob.get("name")
-        self.steamappid = app_blob.get("appid")
+class SanitizedFieldsMixin:
+    @classmethod
+    def from_api(cls, fields, **kwargs):
+        valid_fields = {f.name for f in cls.__dataclass_fields__.values()}
+
+        sanitized_kwargs = dict(fields)
+        for arg in fields:
+            if arg not in valid_fields:
+                sanitized_kwargs.pop(arg)
+
+        return cls(**sanitized_kwargs, **kwargs)
+
+
+@dataclass
+class App(SanitizedFieldsMixin):
+    id: int
+    name: str
+    steamappid: str
 
     def matches(self, app_id):
         return str(self.id) == app_id or str(self.name) == app_id or str(self.steamappid) == app_id
 
     def __str__(self):
         return f"<App: ID={self.id}, SteamID={self.steamappid}, name={self.name}>"
-
-    def __repr__(self):
-        return str(self)
 
 
 class BlobType(Enum):
@@ -98,15 +108,19 @@ class Blob:
         r.raise_for_status()
 
 
-class Trace:
-    def __init__(self, trace_blob):
-        self.id = trace_blob.get("id")
-        self.filename = trace_blob.get("filename")
-        self.metadata = trace_blob.get("metadata")
-        self.obsolete = trace_blob.get("obsolete")
-        self.frames_to_capture = trace_blob.get("frames_to_capture")
-        self.url = trace_blob.get("url")
-        self.size = trace_blob.get("file_size", -1)
+@dataclass
+class Trace(SanitizedFieldsMixin):
+    id: int
+    filename: str
+    metadata: dict
+    obsolete: bool
+    frames_to_capture: dict
+    url: str
+    file_size: int
+
+    @property
+    def size(self):
+        return self.file_size
 
     @property
     def machine_tags(self):
@@ -143,34 +157,10 @@ class Trace:
 
     @property
     def human_size(self):
-        return naturalsize(self.size)
+        return naturalsize(self.file_size)
 
     def __str__(self):
         return f"<Trace {self.id}, {self.filename}, size {self.human_size}>"
-
-
-class Job:
-    def __init__(self, client, job_blob):
-        self.client = client
-        self.id = job_blob.get('id')
-        self.name = job_blob.get('name')
-        self.metadata = job_blob.get('metadata')
-
-    def report_trace_execution(self, trace, frame_blobs, metadata=None, status=None, logs_path=None):
-        # Create the trace execution
-        params = {
-            "trace_exec": {
-                "job_id": self.id,
-                "trace_id": trace.id,
-                "metadata": metadata,
-                "status": status,
-                "logs": None,  # TODO: Needs work!
-            },
-            "frame_blobs": frame_blobs,
-            # TODO: Set the GPU PCI ID
-        }
-        r = self.client._post("/api/v1/trace_execs", params=params)
-        return r.get('id')
 
 
 class Client:
@@ -218,7 +208,7 @@ class Client:
     def list_apps(self):
         apps = list()
         for game in self._get("/api/v1/games"):
-            apps.append(App(game))
+            apps.append(App.from_api(game))
 
         return apps
 
@@ -229,14 +219,14 @@ class Client:
 
         r = self._post("/api/v1/games", {"game": {"name": name, "appid": steamappid}})
 
-        return App(r)
+        return App.from_api(r)
 
     def list_traces(self, filter_machine_tags):
         tags = [re.compile(t) for t in filter_machine_tags]
 
         traces = list()
         for trace_blob in self._get("/api/v1/traces"):
-            trace = Trace(trace_blob)
+            trace = Trace.from_api(trace_blob)
 
             if trace.matches_tags(tags):
                 traces.append(trace)
@@ -372,7 +362,7 @@ class Client:
                              f'gotten {blob.record_type}')
         if not blob.new:
             print('Trace already exists in the server. Skipping upload.')
-            return Trace(blob.record)
+            return Trace.from_api(blob.record)
 
         # Create the trace from the blob
         r = self._post("/api/v1/traces/",
@@ -380,7 +370,7 @@ class Client:
                                          "metadata": {"machine_tags": machine_tags},
                                          "frames_to_capture": frame_ids}})
 
-        return Trace(r)
+        return Trace.from_api(r)
 
     def _upload_frame_blob(self, filepath, name):
         image_md5 = hashlib.md5(Image.open(filepath).convert(mode="RGBA").tobytes())
@@ -409,7 +399,31 @@ class Client:
             }
         }
         job = self._post("/api/v1/jobs", params=params)
-        return Job(self, job)
+        return Job.from_api(job, client=self)
+
+
+@dataclass
+class Job(SanitizedFieldsMixin):
+    client: Client
+    id: int
+    name: str
+    metadata: dict
+
+    def report_trace_execution(self, trace, frame_blobs, metadata=None, status=None, logs_path=None):
+        # Create the trace execution
+        params = {
+            "trace_exec": {
+                "job_id": self.id,
+                "trace_id": trace.id,
+                "metadata": metadata,
+                "status": status,
+                "logs": None,  # TODO: Needs work!
+            },
+            "frame_blobs": frame_blobs,
+            # TODO: Set the GPU PCI ID
+        }
+        r = self.client._post("/api/v1/trace_execs", params=params)
+        return r.get('id')
 
 
 def job_id():
@@ -446,8 +460,8 @@ def generate_junit_report(job_folder_path):
         name: str
         return_code: str = "MISSING"
         runtime_seconds: float = 0
-        screenshot_filenames: List[str] = field(default_factory=list)
-        failures: List[Failure] = field(default_factory=list)
+        screenshot_filenames: List[str] = dataclass.field(default_factory=list)
+        failures: List[Failure] = dataclass.field(default_factory=list)
 
     testcases = []
     for root, dirs, files in os.walk(job_folder_path):
