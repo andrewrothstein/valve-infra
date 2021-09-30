@@ -88,15 +88,15 @@ class Blob:
         if direct_upload is not None:
             self.url = direct_upload.get('url')
             if self.url is None:
-                raise ValueError("The URL is missing from the 'direct_upload' key")
+                raise ValueError("The URL is missing from the 'direct_upload' dict")
 
             self.headers = direct_upload.get('headers')
             if self.headers is None:
-                raise ValueError("The headers are missing from the 'direct_upload' key")
+                raise ValueError("The headers are missing from the 'direct_upload' dict")
 
         self.signed_id = blob_dict.get("signed_id")
         if self.signed_id is None:
-            raise ValueError("The signed_id is from the blob-creation response")
+            raise ValueError("The signed_id is missing from the blob-creation response")
 
         self.record_type = BlobType.from_str(blob_dict.get("record_type"))
 
