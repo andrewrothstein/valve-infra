@@ -64,13 +64,22 @@ The infra is organised into separate components, expressed as containers. If you
 
 To build the gitlab-sync container individually,
 
-    docker buildx build -t registry.freedesktop.org/mupuf/valve-infra/gitlab-sync containers/gitlab-sync  --load
+    ./local_build.sh <container_name>
 
-To run from a shell:
+To build all the containers used by the infrastrucuture,
 
-    docker run --env-file ./config/prod.env --rm -it -v $(pwd)/containers/gitlab-sync:/app -v /mnt/tmp/gitlab-runner:/etc/gitlab-runner --entrypoint=bash registry.freedesktop.org/mupuf/valve-infra/gitlab-sync
+    ./local_build.sh
+
+To run the tests for a container, the process is not as automated as
+we'd like, being project specific, but generally it's based on
+docker-compose. For example, to run the executor tests,
 	
-Now that you are inside the container, you can run the test suite for this component, make changes, iterate, etc.
+
+    docker-compose --env ./config/prod.env run --rm --entrypoint=bash executor
+    executor # pip install pytest
+    executor # PYTHONPATH=. pytest -v
+
+And so on...
 
 If you wish to integration test the changes, start the whole infra, and then do `docker stop app_gitlab_sync_1`, for example. You may then bring up your in-development component to test it within the infra. Use `VALVE_INFRA_NO_PULL=1` to stop the default behaviour to pulling upstream containers from the CI.
 
