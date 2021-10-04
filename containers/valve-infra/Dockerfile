@@ -1,7 +1,7 @@
 FROM archlinux:latest
 
 # Make a standalone container, bootable with b2c
-RUN pacman -Suy --noconfirm minio-client podman-docker docker-compose bash rsync wget systemd python python-netifaces openssh tmux tmuxp glances nano vim dhcpcd htop speedtest-cli tcpdump \
+RUN pacman -Suy --noconfirm minio-client podman-docker docker-compose bash rsync wget systemd python python-netifaces tmux tmuxp glances nano vim dhcpcd htop speedtest-cli tcpdump \
     && systemctl enable podman.service \
     && pacman -Scc --noconfirm
 COPY rootfs /

@@ -1,0 +1,15 @@
+#!/usr/bin/nft -f
+table inet filter {
+    chain input {
+        # allow ssh
+        tcp dport ssh accept comment "accept SSH"
+
+        # for the Igalia farm
+        tcp dport 4044 accept comment "accept SSH on port 4044"
+    }
+
+    chain output {
+        # for the Igalia farm
+        tcp sport 4044 accept comment "accept outgoing for Igalia ssh"
+    }
+}
