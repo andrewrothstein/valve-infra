@@ -596,6 +596,17 @@ class Client:
         job = self._post("/api/v1/jobs", params=params)
         return Job.from_api(job, client=self)
 
+    def trace_exec_list(self, job_id, gpu_pciid):
+        trace_execs = list()
+        for te in self._get(f"/api/v1/trace_execs?q[job_id_eq]={job_id}&q[gpu_pciid_eq]={gpu_pciid}"):
+            # Work around a rails oddity that if a field would be empty, it is not added
+            if 'trace_frames' not in te:
+                te['trace_frames'] = {}
+
+            trace_execs.append(TraceExec.from_api(te, client=self))
+
+        return trace_execs
+
 
 @dataclass
 class DedupedFrameOutput(SanitizedFieldsMixin):
@@ -1088,6 +1099,9 @@ Debug information:
                     self.report.client.trace_report_compatibility(commit.id, self.trace.id,
                                                                   self.report.gpu.id, self.had_successful_execution)
 
+        def set_upload_report(self, report):
+            self.upload_report = report
+
     def __init__(self, client, run_name, dependencies, result_folder):
         self.client = client
         self.run_name = run_name
@@ -1143,11 +1157,24 @@ Debug information:
                                             timeline_metadata={"project": os.environ.get('CI_PROJECT_PATH_SLUG')},
                                             is_released_code=self.is_postmerge)
 
+        # Check what has already been uploaded, so we can ignore it :)
+        print(f" - Fetching the list of already-uploaded trace executions")
+        existing_trace_execs = {te.trace.id: te for te in self.client.trace_exec_list(gpu_pciid=self.gfxinfo.gpu_pciid,
+                                                                                      job_id=job.id)}
+        print(f" - Found {len(existing_trace_execs)} already-uploaded trace executions")
+        for trace_exec in self.trace_execs:
+            if report := existing_trace_execs.get(trace_exec.trace.id):
+                trace_exec.set_upload_report(report)
+
         # Perform the upload in multiple processes
         with Pool(processes=max(os.cpu_count(), 10)) as pool:
             # Upload in parallel all the generated frame outputs
             trace_execs_frame_uploads = dict()
             for trace_exec in self.trace_execs:
+                # Ignore the trace executions we already reported
+                if trace_exec.upload_report is not None:
+                    continue
+
                 trace_execs_frame_uploads[trace_exec] = dict()
                 for frame_id, frame_path in trace_exec.found_frames.items():
                     async_job = pool.apply_async(self.upload_frame, (self.client, frame_path),
