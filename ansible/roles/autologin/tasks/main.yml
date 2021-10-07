@@ -1,0 +1,27 @@
+---
+
+- name: Configuring logind.conf
+  ansible.builtin.lineinfile:
+    dest: /etc/systemd/logind.conf
+    regexp: "{{ item.regexp }}"
+    line: "{{ item.line }}"
+  loop:
+    - { regexp: '^#NAutoVTs=.*', line: 'NAutoVTs=2' }
+    - { regexp: '^#KillUserProcesses=no', line: 'KillUserProcesses=yes' }
+
+- name: Creating /etc/systemd/system/getty@tty1.service.d
+  become: true
+  ansible.builtin.file:
+    path: /etc/systemd/system/getty@tty1.service.d
+    state: directory
+    owner: root
+    mode: 0755
+
+- name: Installing getty@tty1 override.conf
+  become: true
+  ansible.builtin.copy:
+    src: override.conf
+    dest: /etc/systemd/system/getty@tty1.service.d/override.conf
+    owner: root
+    group: root
+    mode: '0644'

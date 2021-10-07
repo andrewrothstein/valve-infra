@@ -40,3 +40,4 @@
     - ntpd
     - dnsmasq
     - dashboard
+    - autologin
