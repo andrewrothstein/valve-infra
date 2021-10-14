@@ -617,7 +617,7 @@ set -x
 {apitrace} replay \
 --headless \
 --snapshot={rendered_frame_ids} \
---snapshot-prefix=$D/ \
+--snapshot-prefix="$D"/ \
 "{trace_filename}" > "$D/{trace_stem}".log 2>&1
 retval=$?
 set +x
