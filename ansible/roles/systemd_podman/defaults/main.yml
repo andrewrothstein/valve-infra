@@ -1,0 +1,14 @@
+---
+container_cmd: ""
+container_description: "{{ container_name }} container service"
+container_env: []
+container_extra_options: []
+container_host_network: false
+container_image: "{{ docker_registry}}{{ '/' if docker_registry else '' }}{{ container_repository }}"
+container_ports: []
+container_privileged: false
+container_pull: true
+container_repository: "{{ container_name }}"
+container_volumes: []
+container_depends: []
+container_env_files: []

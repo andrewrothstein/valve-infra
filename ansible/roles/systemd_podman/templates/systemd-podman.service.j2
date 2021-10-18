@@ -1,0 +1,45 @@
+[Unit]
+Description={{ container_description }}
+# After=podman.service {% for d in container_depends %}{{ d }} {% endfor %}{{''}}
+# Requires=podman.service {% for d in container_depends %}{{ d }} {% endfor %}{{''}}
+
+[Service]
+TimeoutStartSec=0
+{% for env in container_env_files %}
+EnvironmentFile={{ env }}
+{% endfor %}
+ExecStartPre=-/usr/bin/podman stop {{ container_name }}
+ExecStartPre=-/usr/bin/podman rm {{ container_name }}
+{% if container_pull %}
+ExecStartPre=-/usr/bin/podman pull {{ container_image }}
+{% endif %}
+ExecStart=/usr/bin/podman run --rm -t \
+{% for port in container_ports %}
+    -p {{ port }} \
+{% endfor %}
+{% for volume in container_volumes %}
+    -v {{ volume }} \
+{% endfor %}
+{% for option in container_extra_options %}
+    {{ option }} \
+{% endfor %}
+{% if container_host_network %}
+    --net host \
+{% endif %}
+{% if container_privileged %}
+    --privileged \
+{% endif %}
+{% for env in container_env_files %}
+    --env-file {{ env }} \
+{% endfor %}
+{% for env in container_env %}
+    -e "{{ env | replace("\"", "\\\"") }}" \
+{% endfor %}
+    --name {{ container_name }} {{ container_image }} {{ container_cmd }}
+ExecStop=-/usr/bin/podman stop -t 3 {{ container_name }}
+ExecStop=-/usr/bin/podman rm {{ container_name }}
+Restart=always
+RestartSec=10s
+
+[Install]
+WantedBy=multi-user.target

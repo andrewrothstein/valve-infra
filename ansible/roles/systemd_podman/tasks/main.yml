@@ -1,0 +1,13 @@
+---
+- name: Creating systemd service
+  ansible.builtin.template:
+    src: systemd-podman.service.j2
+    dest: "/etc/systemd/system/{{ container_name }}.service"
+    mode: 0644
+    owner: root
+  notify: "Restart container service"
+
+- name: Enabling service
+  ansible.builtin.systemd:
+    name: "{{ container_name }}.service"
+    enabled: yes

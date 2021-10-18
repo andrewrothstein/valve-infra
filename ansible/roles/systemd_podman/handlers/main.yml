@@ -1,0 +1,6 @@
+- name: Restart container service
+  ansible.builtin.systemd:
+    name: "{{ container_name }}"
+    daemon_reload: true
+    state: restarted
+  when: ansible_service_mgr == "systemd"
