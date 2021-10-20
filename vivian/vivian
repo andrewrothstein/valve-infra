@@ -32,6 +32,8 @@ __mars_admin_password='password'
 
 __initial_fleet_size=2
 
+__boot_mode=""
+
 if [ -z ${1+x} ]; then
     usage
     exit 1
@@ -85,6 +87,23 @@ while test -n "$1"; do
         --initial-fleet-size=*)
             __initial_fleet_size=="${1#--initial-fleet-size=}"
             ;;
+	--boot-mode=*)
+            mode="${1#--boot-mode=}"
+	    if [ "$mode" = "uefi" ]; then
+		if [ ! -e OVMF_VARS.fd ]; then
+		    echo "ERROR: You must add some OVMF vars"
+		    echo "Perhaps cp /usr/share/edk2-ovmf/x64/OVMF_VARS.fd ."
+		    exit 1
+		fi
+		if [ ! -e /usr/share/edk2-ovmf/x64/OVMF_CODE.fd ] ; then
+		    echo "ERROR: OVMF code not found. Probably missing the edk2 ovmf packages."
+		    exit 1
+		fi
+		__boot_mode="-drive if=pflash,format=raw,unit=0,file=/usr/share/edk2-ovmf/x64/OVMF_CODE.fd,readonly -drive if=pflash,format=raw,unit=1,file=OVMF_VARS.fd -global driver=cfi.pflash01,property=secure,value=off"
+	    else
+		__boot_mode=""
+	    fi
+	    ;;
         start|"test-installer"|"integration-tests")
             cmd="$1"
             break
@@ -110,7 +129,7 @@ start_gateway() {
 	-boot c \
         -monitor unix:"$__gateway_monitor_socket",server,nowait \
 	$__gateway_nic_opts \
-	$BOOT_MODE \
+	$__boot_mode \
 	-m 4G \
 	-enable-kvm
     __gateway_qemu_pid=$!
@@ -231,7 +250,7 @@ test_installer() {
 	-cdrom "$__iso" \
 	-boot d \
 	$__gateway_nic_opts \
-	$BOOT_MODE \
+	$__boot_mode \
 	-m 4G \
 	-display sdl \
 	-enable-kvm \
