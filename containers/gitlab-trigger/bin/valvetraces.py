@@ -109,7 +109,7 @@ class GitRepo:
         for oid in commit_oids:
             try:
                 walker.hide(oid)
-            except ValueError:
+            except (ValueError, KeyError):
                 # Ignore non-existing commits
                 pass
 
