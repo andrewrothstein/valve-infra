@@ -31,15 +31,6 @@ services:
       - ${PERMANENT_MOUNT}/gitlab-runner:/etc/gitlab-runner
       - ${TMP_MOUNT}/boots:/boots
     restart: unless-stopped
-  fdo_proxy_registry:
-    image: registry.freedesktop.org/mupuf/valve-infra/docker-registry
-    environment:
-      - REGISTRY_PROXY_REMOTEURL=https://registry.freedesktop.org
-    restart: always
-    volumes:
-      - ${REGISTRY_MOUNT}:/var/lib/registry
-    ports:
-      - 8002:5000/tcp
   local_registry:
     image: registry.freedesktop.org/mupuf/valve-infra/docker-registry
     restart: always

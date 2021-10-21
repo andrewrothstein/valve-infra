@@ -1,0 +1,26 @@
+---
+- name: fdo proxy registry container service
+  ansible.builtin.include_role:
+    name: "systemd_podman"
+  vars:
+    container_name: "fdo-proxy-registry"
+    container_service_target: infra.target
+    container_image: registry.freedesktop.org/mupuf/valve-infra/docker-registry
+    container_env_files:
+      - "{{ prod_env_file }}"
+      - "{{ config_env_file }}"
+    container_ports:
+      - "{{ fdo_proxy_registry_port }}:5000/tcp"
+    container_volumes:
+      - "{{ registry_mount }}:/var/lib/registry"
+
+- name: configuring env
+  become: true
+  ansible.builtin.blockinfile:
+    create: true
+    path: "{{ prod_env_file }}"
+    mode: '0644'
+    marker: "# {mark} ANSIBLE MANAGED BLOCK {{ role_name }}"
+    block: |
+      REGISTRY_PROXY_REMOTEURL=https://registry.freedesktop.org
+      FDO_PROXY_REGISTRY=http://{{ private_interface_ip }}:{{ fdo_proxy_registry_port }}
