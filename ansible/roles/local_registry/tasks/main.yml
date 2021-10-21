@@ -1,0 +1,23 @@
+---
+- name: local registry container service
+  ansible.builtin.include_role:
+    name: "systemd_podman"
+  vars:
+    container_name: "local-registry"
+    container_service_target: infra.target
+    container_image: registry.freedesktop.org/mupuf/valve-infra/docker-registry
+    container_env_files:
+      - "{{ prod_env_file }}"
+      - "{{ config_env_file }}"
+    container_ports:
+      - "{{ local_registry_port }}:5000/tcp"
+
+- name: configuring env
+  become: true
+  ansible.builtin.blockinfile:
+    create: true
+    path: "{{ prod_env_file }}"
+    mode: '0644'
+    marker: "# {mark} ANSIBLE MANAGED BLOCK {{ role_name }}"
+    block: |
+      LOCAL_REGISTRY=http://{{ private_interface_ip }}:{{ local_registry_port }}

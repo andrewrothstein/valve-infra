@@ -31,8 +31,3 @@ services:
       - ${PERMANENT_MOUNT}/gitlab-runner:/etc/gitlab-runner
       - ${TMP_MOUNT}/boots:/boots
     restart: unless-stopped
-  local_registry:
-    image: registry.freedesktop.org/mupuf/valve-infra/docker-registry
-    restart: always
-    ports:
-      - 8004:5000/tcp
