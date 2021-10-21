@@ -1,0 +1,62 @@
+---
+- name: minio container service
+  ansible.builtin.include_role:
+    name: "systemd_podman"
+  vars:
+    container_name: "minio"
+    container_service_target: infra.target
+    container_image: registry.freedesktop.org/mupuf/valve-infra/minio
+    container_volumes:
+      - "{{ tmp_mount }}/minio:/data"
+    container_host_network: true
+    container_env_files:
+      - "{{ prod_env_file }}"
+      - "{{ config_env_file }}"
+    container_cmd: "server /data"
+
+- name: configuring minio user/passwords
+  become: true
+  ansible.builtin.blockinfile:
+    create: true
+    path: "{{ prod_env_file }}"
+    mode: '0644'
+    marker: "# {mark} ANSIBLE MANAGED BLOCK {{ role_name }}"
+    block: |
+      MINIO_ROOT_USER={{ minio_root_user }}
+      VALVETRACES_MINIO_PASSWORD={{ valvetraces_minio_password }}
+      MINIO_ROOT_PASSWORD={{ minio_root_password }}
+
+# needed by minio_configure
+- name: Installing minio-client
+  become: true
+  pacman:
+    state: present
+    name:
+      - minio-client
+
+- name: Installing minio_configure script
+  become: true
+  ansible.builtin.template:
+    src: 'minio_configure.sh.j2'
+    dest: '/usr/local/bin/minio_configure'
+    mode: 0755
+    owner: root
+  # config changes are applied to minio by this service
+  notify: "Restart minio_configure"
+
+- name: Installing minio_configure systemd.service file
+  become: true
+  ansible.builtin.template:
+    src: 'minio_configure.service.j2'
+    dest: '/etc/systemd/system/minio_configure.service'
+    mode: 0644
+
+- name: Enable minio_configure service
+  become: true
+  ansible.builtin.systemd:
+    name: 'minio_configure'
+    enabled: true
+
+- name: Get status of system services
+  ansible.builtin.service_facts:
+  register: services_state

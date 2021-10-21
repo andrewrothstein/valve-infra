@@ -7,6 +7,11 @@
     config_env_file: "{{ perm_mount }}/config.env"
 
     salad_port: 8005
+    minio_port: 9000
+
+    minio_root_user: minioadmin
+    dut_b2c_version: "boot2container_2021_09_09.cpio.xz"
+    dut_kernel_version: "default_kernel_2021_09_09"
 
     whitelisted_domains:
       # Arch Linux / system admin
@@ -53,3 +58,4 @@
           - multi-user.target
         target_wantedby: multi-user.target
     - salad
+    - minio

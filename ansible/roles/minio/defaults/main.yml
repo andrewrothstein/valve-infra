@@ -1,0 +1,5 @@
+---
+valvetraces_minio_password: ""
+minio_root_password: ""
+minio_root_user: "minioadmin"
+minio_port: 9000

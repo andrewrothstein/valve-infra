@@ -1,0 +1,44 @@
+#!/bin/sh
+
+set -eu
+
+if ! hash mcli; then
+	echo "mcli not found, and is required"
+	exit 1
+fi
+
+upload_to_minio_if_missing() {
+    url="$1"
+    path="minio$2"
+
+    mcli stat "$path" > /dev/null 2> /dev/null || {
+        local_file=$(mktemp)
+        curl -Lo "$local_file" "$url"
+        mcli cp "$local_file" "$path"
+        rm "$local_file"
+    }
+}
+
+mcli alias set minio http://{{ private_interface_ip }}:9000 "$MINIO_ROOT_USER" "$MINIO_ROOT_PASSWORD"
+
+mcli mb --ignore-existing minio/jobs minio/boot/
+mcli policy set public minio/boot
+mcli policy set public minio/jobs
+
+# Create a valvetraces bucket and user
+mcli mb --ignore-existing minio/valvetraces
+mcli admin user add minio valvetraces "$VALVETRACES_MINIO_PASSWORD"
+mcli admin policy add minio u_valvetraces {{ playbook_dir }}/../minio_policies/valvetraces.json
+mcli admin policy set minio u_valvetraces user=valvetraces
+
+# Create a valvetraces-ro group, and add the valvetraces user to it
+mcli admin group add minio valvetraces-ro valvetraces
+mcli admin policy add minio g_valvetraces-ro {{ playbook_dir }}/../minio_policies/valvetraces-ro.json
+mcli admin policy set minio g_valvetraces-ro group=valvetraces-ro
+
+# Download a default kernel and initramfs for our infra
+upload_to_minio_if_missing https://gitlab.freedesktop.org/mupuf/boot2container/-/releases/v0.9.2/downloads/initramfs.linux_amd64.cpio.xz /boot/"{{ dut_b2c_version }}"
+mcli cp minio/boot/"{{ dut_b2c_version }}" minio/boot/default_boot2container.cpio.xz
+
+upload_to_minio_if_missing https://gitlab.freedesktop.org/mupuf/valve-infra/-/jobs/13477001/artifacts/raw/linux/v5.14-for-valve-ci /boot/"{{ dut_kernel_version }}"
+mcli cp minio/boot/"{{ dut_kernel_version }}" minio/boot/default_kernel
