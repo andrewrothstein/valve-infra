@@ -18,6 +18,10 @@
     dut_b2c_version: "boot2container_2021_09_09.cpio.xz"
     dut_kernel_version: "default_kernel_2021_09_09"
 
+    sergent_hartman_boot_count: 100
+    sergent_hartman_qualifying_boot_count: 100
+    sergent_hartman_registration_retrial_delay: 120
+
     whitelisted_domains:
       # Arch Linux / system admin
       - ntp.org
@@ -68,3 +72,4 @@
     - gitlab_runner
     - fdo_proxy_registry
     - local_registry
+    - executor
