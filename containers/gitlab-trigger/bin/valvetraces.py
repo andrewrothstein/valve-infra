@@ -1217,6 +1217,23 @@ Debug information:
 
     @timeit
     def generate_junit_result(self):
+        def strip_control_characters(input):
+            if input:
+                # unicode invalid characters
+                RE_XML_ILLEGAL = u'([\u0000-\u0008\u000b-\u000c\u000e-\u001f\ufffe-\uffff])' + \
+                                 u'|' + \
+                                 u'([%s-%s][^%s-%s])|([^%s-%s][%s-%s])|([%s-%s]$)|(^[%s-%s])' % \
+                                 (chr(0xd800),chr(0xdbff),chr(0xdc00),chr(0xdfff),
+                                  chr(0xd800),chr(0xdbff),chr(0xdc00),chr(0xdfff),
+                                  chr(0xd800),chr(0xdbff),chr(0xdc00),chr(0xdfff),
+                                 )
+                input = re.sub(RE_XML_ILLEGAL, "", input)
+
+                # ascii control characters
+                input = re.sub(r"[\x01-\x09\x11-\x1F\x7F]", "", input)
+
+            return input
+
         total_time = sum([te.runtime for te in self.trace_execs], start=datetime.timedelta())
 
         tree = ET.ElementTree("tree")
@@ -1246,7 +1263,7 @@ Debug information:
                                     time=str(trace_exec.runtime.total_seconds()))
 
             if not trace_exec.had_successful_execution:
-                ET.SubElement(ts_exec, "system-out").text = trace_exec.logs
+                ET.SubElement(ts_exec, "system-out").text = strip_control_characters(trace_exec.logs)
 
                 if trace_exec.retcode is None:
                     msg = "ERROR: The trace execution failed to complete."
