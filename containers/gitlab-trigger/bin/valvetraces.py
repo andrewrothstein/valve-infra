@@ -672,7 +672,12 @@ class TraceExecFrameOutput(SanitizedFieldsMixin):
     @property
     def acceptability(self):
         if self.is_acceptable is None:
-            if self.deduped_frame_output.found_in_release_code_run:
+            if self.deduped_frame_output is None:
+                # This should not be able to happen :o
+                msg = f"BUG: Could not find deduped frame output id {self.deduped_frame_output_id} in trace_frame_stats_for_gpu (pciid={self.gpu.pciid}) for the trace frame id {self.id}"
+                print(msg)
+                return (False, msg)
+            elif self.deduped_frame_output.found_in_release_code_run:
                 return (True, "The frame has not been assessed yet, but is found in already-released code")
             elif not self.trace_has_stable_output_for_gpu:
                 return (True, "The frame has never been seen before, but the output of the trace on this GPU is unstable: Ignore!")
