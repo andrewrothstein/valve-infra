@@ -1208,7 +1208,6 @@ Debug information:
                 except Exception:
                     traceback.print_exc()
                     print(" - Ignoring this trace execution")
-                    sys.exit(1)
 
             print(f" - Done uploading the report")
 
