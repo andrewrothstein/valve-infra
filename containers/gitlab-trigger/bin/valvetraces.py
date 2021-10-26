@@ -1128,7 +1128,7 @@ Debug information:
         is_known_project = os.environ.get("CI_PROJECT_PATH") in ["tanty/mesa-valve-ci",
                                                                  "mesa/mesa"]  # TODO: Add more projects here as we grow
         is_official_branch = re.match(r"(staging/)?\d{2}\.\d|main",
-                                      os.environ.get("CI_COMMIT_BRANCH", ""))
+                                      os.environ.get("CI_COMMIT_BRANCH", "")) is not None
 
         return not is_merge_request and is_known_project and is_official_branch
 
