@@ -4,6 +4,8 @@ try:
     from functools import cached_property
 except Exception:
     from backports.cached_property import cached_property
+from requests.packages.urllib3.util.retry import Retry
+from requests.adapters import HTTPAdapter
 from collections import defaultdict
 from dataclasses import dataclass
 from multiprocessing import Pool
@@ -296,18 +298,45 @@ class Client:
 
         return self._login_cookie
 
+    @property
+    def requests_retry_session(self, retries=3, backoff_factor=0.3, status_forcelist=(500, 502, 504), session=None):
+        session = session or requests.Session()
+        retry = Retry(
+            total=retries,
+            read=retries,
+            connect=retries,
+            backoff_factor=backoff_factor,
+            status_forcelist=status_forcelist,
+        )
+        adapter = HTTPAdapter(max_retries=retry)
+        session.mount('http://', adapter)
+        session.mount('https://', adapter)
+        return session
+
     def _get(self, path):
         headers = {'Content-type': 'application/json'}
-        r = requests.get(f"{self.url}{path}", allow_redirects=False, cookies=self.login(), headers=headers)
+        r = self.requests_retry_session.get(f"{self.url}{path}",
+                                            allow_redirects=False,
+                                            cookies=self.login(),
+                                            headers=headers)
+
         r.raise_for_status()
 
         return r.json()
 
     def _post(self, path, params):
-        r = requests.post(f"{self.url}{path}", allow_redirects=False, cookies=self.login(), json=params)
+        err_msg = f"ERROR while executing the POST query to {self.url}{path} with the following parameters: {params}"
+        try:
+            r = self.requests_retry_session.post(f"{self.url}{path}",
+                                                 allow_redirects=False,
+                                                 cookies=self.login(),
+                                                 json=params)
+        except Exception as e:
+            print(err_msg)
+            raise e
 
         if r.status_code == 500:
-            print(f"Got an error: url={self.url}{path}, params={params}, ret={r.text}")
+            print(f"{err_msg}\nReturn value: {r.text}")
         elif r.status_code == 409:
             # TODO: Add an option to ignore some errors
             return r.json()
