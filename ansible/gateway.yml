@@ -52,12 +52,13 @@
       - tedata.net
 
   roles:
-    - base
-    - firewall
-    - ntpd
-    - dnsmasq
-    - dashboard
-    - autologin
+    - {role: base,                tags: base}
+    - {role: firewall,            tags: firewall}
+    - {role: ntpd,                tags: ntpd}
+    - {role: sshd,                tags: sshd}
+    - {role: dnsmasq,             tags: dnsmasq}
+    - {role: dashboard,           tags: dashboard}
+    - {role: autologin,           tags: autologin}
     - role: systemd_target
       tags: systemd_target
       vars:
@@ -66,10 +67,10 @@
         target_after:
           - multi-user.target
         target_wantedby: multi-user.target
-    - salad
-    - minio
-    - mars
-    - gitlab_runner
-    - fdo_proxy_registry
-    - local_registry
-    - executor
+    - {role: salad,               tags: salad}
+    - {role: minio,               tags: minio}
+    - {role: mars,                tags: mars}
+    - {role: gitlab_runner,       tags: gitlab_runner}
+    - {role: fdo_proxy_registry,  tags: fdo_proxy_registry}
+    - {role: local_registry,      tags: local_registry}
+    - {role: executor,            tags: executor}
