@@ -1421,6 +1421,10 @@ def report_results(traces_client, args):
 
     report = Report(client=traces_client, run_name=args.run_name,
                     dependencies=dependencies, result_folder=args.results)
+
+    job_type = "post-merge" if report.is_postmerge else "pre-merge"
+    print(f"Generating a {job_type} report")
+
     report.upload()
     report.generate_junit_result()
 
