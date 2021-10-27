@@ -652,10 +652,16 @@ class DedupedFrameOutput(SanitizedFieldsMixin):
         self.outputs_count_for_gpu = gpus[0].get('frame_outputs_count', 0)
 
 
+# Forward declaration for the dataclass. The real deal is lower
+class TraceExec:
+    pass
+
+
 @dataclass
 class TraceExecFrameOutput(SanitizedFieldsMixin):
     client: Client
     gpu: GPU
+    trace_exec: TraceExec
     trace_frame_id: str
 
     id: int
@@ -703,7 +709,10 @@ class TraceExecFrameOutput(SanitizedFieldsMixin):
         if self.is_acceptable is None:
             if self.deduped_frame_output is None:
                 # This should not be able to happen :o
-                msg = f"BUG: Could not find deduped frame output id {self.deduped_frame_output_id} in trace_frame_stats_for_gpu (pciid={self.gpu.pciid}) for the trace frame id {self.id}"
+                msg = f"""BUG: Could not find deduped frame output id {self.deduped_frame_output_id} in trace_frame_stats_for_gpu (pciid={self.gpu.pciid}) for the trace frame id {self.id}.
+
+Constructed using the query parameters {self.trace_exec.query_params}, and the following return value {self.trace_exec.query_result}."""
+
                 print(msg)
                 return (False, msg)
             elif self.deduped_frame_output.found_in_release_code_run:
@@ -746,7 +755,9 @@ class Job(SanitizedFieldsMixin):
         if 'trace_frames' not in r:
             r['trace_frames'] = {}
 
-        return TraceExec.from_api(r, client=self.client)
+        return TraceExec.from_api(r, client=self.client,
+                                  query_params=params,
+                                  query_result=r)
 
 
 @dataclass
@@ -761,6 +772,10 @@ class TraceExec(SanitizedFieldsMixin):
     execution_time: float = 0.0
     status: str = "MISSING"
 
+    # Debug information
+    query_params: dict = None
+    query_result: dict = None
+
     def __post_init__(self, job, trace, gpu, trace_frames):
         self.job = Job.from_api(job, client=self.client)
         self.trace = Trace.from_api(trace)
@@ -769,8 +784,9 @@ class TraceExec(SanitizedFieldsMixin):
         self.trace_frames = dict()
         for trace_frame_id, frame_output in trace_frames.items():
             self.trace_frames[trace_frame_id] = TraceExecFrameOutput.from_api(frame_output,
-                                                                               gpu=self.gpu, client=self.client,
-                                                                               trace_frame_id=trace_frame_id)
+                                                                              trace_exec=self,
+                                                                              gpu=self.gpu, client=self.client,
+                                                                              trace_frame_id=trace_frame_id)
 
 
 def job_id():
