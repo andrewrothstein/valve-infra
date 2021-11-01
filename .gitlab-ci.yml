@@ -147,13 +147,3 @@ salad:
 ipxe-boot-server:
   extends:
     - .python_package base
-
-valve-infra:
-  extends:
-    - .container base
-  rules:
-    - changes:
-      - Dockerfile
-      - .gitlab-ci.yml
-  script:
-    - docker build -t $IMAGE_NAME -f containers/valve-infra/Dockerfile containers/valve-infra
