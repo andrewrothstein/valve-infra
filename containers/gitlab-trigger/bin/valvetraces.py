@@ -228,6 +228,8 @@ class Trace(SanitizedFieldsMixin):
     metadata: dict = dataclasses.field(default_factory=dict)
     obsolete: bool = False
     frames_to_capture: dict = dataclasses.field(default_factory=dict)
+    graphics_api: str = None
+    tracing_tool: str = None
     url: str = None
     file_size: int = 0
 
