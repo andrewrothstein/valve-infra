@@ -282,6 +282,49 @@ class Trace(SanitizedFieldsMixin):
         else:
             raise ValueError(f"Unknown tracing tool '{self.tracing_tool}'")
 
+    def exec_script(self, trace_file_path, trace_job_path):
+        rendered_frame_ids = ','.join([str(frame_id) for frame_id in self.frames_to_capture])
+
+        if self.tracing_tool == "apitrace":
+            cmd = "apitrace" if self.graphics_api == "OpenGL" else "apitrace.exe"
+
+            cmdline = f'{cmd} replay --headless --snapshot={rendered_frame_ids} --snapshot-prefix="$D/" "{trace_file_path}"'
+        elif self.tracing_tool == "gfxrecon":
+            cmdline = f'gfxrecon-replay --screenshot-prefix "$D/" --screenshots {rendered_frame_ids} -m rebind "{trace_file_path}"'
+        else:
+            print("WARNING: Can't generate a cmdline for the tracing tool {self.tracing_tool} / {self.graphics_api}")
+            cmdline = "/bin/false"
+
+        return f"""#!/bin/sh
+set -eu
+
+log() {{
+echo "INFO $(date -u +'%F %H:%M:%S') $@"
+}}
+
+D=$(dirname "$(readlink -f "$0")")
+
+if [ -e "$D/.started" ]; then
+log "Already attempted to run {self.filename}"
+exit 0
+fi
+
+date -u +'%F %H:%M:%S' > "$D/.started"
+
+log "Replaying frames ({rendered_frame_ids}) from {self.filename} ..."
+set -x
+{cmdline} > "$D/exec.log" 2>&1
+retval=$?
+{{set +x}} 2> /dev/null
+
+log "Finished replay for {self.filename}"
+
+cat <<EOF  > "$D/.done"
+$(date -u +'%F %H:%M:%S')
+$retval
+EOF
+"""
+
     def __str__(self):
         return f"<Trace {self.id}, {self.filename}, size {self.human_size}>"
 
@@ -848,78 +891,6 @@ def str_to_safe_filename(s):
     return "".join(i for i in s if i not in r"\/:*?<>| '")
 
 
-def generate_job_results_folder_name():
-    if 'CI_JOB_NAME' in os.environ:
-        # Gitlab job IDs can be rather exotic, be safe.
-        ci_job_name_safe = str_to_safe_filename(os.environ["CI_JOB_NAME"])
-        return f'{ci_job_name_safe}-results'
-    else:
-        return 'results'
-
-
-def write_apitrace_commands(trace, exec_filename, dxgi=False):
-    apitrace = 'apitrace.exe' if dxgi else 'apitrace'
-    trace_filename = os.path.join(args.traces_db, trace_name(trace))
-    trace_stem = Path(trace_filename).stem
-    rendered_frame_ids = ','.join([str(frame_id) for frame_id in trace.frames_to_capture])
-    with open(exec_filename, 'w') as f:
-        f.write(f"""#!/bin/sh
-set -eu
-
-log() {{
-echo "INFO $(date -u +'%F %H:%M:%S') $@"
-}}
-
-D=$(dirname "$(readlink -f "$0")")
-
-if [ -e "$D/.started" ]; then
-log "Already attempted to run {trace_filename}"
-exit 0
-fi
-
-date -u +'%F %H:%M:%S' > "$D/.started"
-
-log "Replaying frames ({rendered_frame_ids}) from {trace_filename} ..."
-set -x
-{apitrace} replay \
---headless \
---snapshot={rendered_frame_ids} \
---snapshot-prefix="$D"/ \
-"{trace_filename}" > "$D/{trace_stem}".log 2>&1
-retval=$?
-set +x
-
-log "Finished replay for {trace_filename}"
-
-cat <<EOF  > "$D/.done"
-$(date -u +'%F %H:%M:%S')
-$retval
-EOF
-""")
-
-
-def write_gfxr_commands(trace, filename):
-    with open(filename, 'w') as f:
-        f.write(f"""#!/bin/sh
-D=$(dirname "$(readlink -f "$0")")
-
-echo "TODO: Dumping {trace_name(trace)} in $D"
-""")
-
-
-def generate_job_commands(trace, path):
-    exec_filename = os.path.join(path, 'exec.sh')
-    trace_type = Path(trace.filename).suffix
-    # apitrace.exe should handle .trace files just fine as well
-    # the traces are not all named correctly on the server, some .trace files are actually dxgi traces
-    if trace_type == '.trace-dxgi' or trace_type == '.trace':
-        write_apitrace_commands(trace, exec_filename, dxgi=True)
-    elif trace_type == '.gfxr':
-        write_gfxr_commands(trace, exec_filename)
-    else:
-        print(f'ERROR: Unknown trace type {trace_type}')
-
-
 class GfxInfo:
     def __init__(self, fields):
         self.machine_tags = fields.get('tags', {})
@@ -1386,6 +1357,15 @@ def traces_under_gb(traces_list, gb: float):
     return selected_traces
 
 
+def generate_job_results_folder_name():
+    if 'CI_JOB_NAME' in os.environ:
+        # Gitlab job IDs can be rather exotic, be safe.
+        ci_job_name_safe = str_to_safe_filename(os.environ["CI_JOB_NAME"])
+        return f'{ci_job_name_safe}-results'
+    else:
+        return 'results'
+
+
 def run_job(traces_client, args):
     if args.access_token is None:
         print("ERROR: No access token given to the client")
@@ -1407,16 +1387,24 @@ def run_job(traces_client, args):
     if not args.skip_trace_download:
         cache_all_traces_to_local_minio(minio_client, args.bucket, traces_to_cache)
 
+    # Create the root folder for the run
     job_folder_path = generate_job_results_folder_name()
     shutil.rmtree(job_folder_path, ignore_errors=True)
     ensure_dir(job_folder_path)
+
     # Debugging aid to know which job ID created this job folder.
     open(os.path.join(job_folder_path, f'{job_id()}.job'), 'w').close()
+
+    # Create the execution scripts for every trace
     for trace in traces_to_cache:
+        trace_file_path = os.path.join(args.traces_db, trace_name(trace))
+
         object_name = Path(trace_name(trace)).stem
         trace_job_path = os.path.join(job_folder_path, object_name)
         ensure_dir(trace_job_path)
-        generate_job_commands(trace, trace_job_path)
+
+        with open(f"{trace_job_path}/exec.sh", 'w') as f:
+            f.write(trace.exec_script(trace_file_path, trace_job_path))
 
     if not args.generate_job_folder_only:
         if not args.local_run:
@@ -1436,8 +1424,10 @@ def run_job(traces_client, args):
             cmd = f"find {job_folder_path} -name exec.sh -exec sh '{{}}' ';'"
             os.system(cmd)
 
-    args.results = job_folder_path
-    return report_results(traces_client, args)
+        args.results = job_folder_path
+        return report_results(traces_client, args)
+
+    return 0
 
 
 def report_results(traces_client, args):
