@@ -315,7 +315,7 @@ log "Replaying frames ({rendered_frame_ids}) from {self.filename} ..."
 set -x
 {cmdline} > "$D/exec.log" 2>&1
 retval=$?
-{{set +x}} 2> /dev/null
+set +x
 
 log "Finished replay for {self.filename}"
 
