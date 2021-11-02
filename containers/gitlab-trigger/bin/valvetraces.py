@@ -274,6 +274,14 @@ class Trace(SanitizedFieldsMixin):
     def human_size(self):
         return naturalsize(self.file_size)
 
+    def filename_to_frame_id(self, filename):
+        if self.tracing_tool == "apitrace":
+            return str(int(filename))
+        elif self.tracing_tool == "gfxrecon":
+            return str(int(filename.split('_')[-1]))
+        else:
+            raise ValueError(f"Unknown tracing tool '{self.tracing_tool}'")
+
     def __str__(self):
         return f"<Trace {self.id}, {self.filename}, size {self.human_size}>"
 
@@ -994,7 +1002,8 @@ class Report:
                     self.logs_path = entry.path
                 elif entry.name.endswith('.png') or entry.name.endswith('.bmp'):
                     try:
-                        frame_id = str(int(Path(entry.name).stem))
+                        filename = Path(entry.name).stem
+                        frame_id = trace.filename_to_frame_id(filename)
                         self.found_frames[frame_id] = entry.path
                     except Exception as e:
                         print(e)
