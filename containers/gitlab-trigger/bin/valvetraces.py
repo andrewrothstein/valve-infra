@@ -296,7 +296,7 @@ class Trace(SanitizedFieldsMixin):
             cmdline = "/bin/false"
 
         return f"""#!/bin/sh
-set -eu
+set -u
 
 log() {{
 echo "INFO $(date -u +'%F %H:%M:%S') $@"
