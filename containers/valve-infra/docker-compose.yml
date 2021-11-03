@@ -31,12 +31,6 @@ services:
       - ${PERMANENT_MOUNT}/gitlab-runner:/etc/gitlab-runner
       - ${TMP_MOUNT}/boots:/boots
     restart: unless-stopped
-  gitlab-runner:
-    image: registry.freedesktop.org/mupuf/valve-infra/gitlab-runner:alpine-v13.12.0
-    volumes:
-      - ${PERMANENT_MOUNT}/gitlab-runner:/etc/gitlab-runner
-      - /var/run/docker.sock:/var/run/docker.sock
-      - ${PWD}/config/gitlab_runner_seccomp.json:/usr/share/containers/seccomp.json
   fdo_proxy_registry:
     image: registry.freedesktop.org/mupuf/valve-infra/docker-registry
     environment:
