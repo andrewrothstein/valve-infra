@@ -1,18 +1,6 @@
 version: "3.3"
 
 services:
-  mars:
-    image: registry.freedesktop.org/mupuf/mars
-    environment:
-      - MARS_HOST=10.42.0.1
-      - MARS_DEBUG=True
-      - MARS_SECRET_KEY=$MARS_SECRET_KEY
-      - MARS_SQLITE_PATH=${PERMANENT_MOUNT}/mars.sqlite3
-      - FARM_NAME=$FARM_NAME
-    ports:
-      - "8000:80/tcp"
-    volumes:
-      - /mnt:/mnt
   executor:
     privileged: true
     network_mode: host

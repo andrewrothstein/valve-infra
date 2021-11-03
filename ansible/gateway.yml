@@ -6,6 +6,7 @@
     prod_env_file: "{{ perm_mount }}/infra.env"
     config_env_file: "{{ perm_mount }}/config.env"
 
+    mars_port: 8000
     salad_port: 8005
     minio_port: 9000
 
@@ -59,3 +60,4 @@
         target_wantedby: multi-user.target
     - salad
     - minio
+    - mars

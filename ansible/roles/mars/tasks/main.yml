@@ -1,0 +1,33 @@
+---
+- name: mars container service
+  ansible.builtin.include_role:
+    name: "systemd_podman"
+  vars:
+    container_name: "mars"
+    container_service_target: infra.target
+    container_image: registry.freedesktop.org/mupuf/mars
+    container_env_files:
+      - "{{ prod_env_file }}"
+      - "{{ config_env_file }}"
+    container_ports:
+      - "{{ mars_port }}:80/tcp"
+    container_volumes:
+      - "/mnt:/mnt"
+
+- name: configuring env
+  become: true
+  ansible.builtin.blockinfile:
+    create: true
+    path: "{{ prod_env_file }}"
+    mode: '0644'
+    marker: "# {mark} ANSIBLE MANAGED BLOCK {{ role_name }}"
+    block: |
+      MARS_HOST={{ private_interface_ip }}
+      MARS_DEBUG=True
+      MARS_SQLITE_PATH={{ perm_mount }}/mars.sqlite3
+      MARS_URL=http://{{ private_interface_ip }}:{{ mars_port }}
+
+- name: Setting mars key in env
+  ansible.builtin.lineinfile:
+    path: "{{ prod_env_file }}"
+    line: 'MARS_SECRET_KEY={{ mars_secret_key }}'
