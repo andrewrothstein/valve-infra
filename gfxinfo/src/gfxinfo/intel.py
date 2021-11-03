@@ -9,7 +9,7 @@ SUPPORTED_GPUS = {
 
 class IntelGPU:
     @classmethod
-    def from_pciids(cls, pci_vendor_id, pci_device_id, cache_directory):
+    def from_pciid(cls, pci_vendor_id, pci_device_id, cache_directory):
         if pci_vendor_id != 0x8086:
             return None
         if md := SUPPORTED_GPUS.get(pci_device_id):

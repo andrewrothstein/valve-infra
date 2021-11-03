@@ -17,5 +17,5 @@ def find_gpu(cache_directory='/tmp'):
     """For now we only support single-gpu DUTs"""
     for pci_device in pci_devices():
         for gpu in SUPPORTED_GPUS:
-            if gpu := gpu.from_pciids(*pci_device, cache_directory):
+            if gpu := gpu.from_pciid(*pci_device, cache_directory):
                 return gpu

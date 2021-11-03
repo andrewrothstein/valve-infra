@@ -73,7 +73,7 @@ def parse_pci_devices(cache_directory):
 
 class AMDGPU:
     @classmethod
-    def from_pciids(cls, pci_vendor_id, pci_device_id, cache_directory):
+    def from_pciid(cls, pci_vendor_id, pci_device_id, cache_directory):
         if pci_vendor_id != 0x1002:
             return None
         supported_devices = parse_pci_devices(cache_directory)
