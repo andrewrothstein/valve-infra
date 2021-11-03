@@ -25,7 +25,7 @@ def download_supported_pci_devices(cache_directory):
         pass
 
     url = "https://gitlab.freedesktop.org/agd5f/linux/-/raw/amd-staging-drm-next/drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c"
-    r = requests.get(url)
+    r = requests.get(url, timeout=5)
     r.raise_for_status()
 
     drv = r.text
