@@ -1,0 +1,25 @@
+---
+- name: salad container service
+  ansible.builtin.include_role:
+    name: "systemd_podman"
+  vars:
+    container_name: "salad"
+    container_service_target: infra.target
+    container_privileged: true
+    container_image: registry.freedesktop.org/mupuf/valve-infra/salad
+    container_volumes:
+      - "/run/salad_socks:/run/salad_socks"
+    container_host_network: true
+    container_env_files:
+      - "{{ prod_env_file }}"
+      - "{{ config_env_file }}"
+
+- name: configuring salad env
+  become: true
+  ansible.builtin.blockinfile:
+    create: true
+    path: "{{ prod_env_file }}"
+    mode: '0644'
+    marker: "# {mark} ANSIBLE MANAGED BLOCK {{ role_name }}"
+    block: |
+      SALAD_PORT={{ salad_port }}

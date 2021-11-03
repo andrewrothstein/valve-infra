@@ -5,6 +5,9 @@
     perm_mount: /mnt/permanent
     prod_env_file: "{{ perm_mount }}/infra.env"
     config_env_file: "{{ perm_mount }}/config.env"
+
+    salad_port: 8005
+
     whitelisted_domains:
       # Arch Linux / system admin
       - ntp.org
@@ -49,3 +52,4 @@
         target_after:
           - multi-user.target
         target_wantedby: multi-user.target
+    - salad

@@ -49,15 +49,6 @@ services:
       - ${PERMANENT_MOUNT}/gitlab-runner:/etc/gitlab-runner
       - /var/run/docker.sock:/var/run/docker.sock
       - ${PWD}/config/gitlab_runner_seccomp.json:/usr/share/containers/seccomp.json
-  salad:
-    privileged: true
-    network_mode: host
-    image: registry.freedesktop.org/mupuf/valve-infra/salad
-    environment:
-     - SALAD_PORT=8005
-    restart: unless-stopped
-    volumes:
-      - /run/salad_socks:/run/salad_socks
   fdo_proxy_registry:
     image: registry.freedesktop.org/mupuf/valve-infra/docker-registry
     environment:
