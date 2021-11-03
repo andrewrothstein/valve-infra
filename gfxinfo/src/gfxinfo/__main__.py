@@ -5,7 +5,10 @@ import json
 
 def main():
     if gpu := find_gpu('/tmp'):
-        gfxinfo = {'tags': list(gpu.tags())}
+        gfxinfo = {
+            'tags': list(gpu.tags()),
+            'structured_tags': gpu.structured_tags,
+        }
         if info := VulkanInfo.construct():
             gfxinfo["vk:vram_size_gib"] = "%.2f" % info.VRAM_heap.GiB_size
             gfxinfo["vk:gtt_size_gib"] = "%.2f" % info.GTT_heap.GiB_size

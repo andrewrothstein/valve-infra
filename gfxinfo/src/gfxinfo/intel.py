@@ -25,6 +25,10 @@ class IntelGPU:
     def tags(self):
         return self._meta['tags']
 
+    @property
+    def structured_tags(self):
+        return {"type": "intelgpu"}
+
     def __str__(self):
         from pprint import pformat
         return 'IntelGPU:\n%s' % pformat(self._meta)

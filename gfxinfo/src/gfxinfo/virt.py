@@ -30,6 +30,10 @@ class VirtGPU:
     def tags(self):
         return self._meta['tags']
 
+    @property
+    def structured_tags(self):
+        return {"type": "virtio"}
+
     def __str__(self):
         from pprint import pformat
         return 'VirtGPU:\n%s' % pformat(self._meta)

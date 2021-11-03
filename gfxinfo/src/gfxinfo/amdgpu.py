@@ -286,6 +286,19 @@ class AMDGPU:
         return tags
 
     @property
+    def structured_tags(self):
+        return {
+            "type": "amdgpu",
+            "pciid": self.pciid,
+            "family": self.family,
+            "codename": self.codename,
+            "architecture": self.architecture,
+            "gfxversion": self.gfx_version,
+            "APU": self.is_APU,
+            "EXP_HW_SUPPORT": self.has_experimental_support
+        }
+
+    @property
     def pciid(self):
         return f"{hex(self.vendor_id)}:{hex(self.product_id)}"
 
