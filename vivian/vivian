@@ -90,23 +90,17 @@ while test -n "$1"; do
 	--boot-mode=*)
             mode="${1#--boot-mode=}"
 	    if [ "$mode" = "uefi" ]; then
-		if [ ! -e OVMF_VARS.fd ]; then
-		    echo "ERROR: You must add some OVMF vars"
-		    echo "Perhaps cp /usr/share/edk2-ovmf/x64/OVMF_VARS.fd ."
-		    exit 1
-		fi
-
-		ovmf_dirs=("/usr/share/edk2-ovmf/x64" "/usr/share/OVMF")
-		ovmf_code=
-		for d in ${ovmf_dirs[@]}; do
-			[ -e "$d/OVMF_CODE.fd" ] && ovmf_code="$d/OVMF_CODE.fd"
+		__ovmf_dirs=("/usr/share/edk2-ovmf/x64" "/usr/share/OVMF")
+		__ovmf=
+		for d in ${__ovmf_dirs[@]}; do
+			[ -e "$d/OVMF.fd" ] && __ovmf="$d/OVMF.fd"
 		done
 
-		if [ -z "$ovmf_code" ] ; then
-		    echo "ERROR: OVMF code not found. Probably missing the edk2 ovmf packages."
+		if [ -z "$__ovmf" ] ; then
+		    echo "ERROR: OVMF not found. Probably missing the edk2 ovmf packages."
 		    exit 1
 		fi
-		__boot_mode="-drive if=pflash,format=raw,unit=0,file=$ovmf_code,readonly=on -drive if=pflash,format=raw,unit=1,file=OVMF_VARS.fd -global driver=cfi.pflash01,property=secure,value=off"
+		__boot_mode="-drive if=pflash,format=raw,unit=0,file=$__ovmf,readonly=on -global driver=cfi.pflash01,property=secure,value=off"
 	    else
 		__boot_mode=""
 	    fi
