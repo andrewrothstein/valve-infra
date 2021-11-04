@@ -95,11 +95,18 @@ while test -n "$1"; do
 		    echo "Perhaps cp /usr/share/edk2-ovmf/x64/OVMF_VARS.fd ."
 		    exit 1
 		fi
-		if [ ! -e /usr/share/edk2-ovmf/x64/OVMF_CODE.fd ] ; then
+
+		ovmf_dirs=("/usr/share/edk2-ovmf/x64" "/usr/share/OVMF")
+		ovmf_code=
+		for d in ${ovmf_dirs[@]}; do
+			[ -e "$d/OVMF_CODE.fd" ] && ovmf_code="$d/OVMF_CODE.fd"
+		done
+
+		if [ -z "$ovmf_code" ] ; then
 		    echo "ERROR: OVMF code not found. Probably missing the edk2 ovmf packages."
 		    exit 1
 		fi
-		__boot_mode="-drive if=pflash,format=raw,unit=0,file=/usr/share/edk2-ovmf/x64/OVMF_CODE.fd,readonly -drive if=pflash,format=raw,unit=1,file=OVMF_VARS.fd -global driver=cfi.pflash01,property=secure,value=off"
+		__boot_mode="-drive if=pflash,format=raw,unit=0,file=$ovmf_code,readonly -drive if=pflash,format=raw,unit=1,file=OVMF_VARS.fd -global driver=cfi.pflash01,property=secure,value=off"
 	    else
 		__boot_mode=""
 	    fi
