@@ -106,7 +106,7 @@ while test -n "$1"; do
 		    echo "ERROR: OVMF code not found. Probably missing the edk2 ovmf packages."
 		    exit 1
 		fi
-		__boot_mode="-drive if=pflash,format=raw,unit=0,file=$ovmf_code,readonly -drive if=pflash,format=raw,unit=1,file=OVMF_VARS.fd -global driver=cfi.pflash01,property=secure,value=off"
+		__boot_mode="-drive if=pflash,format=raw,unit=0,file=$ovmf_code,readonly=on -drive if=pflash,format=raw,unit=1,file=OVMF_VARS.fd -global driver=cfi.pflash01,property=secure,value=off"
 	    else
 		__boot_mode=""
 	    fi
