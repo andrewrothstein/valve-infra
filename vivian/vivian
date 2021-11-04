@@ -150,7 +150,7 @@ wait_for_endpoint() {
 }
 
 start_vpdu() {
-    python vpdu.py --port "$__vpdu_port" &
+    python3 vpdu.py --port "$__vpdu_port" &
     __vpdu_pid=$!
 }
 stop_vpdu() {
