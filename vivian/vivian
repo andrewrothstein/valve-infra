@@ -250,6 +250,10 @@ test_installer() {
     [ -z "$__iso"] && echo "ERROR: --iso required" && exit 1
     [ -z "$__gateway_disk_img"] && echo "ERROR: --gateway-disk-img required" && exit 1
 
+    if [ ! -e "$__gateway_disk_img" ]; then
+        qemu-img create -f qcow2 -o size=100G "$__gateway_disk_img"
+    fi
+
     # TODO: Allow specifying differing block device topologies
     qemu-system-x86_64 \
 	-drive file="$__gateway_disk_img",if=none,id=nvm \
