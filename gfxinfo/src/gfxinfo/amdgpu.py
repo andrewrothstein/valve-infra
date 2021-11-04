@@ -275,6 +275,7 @@ class AmdGpuId:
 
 
 class AmdGpuDeviceDB:
+    # WARNING: Don't forget to update .gitlab-ci.yml when changing these URLs
     AMDGPU_DRV_URL = "https://gitlab.freedesktop.org/agd5f/linux/-/raw/amd-staging-drm-next/drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c"
     AMDGPU_DRV_FILENAME = "amdgpu_drv.c"
 

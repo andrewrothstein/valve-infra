@@ -27,6 +27,12 @@ gfxinfo:
     - .pip_package base
   variables:
     TWINE_PASSWORD: $PIP_GFXINFO_TOKEN
+  before_script:
+    - pushd gfxinfo/src/gfxinfo
+    # Impossible to re-use cache_database() as it would force us to install all the deps of gfxinfo just to access these URLs...
+    - wget "https://gitlab.freedesktop.org/agd5f/linux/-/raw/amd-staging-drm-next/drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c"
+    - wget "https://gitlab.freedesktop.org/mesa/drm/-/raw/master/data/amdgpu.ids"
+    - popd
 
 valvetraces:
   extends:
