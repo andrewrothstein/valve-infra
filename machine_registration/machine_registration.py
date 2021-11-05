@@ -19,9 +19,9 @@ import os
 NetworkConf = namedtuple("NetworkConf", ['mac', 'ipv4', 'ipv6'])
 
 
-class MachineInfo():
-    def __init__(self, cache_directory):
-        self.gpu = find_gpu(cache_directory)
+class MachineInfo:
+    def __init__(self):
+        self.gpu = find_gpu()
         if not self.gpu:
             raise Exception('No suitable GPU in this machine')
         else:
@@ -170,8 +170,6 @@ def serial_console_works():
 
 
 parser = argparse.ArgumentParser()
-parser.add_argument('-a', dest='cache_directory', default='/tmp',
-                    help='Directory into which GPU-specific PCI ID databases are cached')
 parser.add_argument('-m', '--mars_host', dest='mars_host', default="10.42.0.1",
                     help='URL to the machine registration service MaRS')
 parser.add_argument('--no-tty', dest="no_tty", action="store_true",
@@ -182,7 +180,7 @@ args = parser.parse_args()
 
 
 if args.action == "register":
-    info = MachineInfo(args.cache_directory)
+    info = MachineInfo()
     params = info.to_machine_registration_request(ignore_local_tty_device=args.no_tty)
 
     r = requests.post(f"http://{args.mars_host}/api/v1/machine/", json=params)
@@ -196,11 +194,11 @@ if args.action == "register":
     sys.exit(0 if r.status_code == 200 else 1)
 
 elif args.action == "cache":
-    cache_db(args.cache_directory)
+    cache_db()
     print("Downloaded the latest GPU device databases")
 
 elif args.action == "check":
-    info = MachineInfo(args.cache_directory)
+    info = MachineInfo()
     mac_addr = info.default_gateway_nif_addrs.mac
 
     # Get the expected configuration

@@ -260,17 +260,20 @@ class AmdGpuDeviceDB:
     AMDGPU_DRV_URL = "https://gitlab.freedesktop.org/agd5f/linux/-/raw/amd-staging-drm-next/drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c"
     AMDGPU_DRV_FILENAME = "amdgpu_drv.c"
 
-    def __init__(self, cache_directory):
-        self.cache_directory = cache_directory
-
+    def __init__(self):
         self.is_up_to_date = False
         self.amdgpu_drv_devs = dict()
 
         try:
-            amdgpu_drv = open(os.path.join(cache_directory, self.AMDGPU_DRV_FILENAME), 'r').read()
+            amdgpu_drv = open(self.amdgpu_drv_cache_path, 'r').read()
         except FileNotFoundError:
             amdgpu_drv = ""
         self._parse_amdgpu_drv(amdgpu_drv)
+
+    @property
+    def amdgpu_drv_cache_path(self):
+        package_directory = os.path.dirname(os.path.abspath(__file__))
+        return os.path.join(package_directory, self.AMDGPU_DRV_FILENAME)
 
     def _parse_amdgpu_drv(self, drv):
         self.amdgpu_drv_devs = dict()
@@ -301,7 +304,7 @@ class AmdGpuDeviceDB:
     def cache_db(self):
         r = requests.get(self.AMDGPU_DRV_URL, timeout=5)
         r.raise_for_status()
-        open(os.path.join(cache_directory, self.AMDGPU_DRV_FILENAME), "w").write(r.text)
+        open(self.amdgpu_drv_cache_path, "w").write(r.text)
 
     def update(self):
         if self.is_up_to_date:

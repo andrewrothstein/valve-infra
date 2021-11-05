@@ -1,0 +1,1 @@
+include src/gfxinfo/amdgpu_drv.c

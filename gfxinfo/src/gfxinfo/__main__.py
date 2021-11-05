@@ -4,7 +4,7 @@ import json
 
 
 def main():
-    if gpu := find_gpu('/tmp'):
+    if gpu := find_gpu():
         gfxinfo = {
             'tags': list(gpu.tags),
             'structured_tags': gpu.structured_tags,

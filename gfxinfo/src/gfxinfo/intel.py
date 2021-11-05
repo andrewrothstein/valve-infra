@@ -37,7 +37,7 @@ class IntelGPU:
 
 
 class IntelGpuDeviceDB:
-    def cache_db(self, cache_directory):
+    def cache_db(self):
         # NOTHING TO DO
         pass
 

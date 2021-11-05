@@ -13,7 +13,7 @@ RUN set -ex \
 
 # For production, cache the known PCI devices for into the container
 # to avoid external network requirements.
-RUN python3 /app/machine_registration/machine_registration.py -a /app cache
-ENTRYPOINT ["/app/machine_registration/machine_registration.py", "-a", "/app"]
+RUN python3 /app/machine_registration/machine_registration.py cache
+ENTRYPOINT ["/app/machine_registration/machine_registration.py"]
 
 CMD ["register"]
