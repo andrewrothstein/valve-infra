@@ -1,92 +1,23 @@
-from functools import cache
-from typing import Dict, Tuple
+from dataclasses import dataclass
+import dataclasses
 import os
 import re
 import requests
 import sys
-try:
-    from functools import cached_property
-except ImportError:
-    from backports.cached_property import cached_property
 
 
-def build_cache_filename(cache_directory):
-    return os.path.join(cache_directory, 'amdgpu_drv.c')
-
-
-@cache
-def download_supported_pci_devices(cache_directory):
-    cache_filename = build_cache_filename(cache_directory)
-    try:
-        with open(cache_filename, 'r') as f:
-            return f.read()
-    except FileNotFoundError:
-        # Fetch from the network below in case the cache isn't prepared.
-        pass
-
-    url = "https://gitlab.freedesktop.org/agd5f/linux/-/raw/amd-staging-drm-next/drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c"
-    r = requests.get(url, timeout=5)
-    r.raise_for_status()
-
-    drv = r.text
-    # It would be nice to cache the the results of parsing as well,
-    # but that requires more changes to the class designs, since
-    # they're not JSON serializable currently, and pickling is
-    # documented as unsafe for untrusted inputs.
-    with open(cache_filename, 'w') as f:
-        f.write(drv)
-    return drv
-
-
-def parse_pci_devices(cache_directory):
-    pci_devices: Dict[Tuple[str, str], AMDGPU] = dict()
-
-    drv = download_supported_pci_devices(cache_directory)
-
-    comp_re = re.compile(
-        r"^\s*{(?P<vendor_id>0x[\da-fA-F]+),\s*(?P<product_id>0x[\da-fA-F]+),"
-        r"\s*PCI_ANY_ID,\s*PCI_ANY_ID,\s*0,\s*0,\s*(?P<flags>.*)},\s*$")
-
-    started = False
-    for line in drv.splitlines():
-        if not started:
-            if line == "static const struct pci_device_id pciidlist[] = {":
-                started = True
-                continue
-        else:
-            if line == "	{0, 0, 0}":
-                break
-
-            if m := comp_re.match(line):
-                try:
-                    vendor_id = int(m.group('vendor_id'), 0)
-                    product_id = int(m.group('product_id'), 0)
-                    flags = m.group('flags') or None
-                    key = vendor_id << 16 | product_id
-                    pci_devices[key] = \
-                        AMDGPU(vendor_id, product_id, flags)
-                except ValueError:
-                    continue
-
-    return pci_devices
-
-
+@dataclass
 class AMDGPU:
-    @classmethod
-    def from_pciid(cls, pci_vendor_id, pci_device_id, cache_directory):
-        if pci_vendor_id != 0x1002:
-            return None
-        supported_devices = parse_pci_devices(cache_directory)
-        return supported_devices.get(pci_vendor_id << 16 | pci_device_id, None)
+    vendor_id: int
+    product_id: int
 
-    def __init__(self, vendor_id: int, product_id: int, flags: str):
-        self.vendor_id = vendor_id
-        self.product_id = product_id
-        self.amdgpu_codename = "UNKNOWN"
-        self.is_APU = False
-        self.is_Mobility = False
-        self.has_experimental_support = False
+    # Fields initialized using the flags string
+    flags: dataclasses.InitVar[str] = None
+    is_APU: bool = None
+    is_Mobility: bool = None
+    has_experimental_support: bool = None
 
+    def __post_init__(self, flags):
         for flag in [f.strip() for f in flags.split('|')]:
             if flag.startswith("CHIP_"):
                 self.amdgpu_codename = flag[5:]
@@ -308,3 +239,80 @@ class AMDGPU:
 
     def __repr__(self):
         return f"{self.__class__}({self.__dict__})"
+
+
+@dataclass
+class AmdGpuDrvDev:
+    vendor_id: int
+    product_id: int
+    flags: str
+
+    @classmethod
+    def generate_key(cls, vendor_id, product_id):
+        return vendor_id << 16 | product_id
+
+    @property
+    def key(self):
+        return self.generate_key(self.vendor_id, self.product_id)
+
+
+class AmdGpuDeviceDB:
+    AMDGPU_DRV_URL = "https://gitlab.freedesktop.org/agd5f/linux/-/raw/amd-staging-drm-next/drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c"
+    AMDGPU_DRV_FILENAME = "amdgpu_drv.c"
+
+    def __init__(self, cache_directory):
+        self.cache_directory = cache_directory
+
+        self.is_up_to_date = False
+        self.amdgpu_drv_devs = dict()
+
+        try:
+            amdgpu_drv = open(os.path.join(cache_directory, self.AMDGPU_DRV_FILENAME), 'r').read()
+        except FileNotFoundError:
+            amdgpu_drv = ""
+        self._parse_amdgpu_drv(amdgpu_drv)
+
+    def _parse_amdgpu_drv(self, drv):
+        self.amdgpu_drv_devs = dict()
+
+        comp_re = re.compile(
+            r"^\s*{(?P<vendor_id>0x[\da-fA-F]+),\s*(?P<product_id>0x[\da-fA-F]+),"
+            r"\s*PCI_ANY_ID,\s*PCI_ANY_ID,\s*0,\s*0,\s*(?P<flags>.*)},\s*$")
+
+        started = False
+        for line in drv.splitlines():
+            if not started:
+                if line == "static const struct pci_device_id pciidlist[] = {":
+                    started = True
+                    continue
+            else:
+                if line == "	{0, 0, 0}":
+                    break
+
+                if m := comp_re.match(line):
+                    try:
+                        dev = AmdGpuDrvDev(vendor_id=int(m.group('vendor_id'), 0),
+                                           product_id=int(m.group('product_id'), 0),
+                                           flags=m.group('flags') or None)
+                        self.amdgpu_drv_devs[dev.key] = dev
+                    except ValueError:
+                        continue
+
+    def cache_db(self):
+        r = requests.get(self.AMDGPU_DRV_URL, timeout=5)
+        r.raise_for_status()
+        open(os.path.join(cache_directory, self.AMDGPU_DRV_FILENAME), "w").write(r.text)
+
+    def update(self):
+        if self.is_up_to_date:
+            return
+
+        r = requests.get(self.AMDGPU_DRV_URL, timeout=5)
+        r.raise_for_status()
+
+        self.is_up_to_date = True
+        self._parse_amdgpu_drv(r.text)
+
+    def from_pciid(self, vendor_id, product_id):
+        if amdgpu_dev := self.amdgpu_drv_devs.get(AmdGpuDrvDev.generate_key(vendor_id, product_id)):
+            return AMDGPU(vendor_id=vendor_id, product_id=product_id, flags=amdgpu_dev.flags)

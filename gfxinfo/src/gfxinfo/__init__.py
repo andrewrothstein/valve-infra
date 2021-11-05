@@ -1,10 +1,10 @@
-from .amdgpu import AMDGPU
-from .intel import IntelGPU
-from .virt import VirtGPU
+from .amdgpu import AmdGpuDeviceDB
+from .intel import IntelGpuDeviceDB
+from .virt import VirtIOGpuDeviceDB
 from .gfxinfo_vulkan import VulkanInfo
 
 
-SUPPORTED_GPUS = [AMDGPU, IntelGPU, VirtGPU]
+SUPPORTED_GPU_DBS = [AmdGpuDeviceDB("/tmp"), IntelGpuDeviceDB(), VirtIOGpuDeviceDB()]
 
 
 def pci_devices():
@@ -15,7 +15,24 @@ def pci_devices():
 
 def find_gpu(cache_directory='/tmp'):
     """For now we only support single-gpu DUTs"""
-    for pci_device in pci_devices():
-        for gpu in SUPPORTED_GPUS:
-            if gpu := gpu.from_pciid(*pci_device, cache_directory):
+    devices = pci_devices()
+
+    for pci_device in devices:
+        for gpu_db in SUPPORTED_GPU_DBS:
+            if gpu := gpu_db.from_pciid(*pci_device):
                 return gpu
+
+    # We could not find the GPU in our databases, update them
+    for gpu_db in SUPPORTED_GPU_DBS:
+        gpu_db.update()
+
+    # Retry, now that we have updated our DBs
+    for pci_device in devices:
+        for gpu_db in SUPPORTED_GPU_DBS:
+            if gpu := gpu_db.from_pciid(*pci_device):
+                return gpu
+
+
+def cache_db(cache_directory='/tmp'):
+    for gpu_db in SUPPORTED_GPU_DBS:
+        gpu_db.cache_db(cache_directory)

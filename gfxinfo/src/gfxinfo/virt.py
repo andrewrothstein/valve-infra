@@ -1,40 +1,47 @@
-try:
-    from functools import cached_property
-except ImportError:
-    from backports.cached_property import cached_property
+from dataclasses import dataclass
 
 
-SUPPORTED_GPUS = {
-    0x1050: {
-        'tags': {"virtio:pciid:0x1af4:0x1050",
-                 "virtgpu:family:VIRTIO"},
-    },
-}
-
-
+@dataclass
 class VirtGPU:
-    @classmethod
-    def from_pciid(cls, pci_vendor_id, pci_device_id, cache_directory):
-        if pci_vendor_id != 0x1af4:
-            return None
-        if md := SUPPORTED_GPUS.get(pci_device_id):
-            return cls(md)
-
-    def __init__(self, meta):
-        self._meta = meta
+    vendor_id: int
+    product_id: int
 
     @property
     def base_name(self):
         return 'virtio'
 
     @property
+    def pciid(self):
+        return f"{hex(self.vendor_id)}:{hex(self.product_id)}"
+
+    @property
     def tags(self):
-        return self._meta['tags']
+        return {
+            f"virtio:pciid:{self.pciid}",
+            f"virtio:family:VIRTIO",
+        }
 
     @property
     def structured_tags(self):
-        return {"type": "virtio"}
+        return {
+            "type": "virtio"
+        }
 
     def __str__(self):
-        from pprint import pformat
-        return 'VirtGPU:\n%s' % pformat(self._meta)
+        return f"<VirtGPU: PCIID {self.pciid}>"
+
+
+class VirtIOGpuDeviceDB:
+    def cache_db(self, cache_directory):
+        # NOTHING TO DO
+        pass
+
+    def update(self):
+        # NOTHING TO DO
+        pass
+
+    def from_pciid(self, vendor_id, product_id):
+        if vendor_id != 0x1af4 and product_id != 0x1050:
+            return None
+        else:
+            return VirtGPU(vendor_id=vendor_id, product_id=product_id)

@@ -3,7 +3,7 @@
 from serial.tools import list_ports as serial_list_port
 from functools import cached_property, cache
 from collections import namedtuple
-from gfxinfo import find_gpu, VulkanInfo
+from gfxinfo import find_gpu, VulkanInfo, cache_db
 from gfxinfo import amdgpu
 import multiprocessing
 import netifaces
@@ -196,8 +196,8 @@ if args.action == "register":
     sys.exit(0 if r.status_code == 200 else 1)
 
 elif args.action == "cache":
-    drv_file = amdgpu.download_supported_pci_devices(args.cache_directory)
-    print("Cached %d bytes of AMDGPU PCI IDs" % len(drv_file))
+    cache_db(args.cache_directory)
+    print("Downloaded the latest GPU device databases")
 
 elif args.action == "check":
     info = MachineInfo(args.cache_directory)
