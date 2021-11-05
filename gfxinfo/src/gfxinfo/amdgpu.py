@@ -11,6 +11,7 @@ class AMDGPU:
     vendor_id: int
     product_id: int
     revision: int
+    marketing_name: str
 
     # Fields initialized using the flags string
     flags: dataclasses.InitVar[str] = None
@@ -227,6 +228,7 @@ class AMDGPU:
             "codename": self.codename,
             "architecture": self.architecture,
             "gfxversion": self.gfx_version,
+            "marketing_name": self.marketing_name,
             "APU": self.is_APU,
             "EXP_HW_SUPPORT": self.has_experimental_support
         }
@@ -257,13 +259,32 @@ class AmdGpuDrvDev:
         return self.generate_key(self.vendor_id, self.product_id)
 
 
+@dataclass
+class AmdGpuId:
+    product_id: int
+    revision: int
+    marketing_name: str
+
+    @classmethod
+    def generate_key(cls, product_id, revision):
+        return (product_id, revision)
+
+    @property
+    def key(self):
+        return self.generate_key(self.product_id, self.revision)
+
+
 class AmdGpuDeviceDB:
     AMDGPU_DRV_URL = "https://gitlab.freedesktop.org/agd5f/linux/-/raw/amd-staging-drm-next/drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c"
     AMDGPU_DRV_FILENAME = "amdgpu_drv.c"
 
+    MARKETING_NAMES_URL = "https://gitlab.freedesktop.org/mesa/drm/-/raw/master/data/amdgpu.ids"
+    MARKETING_NAMES_FILENAME = "amdgpu.ids"
+
     def __init__(self):
         self.is_up_to_date = False
         self.amdgpu_drv_devs = dict()
+        self.amdgpu_ids_devs = dict()
 
         try:
             amdgpu_drv = open(self.amdgpu_drv_cache_path, 'r').read()
@@ -271,10 +292,21 @@ class AmdGpuDeviceDB:
             amdgpu_drv = ""
         self._parse_amdgpu_drv(amdgpu_drv)
 
+        try:
+            amdgpu_ids = open(self.amdgpu_ids_cache_path, 'r').read()
+        except FileNotFoundError:
+            amdgpu_ids = ""
+        self._parse_amdgpu_ids(amdgpu_drv)
+
     @property
     def amdgpu_drv_cache_path(self):
         package_directory = os.path.dirname(os.path.abspath(__file__))
         return os.path.join(package_directory, self.AMDGPU_DRV_FILENAME)
+
+    @property
+    def amdgpu_ids_cache_path(self):
+        package_directory = os.path.dirname(os.path.abspath(__file__))
+        return os.path.join(package_directory, self.MARKETING_NAMES_FILENAME)
 
     def _parse_amdgpu_drv(self, drv):
         self.amdgpu_drv_devs = dict()
@@ -302,10 +334,30 @@ class AmdGpuDeviceDB:
                     except ValueError:
                         continue
 
+    def _parse_amdgpu_ids(self, ids):
+        if ids is None:
+            return None
+
+        self.amdgpu_ids_devs = dict()
+        for line in ids.splitlines():
+            fields = line.split(',\t')
+            if len(fields) == 3:
+                try:
+                    dev = AmdGpuId(product_id=int(fields[0], 16),
+                                   revision=int(fields[1], 16),
+                                   marketing_name=fields[2])
+                    self.amdgpu_ids_devs[dev.key] = dev
+                except ValueError:
+                    pass
+
     def cache_db(self):
         r = requests.get(self.AMDGPU_DRV_URL, timeout=5)
         r.raise_for_status()
         open(self.amdgpu_drv_cache_path, "w").write(r.text)
+
+        r = requests.get(self.MARKETING_NAMES_URL, timeout=5)
+        r.raise_for_status()
+        open(self.amdgpu_ids_cache_path, "w").write(r.text)
 
     def update(self):
         if self.is_up_to_date:
@@ -313,11 +365,19 @@ class AmdGpuDeviceDB:
 
         r = requests.get(self.AMDGPU_DRV_URL, timeout=5)
         r.raise_for_status()
+        self._parse_amdgpu_drv(r.text)
+
+        r = requests.get(self.MARKETING_NAMES_URL, timeout=5)
+        r.raise_for_status()
+        self._parse_amdgpu_ids(r.text)
 
         self.is_up_to_date = True
-        self._parse_amdgpu_drv(r.text)
 
     def from_pciid(self, vendor_id, product_id, revision):
         if amdgpu_dev := self.amdgpu_drv_devs.get(AmdGpuDrvDev.generate_key(vendor_id, product_id)):
+            amdgpu_ids = self.amdgpu_ids_devs.get(AmdGpuId.generate_key(product_id, revision))
+            marketing_name = amdgpu_ids.marketing_name if amdgpu_ids else None
+
             return AMDGPU(vendor_id=vendor_id, product_id=product_id,
-                          revision=revision, flags=amdgpu_dev.flags)
+                          revision=revision, marketing_name=marketing_name,
+                          flags=amdgpu_dev.flags)
