@@ -373,11 +373,25 @@ class AmdGpuDeviceDB:
 
         self.is_up_to_date = True
 
+    @classmethod
+    def host_cpu_name(cls):
+        for line in open("/proc/cpuinfo").readlines():
+            fields = line.split(":")
+            if fields[0].strip() == "model name":
+                return fields[1].strip()
+
+        return None
+
     def from_pciid(self, vendor_id, product_id, revision):
         if amdgpu_dev := self.amdgpu_drv_devs.get(AmdGpuDrvDev.generate_key(vendor_id, product_id)):
             amdgpu_ids = self.amdgpu_ids_devs.get(AmdGpuId.generate_key(product_id, revision))
             marketing_name = amdgpu_ids.marketing_name if amdgpu_ids else None
 
-            return AMDGPU(vendor_id=vendor_id, product_id=product_id,
-                          revision=revision, marketing_name=marketing_name,
-                          flags=amdgpu_dev.flags)
+            gpu = AMDGPU(vendor_id=vendor_id, product_id=product_id,
+                         revision=revision, marketing_name=marketing_name,
+                         flags=amdgpu_dev.flags)
+
+            if gpu.marketing_name is None and gpu.is_APU:
+                gpu.marketing_name = self.host_cpu_name()
+
+            return gpu
