@@ -33,7 +33,7 @@ class MachineInfo():
 
     @cached_property
     def machine_tags(self):
-        tags = self.gpu.tags()
+        tags = self.gpu.tags
 
         if info := VulkanInfo.construct():
             tags.add(f"vk:VRAM:{info.VRAM_heap.GiB_size}_GiB")

@@ -22,6 +22,7 @@ class IntelGPU:
     def base_name(self):
         return 'intel' + self._meta['gen_version']
 
+    @property
     def tags(self):
         return self._meta['tags']
 

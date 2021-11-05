@@ -27,6 +27,7 @@ class VirtGPU:
     def base_name(self):
         return 'virtio'
 
+    @property
     def tags(self):
         return self._meta['tags']
 

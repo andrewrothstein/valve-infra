@@ -270,6 +270,7 @@ class AMDGPU:
 
         return versions.get(self.architecture)
 
+    @property
     def tags(self):
         tags = set()
 
