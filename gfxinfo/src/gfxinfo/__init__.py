@@ -9,8 +9,8 @@ SUPPORTED_GPU_DBS = [AmdGpuDeviceDB(), IntelGpuDeviceDB(), VirtIOGpuDeviceDB()]
 
 def pci_devices():
     devices = open('/proc/bus/pci/devices').readlines()
-    ids = [line.split('\t')[1] for line in devices]
-    return [(int(id[:4], 16), int(id[4:], 16)) for id in ids]
+    ids = [line.split('\t')[1:3] for line in devices]
+    return [(int(id[:4], 16), int(id[4:], 16), int(rev, 16)) for id, rev in ids]
 
 
 def find_gpu():

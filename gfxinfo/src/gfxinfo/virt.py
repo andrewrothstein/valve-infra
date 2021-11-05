@@ -5,6 +5,7 @@ from dataclasses import dataclass
 class VirtGPU:
     vendor_id: int
     product_id: int
+    revision: int
 
     @property
     def base_name(self):
@@ -40,8 +41,8 @@ class VirtIOGpuDeviceDB:
         # NOTHING TO DO
         pass
 
-    def from_pciid(self, vendor_id, product_id):
+    def from_pciid(self, vendor_id, product_id, revision):
         if vendor_id != 0x1af4 and product_id != 0x1050:
             return None
         else:
-            return VirtGPU(vendor_id=vendor_id, product_id=product_id)
+            return VirtGPU(vendor_id=vendor_id, product_id=product_id, revision=revision,)

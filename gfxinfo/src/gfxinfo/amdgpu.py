@@ -10,6 +10,7 @@ import sys
 class AMDGPU:
     vendor_id: int
     product_id: int
+    revision: int
 
     # Fields initialized using the flags string
     flags: dataclasses.InitVar[str] = None
@@ -316,6 +317,7 @@ class AmdGpuDeviceDB:
         self.is_up_to_date = True
         self._parse_amdgpu_drv(r.text)
 
-    def from_pciid(self, vendor_id, product_id):
+    def from_pciid(self, vendor_id, product_id, revision):
         if amdgpu_dev := self.amdgpu_drv_devs.get(AmdGpuDrvDev.generate_key(vendor_id, product_id)):
-            return AMDGPU(vendor_id=vendor_id, product_id=product_id, flags=amdgpu_dev.flags)
+            return AMDGPU(vendor_id=vendor_id, product_id=product_id,
+                          revision=revision, flags=amdgpu_dev.flags)

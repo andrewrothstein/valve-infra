@@ -5,6 +5,7 @@ from dataclasses import dataclass
 class IntelGPU:
     vendor_id: int
     product_id: int
+    revision: int
     gen_version: int
     family: str
 
@@ -45,7 +46,7 @@ class IntelGpuDeviceDB:
         # NOTHING TO DO
         pass
 
-    def from_pciid(self, vendor_id, product_id):
+    def from_pciid(self, vendor_id, product_id, revision):
         if vendor_id != 0x8086:
             return None
 
@@ -56,4 +57,4 @@ class IntelGpuDeviceDB:
             },
         }
         if md := SUPPORTED_GPUS.get(product_id):
-            return IntelGPU(vendor_id=vendor_id, product_id=product_id, **md)
+            return IntelGPU(vendor_id=vendor_id, product_id=product_id, revision=revision, **md)
