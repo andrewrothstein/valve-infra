@@ -12,11 +12,14 @@
     name: 'chronyd'
     enabled: yes
 
-- name: Setting NTP servers for Chrony
-  ansible.builtin.lineinfile:
-    path: /etc/chrony.conf
-    regexp: '^[#!;%] allow .+'
-    line: "allow {{ private_interface_ip }}/24"
+- name: Adding configuration for Chrony
+  become: true
+  ansible.builtin.copy:
+    src: chrony.conf
+    dest: /etc/chrony.conf
+    owner: root
+    group: root
+    mode: '0644'
   notify: 'Restart chrony'
 
 - name: Adding firewall rule for Chrony
