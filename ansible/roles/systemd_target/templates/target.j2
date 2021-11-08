@@ -1,0 +1,12 @@
+[Unit]
+Description={{ target_description }}
+{% if target_after %}
+After={{ "".join(target_after)}}
+{% endif %}
+{% if target_requires %}
+Requires={{ "".join(target_requires)}}
+{% endif %}
+{% if target_wantedby %}
+[Install]
+WantedBy={{ target_wantedby }}
+{% endif %}
