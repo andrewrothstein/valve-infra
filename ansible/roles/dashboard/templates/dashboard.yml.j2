@@ -4,5 +4,5 @@ windows:
 - window_name: dashboard
   layout: even-horizontal
   panes:
-    - journalctl -fu infra
+    - /usr/local/bin/infra_monitor.sh
     - watch /usr/bin/selftest

@@ -26,6 +26,15 @@
     group: root
     mode: 0644
 
+- name: Installing monitoring script for infra.target
+  become: true
+  ansible.builtin.copy:
+    src: infra_monitor.sh
+    dest: /usr/local/bin/infra_monitor.sh
+    owner: root
+    group: root
+    mode: 0755
+
 - name: Installing bash_login
   become: true
   ansible.builtin.copy:
