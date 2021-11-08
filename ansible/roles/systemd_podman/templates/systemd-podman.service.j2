@@ -42,4 +42,8 @@ Restart=always
 RestartSec=10s
 
 [Install]
+{% if container_service_target %}
+WantedBy={{ container_service_target }}
+{% endif %}
+# add to multi-user.target so it starts on boot
 WantedBy=multi-user.target
