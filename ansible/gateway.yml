@@ -41,3 +41,11 @@
     - dnsmasq
     - dashboard
     - autologin
+    - role: systemd_target
+      tags: systemd_target
+      vars:
+        target_name: infra
+        target_description: Valve Infra
+        target_after:
+          - multi-user.target
+        target_wantedby: multi-user.target
