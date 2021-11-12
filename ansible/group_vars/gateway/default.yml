@@ -1,0 +1,2 @@
+# set to 'true' for installing gateway development-related configuration:
+development: false
