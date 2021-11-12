@@ -752,7 +752,7 @@ class TraceExecFrameOutput(SanitizedFieldsMixin):
     @cached_property
     def trace_has_stable_output_for_gpu(self):
         for deduped_frame in self.trace_deduped_frame_outputs_for_gpu:
-            if deduped_frame.outputs_count_for_gpu < 20:
+            if deduped_frame.found_in_release_code_run and deduped_frame.outputs_count_for_gpu < 20:
                 return False
 
         return True
