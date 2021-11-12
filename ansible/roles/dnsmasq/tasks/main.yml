@@ -50,6 +50,17 @@
     mode: '0644'
   notify: 'Restart nftables'
 
+- name: Installing dnsmasq nftables rules (development)
+  become: true
+  ansible.builtin.copy:
+    src: 10-dnsmasq-development.nft
+    dest: /etc/nftables.d/10-dnsmasq-development.nft
+    owner: root
+    group: root
+    mode: '0644'
+  notify: 'Restart nftables'
+  when: development
+
 - name: Enable systemd-resolved service
   become: true
   ansible.builtin.systemd:
