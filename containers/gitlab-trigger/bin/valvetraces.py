@@ -750,12 +750,17 @@ class TraceExecFrameOutput(SanitizedFieldsMixin):
                 return deduped_frame
 
     @cached_property
-    def trace_has_stable_output_for_gpu(self):
+    def unstable_output_for_gpu(self):
+        frames = list()
         for deduped_frame in self.trace_deduped_frame_outputs_for_gpu:
             if deduped_frame.found_in_release_code_run and deduped_frame.outputs_count_for_gpu < 20:
-                return False
+                frames.append(deduped_frame)
 
-        return True
+        return frames
+
+    @cached_property
+    def trace_has_stable_output_for_gpu(self):
+        return len(self.unstable_output_for_gpu) == 0
 
     @property
     def acceptability(self):
@@ -771,9 +776,12 @@ Constructed using the query parameters {self.trace_exec.query_params}, and the f
             elif self.deduped_frame_output.found_in_release_code_run:
                 return (True, "The frame has not been assessed yet, but is found in already-released code")
             elif not self.trace_has_stable_output_for_gpu:
-                return (True, "The frame has never been seen before, but the output of the trace on this GPU is unstable: Ignore!")
+                details = "List of frames that made the output considered unstable:\n"
+                for deduped_frame in self.unstable_output_for_gpu:
+                    details += f" - {self.client.url}/deduped_frame_outputs/{deduped_frame.id}: Seen {deduped_frame.outputs_count_for_gpu} on this GPU\n"
+                return (True, f"The frame has never been seen before, but the output of the trace on this GPU is unstable: Ignore!\n\n{details}")
             else:
-                return (False, "The frame has never been seen before, but the output of the trace on this GPU is stable: You need to review it!")
+                return (False, "The frame has never been seen before, while the output of the trace on this GPU is stable: You need to review it!")
         elif self.is_acceptable:
             return (True, "The frame has been marked acceptable")
         else:
