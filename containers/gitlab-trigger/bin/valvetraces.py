@@ -711,8 +711,42 @@ class TraceExec:
 
 
 @dataclass
+class Job(SanitizedFieldsMixin):
+    client: Client
+
+    id: int
+    name: str
+    metadata: dict
+    is_released_code: bool = None
+
+    def report_trace_execution(self, trace, gpu_pciid, frame_blobs, metadata=None, status=None, logs_path=None):
+        # Create the trace execution
+        params = {
+            "trace_exec": {
+                "job_id": self.id,
+                "trace_id": trace.id,
+                "metadata": metadata,
+                "status": status,
+                "exec_log": None,  # TODO: Needs work!
+            },
+            "frame_blobs": frame_blobs,
+            "pciid": gpu_pciid
+        }
+        r = self.client._post("/api/v1/trace_execs", params=params)
+
+        # Work around a rail oddity that if a field would be empty, it is not added
+        if 'trace_frames' not in r:
+            r['trace_frames'] = {}
+
+        return TraceExec.from_api(r, client=self.client,
+                                  query_params=params,
+                                  query_result=r)
+
+
+@dataclass
 class TraceExecFrameOutput(SanitizedFieldsMixin):
     client: Client
+    job: Job
     gpu: GPU
     trace_exec: TraceExec
     trace_frame_id: str
@@ -736,7 +770,10 @@ class TraceExecFrameOutput(SanitizedFieldsMixin):
 
     @cached_property
     def trace_frame_stats_for_gpu(self):
-        r = self.client._get(f"/api/v1/stats/trace_frames/{self.id}?q[gpus_pciid_cont]={self.gpu.pciid}")
+        # Only consider results from the past 100 runs
+        oldest_job_id = max(0, self.job.id - 100)
+
+        r = self.client._get(f"/api/v1/stats/trace_frames/{self.id}?q[gpus_pciid_cont]={self.gpu.pciid}&q[jobs_id_gt]={oldest_job_id}&q[jobs_id_lt]={self.job.id + 1}")
         return r.get("trace_frame", {})
 
     @property
@@ -789,39 +826,6 @@ Constructed using the query parameters {self.trace_exec.query_params}, and the f
 
 
 @dataclass
-class Job(SanitizedFieldsMixin):
-    client: Client
-
-    id: int
-    name: str
-    metadata: dict
-    is_released_code: bool = None
-
-    def report_trace_execution(self, trace, gpu_pciid, frame_blobs, metadata=None, status=None, logs_path=None):
-        # Create the trace execution
-        params = {
-            "trace_exec": {
-                "job_id": self.id,
-                "trace_id": trace.id,
-                "metadata": metadata,
-                "status": status,
-                "logs": None,  # TODO: Needs work!
-            },
-            "frame_blobs": frame_blobs,
-            "pciid": gpu_pciid
-        }
-        r = self.client._post("/api/v1/trace_execs", params=params)
-
-        # Work around a rail oddity that if a field would be empty, it is not added
-        if 'trace_frames' not in r:
-            r['trace_frames'] = {}
-
-        return TraceExec.from_api(r, client=self.client,
-                                  query_params=params,
-                                  query_result=r)
-
-
-@dataclass
 class TraceExec(SanitizedFieldsMixin):
     client: Client
 
@@ -845,6 +849,7 @@ class TraceExec(SanitizedFieldsMixin):
         self.trace_frames = dict()
         for trace_frame_id, frame_output in trace_frames.items():
             self.trace_frames[trace_frame_id] = TraceExecFrameOutput.from_api(frame_output,
+                                                                              job=self.job,
                                                                               trace_exec=self,
                                                                               gpu=self.gpu, client=self.client,
                                                                               trace_frame_id=trace_frame_id)
