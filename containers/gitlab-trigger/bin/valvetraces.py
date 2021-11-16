@@ -725,7 +725,8 @@ class Job(SanitizedFieldsMixin):
     metadata: dict
     is_released_code: bool = None
 
-    def report_trace_execution(self, trace, gpu_pciid, frame_blobs, metadata=None, status=None, logs_blob_id=None):
+    def report_trace_execution(self, trace, gpu_pciid, frame_blobs, metadata=None, status=None, logs_blob_id=None,
+                               execution_time=None):
         # Create the trace execution
         params = {
             "trace_exec": {
@@ -734,6 +735,7 @@ class Job(SanitizedFieldsMixin):
                 "metadata": metadata,
                 "status": status,
                 "exec_log": logs_blob_id,
+                "execution_time": execution_time,
             },
             "frame_blobs": frame_blobs,
             "pciid": gpu_pciid
@@ -1131,7 +1133,8 @@ Debug information:
                                                             gpu_pciid=gfxinfo.gpu_pciid,
                                                             frame_blobs=frame_blobs,
                                                             status=self.retcode,
-                                                            logs_blob_id=logs_blob_id)
+                                                            logs_blob_id=logs_blob_id,
+                                                            execution_time=self.runtime.total_seconds())
 
             # Report back whether execution went successfully or not
             for project_name, repo in self.report.dependencies.items():
