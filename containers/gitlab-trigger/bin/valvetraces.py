@@ -664,6 +664,12 @@ class Client:
         return self._upload_blob(filepath, name, data_checksum,
                                  image_checksum=img_checksum)
 
+    def _upload_logs_blob(self, filepath, name):
+        # Generate the MD5 hash for the bucket
+        data_checksum = self._data_checksum(filepath)
+
+        return self._upload_blob(filepath, name, data_checksum)
+
     def job_get_or_create(self, name, metadata=None, timeline_metadata=None, is_released_code=False):
         # The object will be created if it does not exist already,
         # otherwise, it will return the job that has the same name
@@ -719,7 +725,7 @@ class Job(SanitizedFieldsMixin):
     metadata: dict
     is_released_code: bool = None
 
-    def report_trace_execution(self, trace, gpu_pciid, frame_blobs, metadata=None, status=None, logs_path=None):
+    def report_trace_execution(self, trace, gpu_pciid, frame_blobs, metadata=None, status=None, logs_blob_id=None):
         # Create the trace execution
         params = {
             "trace_exec": {
@@ -727,7 +733,7 @@ class Job(SanitizedFieldsMixin):
                 "trace_id": trace.id,
                 "metadata": metadata,
                 "status": status,
-                "exec_log": None,  # TODO: Needs work!
+                "exec_log": logs_blob_id,
             },
             "frame_blobs": frame_blobs,
             "pciid": gpu_pciid
@@ -1116,7 +1122,7 @@ Debug information:
         def is_success(self):
             return self.had_successful_execution or not self.expected_to_work
 
-        def upload(self, job, frame_blobs):
+        def upload(self, job, frame_blobs, logs_blob_id=None):
             self.job = job
 
             gfxinfo = self.report.gfxinfo
@@ -1125,7 +1131,7 @@ Debug information:
                                                             gpu_pciid=gfxinfo.gpu_pciid,
                                                             frame_blobs=frame_blobs,
                                                             status=self.retcode,
-                                                            logs_path=self.logs_path)
+                                                            logs_blob_id=logs_blob_id)
 
             # Report back whether execution went successfully or not
             for project_name, repo in self.report.dependencies.items():
@@ -1195,6 +1201,15 @@ Debug information:
 
         return blob.signed_id
 
+    @classmethod
+    def upload_logs(cls, client, logs_path):
+        if logs_path is None:
+            return None
+
+        file_name = os.path.basename(logs_path)
+        blob = client._upload_logs_blob(logs_path, file_name)
+        return blob.signed_id
+
     def error_callback(self, result):
         print(f"ERROR: {result}")
 
@@ -1221,16 +1236,26 @@ Debug information:
         with Pool(processes=max(os.cpu_count(), 10)) as pool:
             # Upload in parallel all the generated frame outputs
             trace_execs_frame_uploads = dict()
+            trace_execs_logs = dict()
             for trace_exec in self.trace_execs:
                 # Ignore the trace executions we already reported
                 if trace_exec.upload_report is not None:
                     continue
 
+                # Schedule the upload of the generated frames
                 trace_execs_frame_uploads[trace_exec] = dict()
                 for frame_id, frame_path in trace_exec.found_frames.items():
                     async_job = pool.apply_async(self.upload_frame, (self.client, frame_path),
                                                  error_callback=self.error_callback)
                     trace_execs_frame_uploads[trace_exec][frame_id] = async_job
+
+                # Schedule the upload of the execution log
+                if trace_exec.logs_path is not None:
+                    logs_upload_job = pool.apply_async(self.upload_logs, (self.client, trace_exec.logs_path),
+                                                       error_callback=self.error_callback)
+                else:
+                    logs_upload_job = None
+                trace_execs_logs[trace_exec] = logs_upload_job
 
             # Create all the trace execution objects
             for trace_exec, frames_tasks in trace_execs_frame_uploads.items():
@@ -1244,7 +1269,14 @@ Debug information:
 
                         frame_blobs[str(frame_id)] = task.get()
 
-                    trace_exec.upload(job, frame_blobs)
+                    if logs_task := trace_execs_logs[trace_exec]:
+                        if not logs_task.ready():
+                            print(f"   - Waiting on the upload of the execution log")
+                        logs_blob_id = logs_task.get()
+                    else:
+                        logs_blob_id = None
+
+                    trace_exec.upload(job, frame_blobs, logs_blob_id=logs_blob_id)
                 except Exception:
                     traceback.print_exc()
                     print(" - Ignoring this trace execution")
