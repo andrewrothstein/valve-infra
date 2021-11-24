@@ -6,6 +6,9 @@ set -o errexit
 set -o pipefail
 #set -o xtrace
 
+# Source the user configuration from the permanent volume
+source /mnt/permanent/config.env || /bin/true
+
 # Generate a configuration file based on the default values, or the
 # overriding env vars
 [ -d ./config/ ] || mkdir ./config/
@@ -18,9 +21,9 @@ VALVETRACES_MINIO_PASSWORD=${VALVETRACES_MINIO_PASSWORD:-`tr -dc [:alnum:] < /de
 MINIO_URL=${MINIO_URL:-http://10.42.0.1:9000}
 FDO_PROXY_REGISTRY=${FDO_PROXY_REGISTRY:-http://10.42.0.1:8002}
 LOCAL_REGISTRY=${LOCAL_REGISTRY:-http://10.42.0.1:8004}
-FARM_NAME=${FARM_NAME:?Must be defined as an environment variable - think of something unique to your farm!}
-GITLAB_REGISTRATION_TOKEN=${GITLAB_REGISTRATION_TOKEN:?Must be defined as an environment variable}
-GITLAB_ACCESS_TOKEN=${GITLAB_ACCESS_TOKEN:?Must be defined as an environment variable}
+FARM_NAME=${FARM_NAME}
+GITLAB_REGISTRATION_TOKEN=${GITLAB_REGISTRATION_TOKEN}
+GITLAB_ACCESS_TOKEN=${GITLAB_ACCESS_TOKEN}
 " > ./config/prod.env
 
 . ./config/prod.env
@@ -45,12 +48,16 @@ if [ "$PRIVATE_HOST" != "10.42.0.1" ]; then
     echo "Adding 10.42.0.1"
     ip addr add 10.42.0.1/24 dev ${PRIVATE_INTERFACE}
 fi
+ip link set private up
 
 MARS_SECRET_KEYFILE=$PERMANENT_MOUNT/mars_secret_key
 if [ ! -e $MARS_SECRET_KEYFILE ]; then
     python3 -c "import secrets ; print(secrets.token_urlsafe())" > $MARS_SECRET_KEYFILE
 fi
 export MARS_SECRET_KEY=$(<$MARS_SECRET_KEYFILE)
+
+# Do not expose kernel messages
+sysctl -w kernel.dmesg_restrict=1
 
 log(){
     echo "valve-infra: $*"
@@ -78,8 +85,12 @@ fi
 docker-compose --env-file ./config/prod.env up --remove-orphans -d
 
 stop_infra(){
-    log "stopping the infra in response to an error condition..."
-    docker-compose stop
+    log "Tearing down the infra"
+
+    docker-compose --env-file ./config/prod.env down
+
+    # HACK: docker-compose logs does not quit on SIGTERM...
+    killall docker-compose -s9 || /bin/true
 }
 trap stop_infra SIGTERM SIGINT ERR
 
@@ -112,6 +123,6 @@ kernel_version=default_kernel_2021_09_09
 upload_to_minio_if_missing https://gitlab.freedesktop.org/mupuf/valve-infra/-/jobs/13477001/artifacts/raw/linux/v5.14-for-valve-ci /boot/$kernel_version
 mcli cp minio/boot/$kernel_version minio/boot/default_kernel
 
-docker-compose logs --tail=0 -f || /bin/true
+docker-compose --env-file ./config/prod.env logs --tail=0 -f || /bin/true
 
 stop_infra

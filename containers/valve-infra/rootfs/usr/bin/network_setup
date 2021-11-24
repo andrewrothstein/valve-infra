@@ -1,0 +1,26 @@
+#!/bin/bash
+
+set -e
+set -u
+set -o pipefail
+set -x
+
+find_nic --wait
+
+# HACK: Give a little bit of time to QEmu to bring up the interface
+sleep 1
+
+cd /sys/class/net/
+for nic in *; do
+    ip link set $nic up
+done
+
+dhcpcd -1
+
+PUBLIC=`find_nic -r public`
+PRIVATE=`find_nic -r private`
+
+# Only rename the private interface, since the public one
+ip link set $PRIVATE down
+ip link set $PRIVATE name private
+ip link set $PRIVATE up

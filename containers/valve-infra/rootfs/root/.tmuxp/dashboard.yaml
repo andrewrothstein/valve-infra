@@ -1,0 +1,7 @@
+session_name: dashboard
+windows:
+- window_name: dashboard
+  layout: even-horizontal
+  panes:
+    - journalctl -fu infra
+    - watch /usr/bin/selftest

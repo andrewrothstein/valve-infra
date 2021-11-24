@@ -125,4 +125,4 @@ valve-infra:
       - Dockerfile
       - .gitlab-ci.yml
   script:
-    - docker build -t $IMAGE_NAME .
+    - docker build -t $IMAGE_NAME -f containers/valve-infra/Dockerfile containers/valve-infra

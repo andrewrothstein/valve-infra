@@ -1,0 +1,17 @@
+[Unit]
+Description=SSH Key Generation
+ConditionPathExists=|!/mnt/permanent/ssh/ssh_host_dsa_key
+ConditionPathExists=|!/mnt/permanent/ssh/ssh_host_dsa_key.pub
+ConditionPathExists=|!/mnt/permanent/ssh/ssh_host_ecdsa_key
+ConditionPathExists=|!/mnt/permanent/ssh/ssh_host_ecdsa_key.pub
+ConditionPathExists=|!/mnt/permanent/ssh/ssh_host_ed25519_key
+ConditionPathExists=|!/mnt/permanent/ssh/ssh_host_ed25519_key.pub
+ConditionPathExists=|!/mnt/permanent/ssh/ssh_host_rsa_key
+ConditionPathExists=|!/mnt/permanent/ssh/ssh_host_rsa_key.pub
+
+[Service]
+ExecStart=/usr/bin/ssh-keygen -A
+ExecStartPost=mkdir -p /mnt/permanent/ssh/
+ExecStartPost=sh -c "mv /etc/ssh/ssh_host_* /mnt/permanent/ssh/"
+Type=oneshot
+RemainAfterExit=yes

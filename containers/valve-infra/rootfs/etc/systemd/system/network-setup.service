@@ -1,0 +1,12 @@
+[Unit]
+Description=Get an address from the DHCP on the public interface
+Wants=network.target
+Before=network.target
+Before=dhcpcd.service
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/network_setup
+
+[Install]
+WantedBy=multi-user.target

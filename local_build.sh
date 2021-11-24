@@ -21,6 +21,6 @@ case $container in
 	;;&
     valve-infra|all)
 	echo ">>> Building valve-infra...."
-	docker build -t registry.freedesktop.org/mupuf/valve-infra .
+	docker build -t registry.freedesktop.org/mupuf/valve-infra -f containers/valve-infra/Dockerfile containers/valve-infra
 	;;
 esac

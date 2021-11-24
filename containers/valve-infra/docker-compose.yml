@@ -44,7 +44,7 @@ services:
       - ${TMP_MOUNT}/boots:/boots
     restart: unless-stopped
   gitlab-runner:
-    image: gitlab/gitlab-runner:alpine-v13.12.0
+    image: registry.freedesktop.org/mupuf/valve-infra/gitlab-runner:alpine-v13.12.0
     volumes:
       - ${PERMANENT_MOUNT}/gitlab-runner:/etc/gitlab-runner
       - /var/run/docker.sock:/var/run/docker.sock
@@ -59,7 +59,7 @@ services:
     volumes:
       - /run/salad_socks:/run/salad_socks
   ntpd:
-    image: ermaker/chrony
+    image: registry.freedesktop.org/mupuf/valve-infra/chrony
     cap_add:
       - SYS_TIME
     environment:
@@ -67,7 +67,7 @@ services:
     ports:
       - 123:123/udp
   fdo_proxy_registry:
-    image: registry
+    image: registry.freedesktop.org/mupuf/valve-infra/docker-registry
     environment:
       - REGISTRY_PROXY_REMOTEURL=https://registry.freedesktop.org
     restart: always
@@ -76,12 +76,12 @@ services:
     ports:
       - 8002:5000/tcp
   local_registry:
-    image: registry
+    image: registry.freedesktop.org/mupuf/valve-infra/docker-registry
     restart: always
     ports:
       - 8004:5000/tcp
   minio:
-    image: minio/minio
+    image: registry.freedesktop.org/mupuf/valve-infra/minio
     network_mode: host
     environment:
       - MINIO_ROOT_USER=minioadmin
