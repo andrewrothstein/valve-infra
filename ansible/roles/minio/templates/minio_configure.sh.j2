@@ -19,7 +19,7 @@ upload_to_minio_if_missing() {
     }
 }
 
-mcli alias set minio http://{{ private_interface_ip }}:9000 "$MINIO_ROOT_USER" "$MINIO_ROOT_PASSWORD"
+mcli alias set minio http://{{ private_interface_ip }}:{{ minio_port }} "$MINIO_ROOT_USER" "$MINIO_ROOT_PASSWORD"
 
 mcli mb --ignore-existing minio/jobs minio/boot/
 mcli policy set public minio/boot
