@@ -1,0 +1,6 @@
+#!/usr/bin/nft -f
+table inet filter {
+    chain forward {
+        iifname "private" tcp dport {{ minio_port }} accept comment "accept incoming from private to minio/{{ minio_port }}"
+    }
+}
