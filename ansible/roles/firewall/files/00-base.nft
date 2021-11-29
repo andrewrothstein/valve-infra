@@ -24,4 +24,7 @@ table inet filter {
         oifname "private" accept comment "accept outgoing to private"
         oifname "veth*" accept
     }
+    chain forward {
+        type filter hook forward priority filter; policy drop
+    }
 }
