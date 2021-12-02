@@ -311,7 +311,7 @@ def post_job():
 @click.option('--gitlab-access-token', envvar='GITLAB_ACCESS_TOKEN')
 @click.option('--gitlab-registration-token', envvar='GITLAB_REGISTRATION_TOKEN')
 @click.option('--gitlab-generic-runner/--no-gitlab-generic-runner', default=True)
-@click.option('--farm-name', required=True, envvar='FARM_NAME')
+@click.option('--farm-name', envvar='FARM_NAME')
 @click.pass_context
 def cli(ctx, gitlab_url, gitlab_conf_file, gitlab_access_token,
         gitlab_registration_token, gitlab_generic_runner, farm_name):  # pragma: nocover
@@ -319,7 +319,7 @@ def cli(ctx, gitlab_url, gitlab_conf_file, gitlab_access_token,
     # by means other than the `if` block below)
     ctx.ensure_object(dict)
 
-    if gitlab_conf_file is not None and gitlab_access_token is not None and gitlab_registration_token is not None:
+    if farm_name and gitlab_conf_file and gitlab_access_token and gitlab_registration_token:
         ctx.obj['GITLAB_RUNNER_API'] = GitlabRunnerAPI(gitlab_url, gitlab_conf_file, gitlab_access_token,
                                                        gitlab_registration_token, farm_name,
                                                        expose_generic_runner=gitlab_generic_runner)
