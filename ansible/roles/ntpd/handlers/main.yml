@@ -1,4 +1,6 @@
+---
 - name: Restart chrony
   ansible.builtin.systemd:
     name: 'chronyd'
     state: restarted
+  when: ansible_service_mgr == "systemd"

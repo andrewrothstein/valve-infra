@@ -2,3 +2,4 @@
   ansible.builtin.systemd:
     name: 'sshd'
     state: restarted
+  when: ansible_service_mgr == "systemd"
