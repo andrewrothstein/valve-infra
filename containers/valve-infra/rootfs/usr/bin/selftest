@@ -39,7 +39,7 @@ class Network(unittest.TestCase):
         self.__assert_unit_active('getty@tty1.service')
 
     def test_systemd_unit_infra(self):
-        self.__assert_unit_active('infra.service')
+        self.__assert_unit_active('infra.target')
 
     def test_systemd_unit_podman_socket(self):
         self.__assert_unit_active('podman.socket')
