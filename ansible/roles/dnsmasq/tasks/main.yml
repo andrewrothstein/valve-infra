@@ -1,5 +1,5 @@
 ---
-# currently built/installed by ci-install, until the nftset patch is in a release
+# Build dnsmasq-nftset from AUR, until the nftset patch is in a release
 # also see: https://lists.thekelleys.org.uk/pipermail/dnsmasq-discuss/2021q3/015413.html
 #
 #- name: Installing dnsmasq
@@ -8,6 +8,17 @@
 #    state: present
 #    name:
 #      - dnsmasq
+#
+#
+
+- name: Install dnsmasq
+  become: true
+  become_user: aur_builder
+  kewlfft.aur.aur:
+    name: dnsmasq-nftset-git
+    use: makepkg
+    state: present
+    skip_pgp_check: true
 
 - name: Enable dnsmasq service
   become: true

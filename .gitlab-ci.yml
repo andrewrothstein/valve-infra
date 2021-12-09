@@ -33,6 +33,8 @@ ansible:
     # ansible complains if the dir is world-writeable:
     - chmod -R o-w ansible
     - cd ansible
+    # dependency for role(s) that build packages from AUR
+    - ansible-galaxy collection install kewlfft.aur
     - ansible-lint
     - ansible-playbook --syntax-check gateway.yml
 

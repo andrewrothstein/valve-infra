@@ -8,6 +8,11 @@ COPY rootfs /
 COPY config/ /app/config/
 COPY minio_policies/ /app/minio_policies/
 
+# plugin needed to build dnsmasq-nftset from AUR
+# TODO: remove when building dnsmasq-nftset is no longer necessary:
+RUN ansible-galaxy collection install kewlfft.aur
+RUN pacman --noconfirm -S base-devel
+
 # TODO: replace with mupuf/valve-infra repo:
 RUN git clone --single-branch --branch ansible https://gitlab.freedesktop.org/craftyguy/valve-infra.git /app/valve-infra
 WORKDIR /app/valve-infra/ansible
@@ -15,5 +20,10 @@ RUN ansible-playbook ./gateway.yml
 
 # Fix the access rights
 RUN chmod 700 /root && chmod 600 /etc/authorized_keys
+
+# TODO: remove when building dnsmasq-nftset is no longer necessary:
+# This is "pacman -Rns base-devel" without packages that are dependencies for
+# things:
+RUN pacman --noconfirm -Rns autoconf automake binutils bison diffutils elfutils fakeroot flex gc gcc groff guile libmpc libtool m4 make patch pkgconf sudo texinfo which
 
 ENTRYPOINT ["/bin/init"]

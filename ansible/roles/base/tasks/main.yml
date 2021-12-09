@@ -19,3 +19,5 @@
       - python-netifaces
       - tmux
       - tmuxp
+
+- include_tasks: aur.yml
