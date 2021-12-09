@@ -7,7 +7,6 @@ table inet filter {
         flags interval
         elements = {
             127.0.0.1,          # loopback
-            127.0.0.53,         # systemd-resolved stub
             192.168.1.0/24,     # Private IP block
             10.42.0.0/24,       # Private IP block
             10.0.2.0/24,        # Private IP block

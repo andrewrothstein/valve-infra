@@ -15,6 +15,13 @@
     name: dnsmasq
     enabled: yes
 
+- name: Disable systemd-resolved
+  become: true
+  ansible.builtin.systemd:
+    name: systemd-resolved
+    masked: yes
+    enabled: no
+
 - name: Reading mirrorlist
   no_log: true
   ansible.builtin.set_fact:
@@ -61,36 +68,11 @@
   notify: 'Restart nftables'
   when: development
 
-- name: Enable systemd-resolved service
+- name: Installing resolv.conf
   become: true
-  ansible.builtin.systemd:
-    name: systemd-resolved
-    enabled: yes
-
-# required when running ansible in an arch-chroot, or else the symlink step
-# will fail
-- name: Umounting resolv.conf (if running in chroot)
-  ansible.posix.mount:
-    path: /etc/resolv.conf
-    state: unmounted
-
-- name: Symlinking /etc/resolv.conf
-  become: true
-  ansible.builtin.file:
-    src: /run/systemd/resolve/stub-resolv.conf
+  ansible.builtin.copy:
+    src: resolv.conf
     dest: /etc/resolv.conf
     owner: root
     group: root
-    state: link
-    force: yes
-  changed_when: false
-
-- name: Installing systemd-resolved config
-  become: true
-  ansible.builtin.copy:
-    src: resolved.conf
-    dest: /etc/systemd/resolved.conf
-    owner: root
-    group: root
     mode: '0644'
-  notify: 'Restart systemd-resolved'

@@ -1,10 +1,7 @@
 ---
 # defaults file for dnsmasq
 
-# port 5353 is used since the system is using sytemd-resolved in stub mode for
-# intercepting DNS requests, and will forward them to dnsmasq @ 5353.
-# systemd-resolved is used because it nicely 'manages' /etc/resolv.conf
-dnsmasq_port: 5353
+dnsmasq_port: 53
 dnsmasq_servers:
   - 1.1.1.1
   - 8.8.8.8
