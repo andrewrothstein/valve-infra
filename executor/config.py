@@ -15,7 +15,6 @@ configurables = {
     'FARM_NAME': 'test-farm',
     'MARS_URL': 'http://10.42.0.1:8000',
     'SALAD_URL': 'http://10.42.0.1:8005',
-    'BOOTS_URL': 'http://10.42.0.1:8087',
     'MINIO_URL': 'http://10.42.0.1:9000',
     'MINIO_USER': 'minioadmin',
     'MINIO_ROOT_PASSWORD': 'minio-root-password',
