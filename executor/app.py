@@ -334,7 +334,11 @@ def cli(ctx, gitlab_url, gitlab_conf_file, gitlab_access_token,
 @click.pass_context
 def run(ctx):  # pragma: nocover
     # Start the network boot service
-    boots = BootService()
+    boots = BootService(config_paths={
+        'BOOTS_ROOT': config.BOOTS_ROOT,
+        'TFTP_DIR': config.BOOTS_TFTP_ROOT,
+        'PXELINUX_CONFIG_DIR': config.BOOTS_PXELINUX_CONFIG_DIR,
+    })
 
     # Create all the workers based on the machines found in MaRS
     mars = MarsClient(config.MARS_URL, boots, gitlab_runner_api=ctx.obj.get('GITLAB_RUNNER_API'))
