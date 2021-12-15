@@ -64,6 +64,7 @@ short name that identifies your boot server (nicknames work):
     Description=iPXE Boot Service
 
     [Service]
+    User=ipxe
     WorkingDirectory=/home/ipxe/valve-infra/ipxe-boot-server
     ExecStart=/home/ipxe/valve-infra/ipxe-boot-server/.venv/bin/python3 app.py -u https://ipxe.$domain_name -n $gateway_name
     Environment=PYTHONUNBUFFERED=1
