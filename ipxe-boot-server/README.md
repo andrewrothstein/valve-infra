@@ -29,7 +29,7 @@ First, download the latest version of valve-infra:
     /home/ipxe
     $ git clone https://gitlab.freedesktop.org/mupuf/valve-infra.git
     $ cd valve-infra/ipxe-boot-server
-    $ python -m venv .venv
+    $ python3 -m venv .venv
     $ .venv/bin/pip install -r requirements.txt
 
 Secondly, [sign up for free to backblaze](https://www.backblaze.com/b2/sign-up.html)
@@ -65,7 +65,7 @@ short name that identifies your boot server (nicknames work):
 
     [Service]
     WorkingDirectory=/home/ipxe/valve-infra/ipxe-boot-server
-    ExecStart=/home/ipxe/valve-infra/ipxe-boot-server/.venv/bin/python app.py -u https://ipxe.$domain_name -n $gateway_name
+    ExecStart=/home/ipxe/valve-infra/ipxe-boot-server/.venv/bin/python3 app.py -u https://ipxe.$domain_name -n $gateway_name
     Environment=PYTHONUNBUFFERED=1
     EnvironmentFile=/home/ipxe/config.env
     Restart=on-failure
