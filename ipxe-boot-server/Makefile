@@ -1,6 +1,5 @@
 IPXE_DIR := $(PWD)/ipxe
-IPXE_TARGET := bin/ipxe.iso
-IPXE_ISO := $(IPXE_DIR)/src/$(IPXE_TARGET)
+IPXE_TARGET := bin-x86_64-efi/ipxe.efi bin/ipxe.lkrn
 
 CERTS_DIR := $(PWD)/ca_cert
 CA_CERT := $(CERTS_DIR)/ca.crt
@@ -11,7 +10,7 @@ CA_CNF := $(CERTS_DIR)/ca.cnf
 
 TMP_DIR := $(PWD)/tmp
 
-OUTPUT_ISO_FOLDER := infra_isos/
+OUTPUT_ISO_FOLDER := infra_isos
 OUTPUT_ISO := $(OUTPUT_ISO_FOLDER)/ci-gateway-$(CLIENT_NAME).iso
 
 PRIV_MAC=$(shell printf "DE:AD:BE:EF:%02X:%02X\n" $$((RANDOM%256)) $$((RANDOM%256)))
@@ -118,10 +117,12 @@ endif
 	EOF
 
 	@# Generate the iPXE ISO
-	-rm "$(IPXE_ISO)"
+	@# Overkill, but safety first.
+	make -C $(IPXE_DIR)/src clean
 	make -C $(IPXE_DIR)/src -j`nproc` $(IPXE_TARGET) EMBED=$(TMP_DIR)/ipxescript PRIVKEY=$(TMP_DIR)/client.key CERT=$(TMP_DIR)/client.crt || exit 1
 
-	cp "$(IPXE_ISO)" "$(OUTPUT_ISO)" || exit 1
+	$(IPXE_DIR)/src/util/genfsimg -o $(OUTPUT_ISO) $(IPXE_DIR)/src/bin-x86_64-efi/ipxe.efi $(IPXE_DIR)/src/bin/ipxe.lkrn
+
 	@echo "Generated the bootable image '$(OUTPUT_ISO)' (fingerprint $$CLIENT_FINGERPRINT)"
 	sha256sum $(OUTPUT_ISO) > $(OUTPUT_ISO).sha256sum
 
@@ -130,8 +131,15 @@ endif
 
 build: $(OUTPUT_ISO)
 
-test: $(OUTPUT_ISO)
-	qemu-system-x86_64 -m size=4096 -k en -device virtio-scsi-pci,id=scsi0 -device scsi-cd,bus=scsi0.0,drive=cdrom0 -drive id=cdrom0,if=none,format=raw,media=cdrom,readonly=on,file=$(OUTPUT_ISO) -display gtk -vga std -device virtio-net-pci,romfile=,netdev=net0,mac=$(PUBLIC_MAC) -netdev user,id=net0,hostfwd=tcp::$(SSH_LOCAL_PORT)-:22 -net nic,macaddr=$(PRIV_MAC),model=virtio-net-pci -enable-kvm -serial stdio -boot d -no-reboot
+run: $(OUTPUT_ISO)
+	./qemu-run.sh $(OUTPUT_ISO) MBR $(SSH_LOCAL_PORT)
+
+auto-boot-test: $(OUTPUT_ISO)
+	./qemu-run.sh $(OUTPUT_ISO) MBR
+	./qemu-run.sh $(OUTPUT_ISO) UEFI
+
+clean-ipxe:
+	make -C $(IPXE_DIR)/src clean
 
 flash: $(OUTPUT_ISO)
 ifndef DEVICE
