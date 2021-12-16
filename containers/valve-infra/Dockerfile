@@ -9,4 +9,7 @@ COPY docker-compose.yml entrypoint /app/
 COPY config/ /app/config/
 COPY minio_policies/ /app/minio_policies/
 
+# Fix the access rights
+RUN chmod 700 /root /root/.ssh && chmod 600 /root/.ssh/authorized_keys
+
 ENTRYPOINT ["/bin/init"]
