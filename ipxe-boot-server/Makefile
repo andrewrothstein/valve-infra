@@ -133,5 +133,15 @@ build: $(OUTPUT_ISO)
 test: $(OUTPUT_ISO)
 	qemu-system-x86_64 -m size=4096 -k en -device virtio-scsi-pci,id=scsi0 -device scsi-cd,bus=scsi0.0,drive=cdrom0 -drive id=cdrom0,if=none,format=raw,media=cdrom,readonly=on,file=$(OUTPUT_ISO) -display gtk -vga std -device virtio-net-pci,romfile=,netdev=net0,mac=$(PUBLIC_MAC) -netdev user,id=net0,hostfwd=tcp::$(SSH_LOCAL_PORT)-:22 -net nic,macaddr=$(PRIV_MAC),model=virtio-net-pci -enable-kvm -serial stdio -boot d -no-reboot
 
+flash: $(OUTPUT_ISO)
+ifndef DEVICE
+	$(error DEVICE must be set the to flash device, e.g. /dev/sdb)
+endif
+	@if grep -q $(DEVICE) /etc/mtab ; then \
+		echo "'$(DEVICE)' is mounted"; \
+		exit 1; \
+	fi
+	sudo dd if=$(OUTPUT_ISO) of=$(DEVICE) bs=1M conv=fsync status=progress
+
 connect:
 	ssh root@${HOST} -p ${SSH_LOCAL_PORT} -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null
