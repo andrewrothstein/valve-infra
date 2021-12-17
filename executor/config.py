@@ -13,7 +13,7 @@ configurables = {
     'GITLAB_ACCESS_TOKEN': None,
     'GITLAB_CONF_FILE': '/etc/gitlab-runner/config.toml',
     'FARM_NAME': 'test-farm',
-    'MARS_URL': 'http://10.42.0.1:8000',
+    'MARS_DB_FILE': '/app/config/mars.yaml',
     'SALAD_URL': 'http://10.42.0.1:8005',
     'BOOTS_ROOT': '/boots',
     'BOOTS_TFTP_ROOT': '/boots/tftp',

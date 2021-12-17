@@ -81,7 +81,6 @@
     - {role: autologin,           tags: autologin}
     - {role: salad,               tags: salad}
     - {role: minio,               tags: minio}
-    - {role: mars,                tags: mars}
     - {role: gitlab_runner,       tags: gitlab_runner}
     - {role: fdo_proxy_registry,  tags: fdo_proxy_registry}
     - {role: local_registry,      tags: local_registry}

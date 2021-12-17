@@ -4,7 +4,6 @@ from dataclasses import dataclass
 from datetime import datetime
 
 import traceback
-import requests
 import config
 import click
 import flask
@@ -12,7 +11,7 @@ import json
 
 from executor import SergentHartman, MachineState
 from gitlab_runner import GitlabRunnerAPI
-from mars import MarsClient, Machine
+from mars import Mars, Machine
 from minioclient import MinioClient
 from boots import BootService
 from client import JobStatus
@@ -41,6 +40,9 @@ class CustomJSONEncoder(flask.json.JSONEncoder):
                 "has_pdu_assigned": obj.pdu_port is not None,
                 "local_tty_device": obj.local_tty_device,
                 "tags": list(obj.tags),
+                "base_name": obj.base_name,
+                "mac_address": obj.mac_address,
+                "ip_address": obj.ip_address,
                 "training": obj.executor.sergent_hartman
             }
 
@@ -69,23 +71,26 @@ def get_machine_list():
     }
 
 
-def proxy_request_to_mars(url):
-    r = requests.request(flask.request.method, url, json=flask.request.json)
-    return r.content, r.status_code, {'Content-Type': r.headers['content-type']}
-
-
-@app.route('/api/v1/machine/', methods=['GET', 'POST'])
-def machine_proxy():
+@app.route('/api/v1/machine/', methods=['POST', 'PUT'])
+def machine_add_or_update():
     with app.app_context():
         mars = flask.current_app.mars
-    return proxy_request_to_mars(f"{mars.mars_base_url}/api/v1/machine/")
+
+    for key in flask.request.json:
+        if key not in {"base_name", "tags", "mac_address", "ip_address", "local_tty_device"}:
+            raise ValueError(f"The field {key} cannot be set/modified")
+
+    machine = mars.add_or_update_machine(flask.request.json)
+    return CustomJSONEncoder().default(machine)
 
 
-@app.route('/api/v1/machine/<machine_id>/', methods=['GET', 'PATCH'])
-def machine_detail_proxy(machine_id):
+@app.route('/api/v1/machine/<machine_id>/', methods=['GET'])
+def machine_detail_get(machine_id):
     with app.app_context():
         mars = flask.current_app.mars
-    return proxy_request_to_mars(f"{mars.mars_base_url}/api/v1/machine/{machine_id}/")
+
+    machine = mars.get_machine_by_id(machine_id, raise_if_missing=True)
+    return CustomJSONEncoder().default(machine)
 
 
 @dataclass
@@ -99,8 +104,6 @@ def post_job():
     def find_suitable_machine(target):
         with app.app_context():
             mars = flask.current_app.mars
-
-        mars.sync_machines()
 
         wanted_tags = set(target.tags)
 
@@ -341,7 +344,7 @@ def run(ctx):  # pragma: nocover
     })
 
     # Create all the workers based on the machines found in MaRS
-    mars = MarsClient(config.MARS_URL, boots, gitlab_runner_api=ctx.obj.get('GITLAB_RUNNER_API'))
+    mars = Mars(boots, gitlab_runner_api=ctx.obj.get('GITLAB_RUNNER_API'))
     mars.start()
 
     # Start flask

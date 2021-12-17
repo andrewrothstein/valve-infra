@@ -3,6 +3,5 @@ dependencies:
   - fdo_proxy_registry
   - gitlab_runner
   - local_registry
-  - mars
   - minio
   - salad

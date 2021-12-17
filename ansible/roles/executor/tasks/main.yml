@@ -9,6 +9,7 @@
     container_image: registry.freedesktop.org/mupuf/valve-infra/executor
     container_volumes:
       - "{{ perm_mount }}/gitlab-runner:/etc/gitlab-runner"
+      - "{{ perm_mount }}/mars_db.yaml:/etc/mars_db.yaml"
       - "{{ tmp_mount }}/boots:/boots"
     container_host_network: true
     container_env_files:
@@ -24,6 +25,7 @@
     service_pre_conditions:
       - "mkdir -pv {{ tmp_mount }}/boots {{ perm_mount }}/gitlab-runner"
       - "touch {{ perm_mount }}/gitlab-runner/config.toml"
+      - "touch {{ perm_mount }}/mars_db.yaml"
     part_of:
       - "infra.service"
 
@@ -50,3 +52,4 @@
       BOOTS_DEFAULT_KERNEL=http://{{ private_interface_ip }}:{{ minio_port }}/boot/default_kernel
       BOOTS_DEFAULT_INITRD=http://{{ private_interface_ip }}:{{ minio_port }}/boot/default_boot2container.cpio.xz
       BOOTS_DEFAULT_CMDLINE=b2c.container="-ti --tls-verify=false docker://{{ private_interface_ip }}:{{ fdo_proxy_registry_port }}/mupuf/valve-infra/machine_registration:latest register" b2c.ntp_peer="{{ private_interface_ip }}" b2c.cache_device=none loglevel=6
+      MARS_DB_FILE=/etc/mars_db.yaml

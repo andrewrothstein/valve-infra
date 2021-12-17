@@ -1,35 +1,116 @@
 from threading import Thread, Event
+from dataclasses import asdict, field
+from datetime import datetime, timedelta
+from ipaddress import IPv4Address
+from pathlib import Path
+
+from pydantic.dataclasses import dataclass
+from pydantic import validator
+from inotify_simple import INotify, flags
+from boots import split_mac_addr
+from logger import logger
 from pdu import PDU
 from executor import Executor
 
 import traceback
-import requests
+import config
 import time
+import yaml
 
 
+@dataclass
+class ConfigPDU:
+    driver: str
+    config: dict
+
+
+@dataclass
+class ConfigDUT:
+    base_name: str
+    tags: list[str]
+    ip_address: str  # TODO: Make sure all machines have a unique IP
+    local_tty_device: str = None
+    pdu: str = None
+    pdu_port_id: str = None
+    pdu_off_delay: float = 30
+    ready_for_service: bool = False
+    is_retired: bool = False
+    first_seen: datetime = field(default_factory=lambda: datetime.now())
+
+    @validator('ip_address')
+    def ip_address_is_valid(cls, v):
+        IPv4Address(v)
+        return str(v)
+
+    @property
+    def full_name(self):
+        # Get the index of the dut by looking at how many duts with
+        # the same base name were registered *before* us.
+        idx = 1
+        for dut in self.mars_db.duts.values():
+            if dut.base_name == self.base_name and dut.first_seen < self.first_seen:
+                idx += 1
+
+        return f"{config.FARM_NAME}-{self.base_name}-{idx}"
+
+
+@dataclass
+class MarsDB:
+    pdus: dict[str, ConfigPDU] = field(default_factory=dict)
+    duts: dict[str, ConfigDUT] = field(default_factory=dict)
+
+    def reset_taint(self):
+        self._disk_state = asdict(self)
+
+    @property
+    def is_tainted(self):
+        return asdict(self) != self._disk_state
+
+    @validator('duts')
+    def mac_addresses_are_understood_by_boots(cls, v):
+        for addr in v.keys():
+            split_mac_addr(addr)
+        return v
+
+    # Function called once all the objects have been converted from dict
+    # to their dataclass equivalent
+    def __post_init_post_parse__(self):
+        # Since we do not want to repeat ourselves in the config file, the name
+        # of objects is set in the parent dict. However, it is quite useful for
+        # objects to know their names and have access to the DB. This function
+        # adds it back!
+        for name, pdu in self.pdus.items():
+            pdu.name = name
+            pdu.mars_db = self
+
+        for mac_address, dut in self.duts.items():
+            dut.mac_address = mac_address
+            dut.mars_db = self
+
+        self.reset_taint()
+
+    @classmethod
+    def from_file(cls, file_path):
+        with open(file_path, 'r') as f:
+            data = yaml.safe_load(f)
+            return cls(**data if data else {})
+
+    def save(self, file_path):
+        with open(file_path, 'w') as f:
+            yaml.dump(asdict(self), f, sort_keys=False)
+
+
+# TODO: Finish the Machine -> DUT rename
 class Machine:
-    def __init__(self, mars_base_url, machine_id, boots, fields=None, gitlab_runner_api=None):
-        self.mars_base_url = mars_base_url
-        self._machine_id = machine_id
+    def __init__(self, db_dut, boots, gitlab_runner_api=None):
+        self.db_dut = db_dut
         self.boots = boots
         self.gitlab_runner_api = gitlab_runner_api
 
-        self.pdu_port = self._create_pdu_port(fields)
-
-        # Fields from MaRS
-        self._fields = fields or {}
+        self.pdu_port = self._create_pdu_port()
 
         # Executor associated (temporary)
         self.executor = Executor(self)
-
-        # Make sure the test machines are assigned a static IP address
-        # to facilitate testing services hosted on the test
-        # machines themselves.
-        if 'ip_address' in self._fields:
-            self.boots.write_network_config(
-                self.mac_address,
-                self._fields['ip_address'],
-                self.full_name)
 
         # Make sure the updates are reflected in the runner's state
         self.update_runner_state()
@@ -41,95 +122,53 @@ class Machine:
         self.executor.stop_event.set()
         self.executor.join()
 
-    @property
-    def url(self):
-        return f"{self.mars_base_url}/api/v1/machine/{self.id}/"
+    # Expose all the fields of the associated ConfigDUT object
+    def __getattr__(self, attr):
+        return getattr(self.db_dut, attr)
 
     @property
     def id(self):
-        return self._machine_id
-
-    @property
-    def full_name(self):
-        return self._fields.get('full_name')
-
-    @property
-    def mac_address(self):
-        return self._machine_id
-
-    @property
-    def ip_address(self):
-        return self._fields.get('ip_address')
+        return self.mac_address
 
     @property
     def ready_for_service(self):
-        return self._fields.get('ready_for_service', False)
+        return self.db_dut.ready_for_service
 
     @ready_for_service.setter
     def ready_for_service(self, val):
-        r = requests.patch(self.url, json={
-            "ready_for_service": val
-        })
-        r.raise_for_status()
+        self.db_dut.ready_for_service = val
 
-        self._fields['ready_for_service'] = val
-
-        # Make sure the updates are reflected in the runner's state
-        self.update_runner_state
-
-    @property
-    def is_retired(self):
-        return self._fields.get('is_retired', False)
-
-    @property
-    def tags(self):
-        return set(self._fields.get('tags', []))
-
-    @property
-    def local_tty_device(self):
-        return self._fields.get("local_tty_device")
-
-    def _create_pdu_port(self, fields):
-        mars_pdu_url = fields.get('pdu')
-        pdu_port = fields.get('pdu_port_id')
-        if mars_pdu_url is None or pdu_port is None:
-            return None
-
-        r = requests.get(mars_pdu_url)
-        r.raise_for_status()
-
-        p = r.json()
-        if pdu := PDU.create(p.get('pdu_model'), p.get('name'), p.get('config', {})):
-            for port in pdu.ports:
-                if str(port.port_id) == str(pdu_port):
-                    return port
-        raise ValueError('Could not find a matching port for %s on %s' %
-                         (pdu_port, pdu))
-
-    def update(self, fields=None):
-        if not fields:
-            r = requests.get(self.url)
-            r.raise_for_status()
-
-            fields = r.json()
-
-        def is_changed(field_name):
-            return fields.get(field_name) != self._fields.get(field_name)
-
-        if is_changed('pdu') or is_changed('pdu_port_id'):
-            self.pdu_port = self._create_pdu_port(fields)
-
-        if self.pdu_port is not None:
-            self.pdu_port.min_off_time = fields.get('pdu_off_delay', 5)
-
-        if is_changed('ip_address') or is_changed('full_name'):
-            self.boots.write_pxelinux_config(self.mac_address,
-                                             fields['ip_address'],
-                                             fields['full_name'])
-        self._fields = fields
+        # Make sure the update gets written to disk.
+        self.db_dut.mars_db.save(config.MARS_DB_FILE)
 
         # Make sure the updates are reflected in the runner's state
         self.update_runner_state()
+
+    def _create_pdu_port(self):
+        config_pdu = self.mars_db.pdus.get(self.db_dut.pdu)
+        if config_pdu is None:
+            return None
+
+        if pdu := PDU.create(config_pdu.driver, config_pdu.name, config_pdu.config):
+            for port in pdu.ports:
+                if str(port.port_id) == str(self.db_dut.pdu_port_id):
+                    port.min_off_time = self.db_dut.pdu_off_delay
+                    return port
+
+            raise ValueError('Could not find a matching port for %s on %s' % (self.db_dut.pdu_port_id, pdu))
+
+    def update_config(self, db_dut=None):
+        if db_dut:
+            self.db_dut = db_dut
+
+        self.pdu_port = self._create_pdu_port()
+
+        # Make sure the test machines are assigned a static IP address
+        # to facilitate testing services hosted on the test
+        # machines themselves.
+        self.boots.write_network_config(self.mac_address,
+                                        self.db_dut.ip_address,
+                                        self.full_name)
 
     def update_runner_state(self):
         if self.gitlab_runner_api is None:
@@ -141,16 +180,17 @@ class Machine:
             self.gitlab_runner_api.remove(self.full_name)
 
 
-class MarsClient(Thread):
-    def __init__(self, base_url, boots, gitlab_runner_api=None):
+class Mars(Thread):
+    def __init__(self, boots, gitlab_runner_api=None):
         super().__init__(name='MarsClient')
 
-        self.mars_base_url = base_url
         self.boots = boots
+        self.mars_db = None
         self.gitlab_runner_api = gitlab_runner_api
 
-        self.stop_event = Event()
         self._machines = {}
+
+        self.stop_event = Event()
 
     @property
     def known_machines(self):
@@ -162,36 +202,64 @@ class MarsClient(Thread):
             raise ValueError(f"Unknown machine ID '{machine_id}'")
         return machine
 
-    def _machine_update_or_create(self, machine_id, fields):
-        machine = self._machines.get(machine_id)
+    def _machine_update_or_create(self, db_dut):
+        machine = self._machines.get(db_dut.mac_address)
         if machine is None:
-            machine = Machine(self.mars_base_url, machine_id, self.boots, fields, self.gitlab_runner_api)
+            machine = Machine(db_dut, self.boots,
+                              gitlab_runner_api=self.gitlab_runner_api)
+            self._machines[machine.mac_address] = machine
         else:
-            machine.update(fields)
+            machine.update_config(db_dut)
+
+        # Update the machine in MaRS DB
+        self.mars_db.duts[machine.mac_address] = db_dut
+
+        return machine
+
+    def save_db_if_needed(self):
+        if self.mars_db.is_tainted:
+            print("Write-back the MarsDB to disk, after some local changes")
+            # TODO: Print a list of the changes, possibly using deepdiff?
+            self.mars_db.save(config.MARS_DB_FILE)
+
+    def add_or_update_machine(self, fields: dict):
+        mac_address = fields.pop("mac_address")
+        if db_dut := self.mars_db.duts.get(mac_address):
+            cur_state = asdict(db_dut)
+            db_dut = ConfigDUT(**(cur_state | fields))
+        else:
+            db_dut = ConfigDUT(**fields)
+
+        # TODO: Try to find a way not to have to add these fields
+        db_dut.mac_address = mac_address
+        db_dut.mars_db = self.mars_db
+
+        machine = self._machine_update_or_create(db_dut)
+        self.save_db_if_needed()
 
         return machine
 
     def sync_machines(self):
-        r = requests.get(f"{self.mars_base_url}/api/v1/machine/")
-        r.raise_for_status()
+        self.mars_db = MarsDB.from_file(config.MARS_DB_FILE)
 
         local_only_machines = set(self.known_machines)
-        for m in r.json():
+        for m in self.mars_db.duts.values():
             # Ignore retired machines
-            if m.get('is_retired', False):
+            if m.is_retired:
                 continue
 
-            machine = self._machine_update_or_create(m.get("mac_address"), fields=m)
+            machine = self._machine_update_or_create(m)
 
             # Remove the machine from the list of local-only machines
             local_only_machines.discard(machine)
-
-            self._machines[machine.id] = machine
 
         # Delete all the machines that are not found in MaRS
         for machine in local_only_machines:
             self._machines[machine.id].remove()
             del self._machines[machine.id]
+
+        # Save any change that may have happened after reloading
+        self.save_db_if_needed()
 
         # Delete all the Gitlab Runner that are not found locally
         if self.gitlab_runner_api is not None:
@@ -217,14 +285,32 @@ class MarsClient(Thread):
         super().join()
 
     def run(self):
-        while True:
+        # Make sure the config file exists
+        Path(config.MARS_DB_FILE).touch(exist_ok=True)
+
+        # Set up a watch
+        inotify = INotify()
+        watch_flags = flags.CREATE | flags.DELETE | flags.MODIFY | flags.DELETE_SELF
+        inotify.add_watch(config.MARS_DB_FILE, watch_flags)
+
+        # Now wait for changes to the file
+        last_sync = None
+        while not self.stop_event.is_set():
             try:
-                self.sync_machines()
+                reason = None
+                if last_sync is None:
+                    reason = "Initial boot"
+                elif len(inotify.read(timeout=1000)) > 0:
+                    reason = "Got updated on disk"
+                elif datetime.now() - last_sync > timedelta(minutes=30):
+                    reason = "Periodic check"
+
+                if reason:
+                    logger.info(f"Syncing the MaRS DB. Reason: {reason}")
+
+                    self.sync_machines()
+                    last_sync = datetime.now()
             except Exception:
                 traceback.print_exc()
-            finally:
-                # Wait for 5 seconds, with the ability to exit every second
-                for i in range(5):
-                    time.sleep(1)
-                    if self.stop_event.is_set():
-                        return
+                logger.info("Trying again in 60 seconds")
+                time.sleep(60)

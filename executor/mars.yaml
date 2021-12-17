@@ -1,0 +1,39 @@
+pdus:
+  APC:
+    driver: dummy
+    config:
+      ports:
+      - port 1
+      - port 2
+      - port 3
+duts:
+  60:6d:3c:51:c4:88:
+    base_name: gfx9
+    tags:
+    - amdgpu:gfxversion:gfx9
+    - amdgpu:architecture:GCN5.1
+    - amdgpu:family:RV
+    - amdgpu:codename:RENOIR
+    - amdgpu:pciid:0x1002:0x1636
+    - amdgpu:APU
+    ip_address: 192.168.1.190
+    local_tty_device: null
+    gitlab:
+      freedesktop:
+        token: <invalid default>
+        exposed: true
+    pdu: null
+    pdu_port_id: null
+    pdu_off_delay: 30.0
+    ready_for_service: false
+    is_retired: false
+    first_seen: 2022-01-07 12:55:15.242292
+gitlab:
+  freedesktop:
+    url: https://gitlab.freedesktop.org/
+    registration_token: wKUQuxEoufJU1sB8ceij
+    expose_runners: true
+    maximum_timeout: 21600
+    gateway_runner:
+      token: Xqsk2zY3LNLmQy6rAMxu
+      exposed: true
