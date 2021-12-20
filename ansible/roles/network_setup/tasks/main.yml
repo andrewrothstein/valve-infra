@@ -1,0 +1,23 @@
+---
+- name: Installing network_setup script
+  become: true
+  ansible.builtin.template:
+    src: network_setup.j2
+    dest: /usr/bin/network_setup
+    backup: true
+    mode: 0755
+
+- name: Installing network_setup service
+  become: true
+  ansible.builtin.copy:
+    src: network-setup.service
+    dest: /etc/systemd/system/network-setup.service
+    owner: root
+    group: root
+    mode: 0644
+
+- name: Enabling network_setup service
+  become: true
+  ansible.builtin.systemd:
+    name: network-setup
+    enabled: yes

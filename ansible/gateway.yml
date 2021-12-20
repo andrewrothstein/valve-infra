@@ -6,6 +6,7 @@
     prod_env_file: "{{ perm_mount }}/infra.env"
     config_env_file: "{{ perm_mount }}/config.env"
     registry_mount: "{{ tmp_mount }}/registry"
+    private_interface_ip: "10.42.0.1"
 
     dnsmasq_port: 53
     mars_port: 8000
@@ -60,6 +61,7 @@
 
   roles:
     - {role: base,                tags: base}
+    - {role: network_setup,       tags: network_setup}
     - {role: firewall,            tags: firewall}
     - {role: ntpd,                tags: ntpd}
     - {role: sshd,                tags: sshd}
