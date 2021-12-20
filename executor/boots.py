@@ -116,6 +116,7 @@ class Dnsmasq():
 
         self.config_paths = config_paths
         self.pid_file = os.path.join(config_paths['BOOTS_ROOT'], 'dnsmasq.pid')
+        self.leases_file = os.path.join(config_paths['BOOTS_ROOT'], 'dnsmasq.leases')
 
         self.options_file = os.path.join(config_paths['BOOTS_ROOT'], 'options.dhcp')
         self.hosts_file = os.path.join(config_paths['BOOTS_ROOT'], 'hosts.dhcp')
@@ -135,6 +136,7 @@ option:ntp-server,10.42.0.1
                 f'--pid-file={self.pid_file}',
                 f'--dhcp-hostsfile={self.hosts_file}',
                 f'--dhcp-optsfile={self.options_file}',
+                f'--dhcp-leasefile={self.leases_file}'
                 '--dhcp-match=set:efi-x86_64,option:client-arch,7',
                 '--dhcp-boot=tag:efi-x86_64,syslinux.efi',
                 '--dhcp-boot=lpxelinux.0',

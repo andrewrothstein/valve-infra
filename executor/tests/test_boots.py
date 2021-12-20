@@ -80,6 +80,7 @@ def test_dnsmasq_launch(popen_mock, dnsmasq_waiter, tmp_path):
          f'--pid-file={tmp_path}/dnsmasq.pid',
          f'--dhcp-hostsfile={tmp_path}/hosts.dhcp',
          f'--dhcp-optsfile={tmp_path}/options.dhcp',
+         f'--dhcp-leasefile={tmp_path}/dnsmasq.leases',
          '--dhcp-match=set:efi-x86_64,option:client-arch,7',
          '--dhcp-boot=tag:efi-x86_64,syslinux.efi',
          '--dhcp-boot=lpxelinux.0',
