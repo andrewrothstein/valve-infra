@@ -114,6 +114,16 @@ endif
 
 	echo Chainloading from the iPXE server...
 	chain https://${IPXE_SERVER_FQDN}/boot/ipxe?mac=$${netX/mac} || goto retry
+
+	# The above command may "succeed" but we actually fail to
+	# boot. This could happen if the iPXE boot file is
+	# successfully returned, but the URLs to the kernel and
+	# ramdisk are invalid, for example. In cases like these,
+	# continuously retry the netboot, rather than exiting iPXE and
+	# potentially getting stuck indefinitely in the firmware's next
+	# boot method. The sleep acts as a simple rate limiter.
+	sleep 60
+	goto retry
 	EOF
 
 	@# Generate the iPXE ISO
