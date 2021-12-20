@@ -15,8 +15,6 @@ for nic in *; do
     ip link set $nic up
 done
 
-dhcpcd -1
-
 PUBLIC=`find_nic -r public`
 PRIVATE=`find_nic -r private`
 
