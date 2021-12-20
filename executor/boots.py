@@ -129,32 +129,34 @@ option:ntp-server,10.42.0.1
 """)
         create_if_not_exists(self.hosts_file)
 
-        self.dnsmasq = subprocess.Popen(
-            [
-                'dnsmasq',
-                '--port=0',
-                f'--pid-file={self.pid_file}',
-                f'--dhcp-hostsfile={self.hosts_file}',
-                f'--dhcp-optsfile={self.options_file}',
-                f'--dhcp-leasefile={self.leases_file}'
-                '--dhcp-match=set:efi-x86_64,option:client-arch,7',
-                '--dhcp-boot=tag:efi-x86_64,syslinux.efi',
-                '--dhcp-boot=lpxelinux.0',
-                '--dhcp-range=10.42.0.10,10.42.0.100',
-                '--dhcp-script=/bin/echo',
-                # f'--dhcp-hostsfile={static_hosts_file}',
-                f'--enable-tftp={private_interface}',
-                f'--tftp-root={config_paths["BOOTS_ROOT"]}/tftp',
-                # TODO: Rotation
-                f'--log-facility={config_paths["BOOTS_ROOT"]}/dnsmasq.log',
-                '--log-queries=extra',
-                '--conf-file=/dev/null',
-                f'--interface={private_interface}'
-            ],
-            bufsize=0,
-        )
-        # We don't want to return in a not-ready state.
-        self._wait_for_dnsmasq_to_fork()
+        if not config.BOOTS_DISABLE_DNSMASQ:
+            self.dnsmasq = subprocess.Popen(
+                [
+                    'dnsmasq',
+                    '--port=0',
+                    f'--pid-file={self.pid_file}',
+                    f'--dhcp-hostsfile={self.hosts_file}',
+                    f'--dhcp-optsfile={self.options_file}',
+                    f'--dhcp-leasefile={self.leases_file}',
+                    '--dhcp-match=set:efi-x86_64,option:client-arch,7',
+                    '--dhcp-boot=tag:efi-x86_64,syslinux.efi',
+                    '--dhcp-boot=lpxelinux.0',
+                    '--dhcp-range=10.42.0.10,10.42.0.100',
+                    '--dhcp-script=/bin/echo',
+                    # f'--dhcp-hostsfile={static_hosts_file}',
+                    f'--enable-tftp={private_interface}',
+                    f'--tftp-root={config_paths["BOOTS_ROOT"]}/tftp',
+                    # TODO: Rotation
+                    f'--log-facility={config_paths["BOOTS_ROOT"]}/dnsmasq.log',
+                    '--log-queries=extra',
+                    '--conf-file=/dev/null',
+                    f'--interface={private_interface}'
+                ],
+                bufsize=0,
+            )
+
+            # We don't want to return in a not-ready state.
+            self._wait_for_dnsmasq_to_fork()
 
     def _wait_for_dnsmasq_to_fork(self):  # pragma: nocover
         did_fork = False
@@ -178,11 +180,13 @@ option:ntp-server,10.42.0.1
             return int(pidfile.read())
 
     def reload(self):  # pragma: nocover
-        os.kill(self._pid(), signal.SIGHUP)
+        if not config.BOOTS_DISABLE_DNSMASQ:
+            os.kill(self._pid(), signal.SIGHUP)
 
     def stop(self):  # pragma: nocover
-        os.kill(self._pid(), signal.SIGKILL)
-        os.remove(self.pid_file)
+        if not config.BOOTS_DISABLE_DNSMASQ:
+            os.kill(self._pid(), signal.SIGKILL)
+            os.remove(self.pid_file)
 
     def add_static_address(self, mac_addr, ip_addr, hostname):
         mac_addr = ':'.join(split_mac_addr(mac_addr))

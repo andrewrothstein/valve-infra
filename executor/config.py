@@ -18,6 +18,7 @@ configurables = {
     'BOOTS_ROOT': '/boots',
     'BOOTS_TFTP_ROOT': '/boots/tftp',
     'BOOTS_PXELINUX_CONFIG_DIR': '/boots/tftp/pxelinux.cfg',
+    'BOOTS_DISABLE_DNSMASQ': None,
     'MINIO_URL': 'http://10.42.0.1:9000',
     'MINIO_USER': 'minioadmin',
     'MINIO_ROOT_PASSWORD': 'minio-root-password',
