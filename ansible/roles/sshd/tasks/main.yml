@@ -56,3 +56,12 @@
     group: root
     mode: 0644
   notify: 'Restart nftables'
+
+- name: Installing authorized keys
+  become: true
+  ansible.builtin.lineinfile:
+    dest: /etc/authorized_keys
+    line: "{{ item }}"
+    create: yes
+    mode: 0644
+  with_items: "{{ ssh_authorized_keys }}"

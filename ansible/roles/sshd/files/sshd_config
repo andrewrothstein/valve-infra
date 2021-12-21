@@ -8,6 +8,7 @@ HostKey /mnt/permanent/ssh/ssh_host_ed25519_key
 PermitRootLogin prohibit-password
 
 AuthorizedKeysFile	.ssh/authorized_keys
+AuthorizedKeysFile      .ssh/authorized_keys /etc/authorized_keys
 
 PermitEmptyPasswords no
 PasswordAuthentication no
