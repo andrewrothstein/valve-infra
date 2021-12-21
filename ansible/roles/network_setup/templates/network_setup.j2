@@ -23,3 +23,6 @@ ip link set $PRIVATE down
 ip link set $PRIVATE name private
 ip addr add {{private_interface_ip}}/24 dev $PRIVATE
 ip link set $PRIVATE up
+
+# point DNS to localhost, where dnsmasq should be listening
+echo "nameserver 127.0.0.1" > /etc/resolv.conf

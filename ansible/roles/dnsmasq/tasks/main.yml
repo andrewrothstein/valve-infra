@@ -78,12 +78,3 @@
     mode: '0644'
   notify: 'Restart nftables'
   when: development
-
-- name: Installing resolv.conf
-  become: true
-  ansible.builtin.copy:
-    src: resolv.conf
-    dest: /etc/resolv.conf
-    owner: root
-    group: root
-    mode: '0644'
