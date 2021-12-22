@@ -60,7 +60,7 @@ start_netboot_dut:
 	qemu-system-x86_64 -m size=1024 -net nic,macaddr=$(PRIV_MAC),model=virtio-net-pci -net bridge,br=bridge_priv -boot n
 
 connect:
-	@ssh root@${HOST} -p ${PORT} -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null
+	ssh root@${HOST} -p ${PORT} -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null
 
 clean:
 	-rm tmp/*
