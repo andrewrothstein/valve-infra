@@ -36,13 +36,27 @@ The valve-infra container is systemd-based. You will find the following services
 
 ## Local testing
 
-To test this container, follow the following steps:
+To build the container,
 
- - $ podman login registry.freedesktop.org
- - $ cd containers/valve-infra
- - $ podman build -t registry.freedesktop.org/mupuf/valve-infra/valve-infra-$USER .
- - $ podman push registry.freedesktop.org/mupuf/valve-infra/valve-infra-$USER
- - $ make test CONTAINER=valve-infra-$USER
+   make CONTAINER=mupuf/valve-infra/valve-infra-cturner:latest -C containers/valve-infra/ container
+
+By default it will tagged with the fd.o registry,
+
+   podman inspect registry.freedesktop.org/mupuf/valve-infra/valve-infra-cturner:latest
+
+To build and push the container to local registry for faster debugging,
+
+   podman run --rm -p 8088:5000  --name registry registry:2
+   make REGISTRY=localhost:8088 CONTAINER=mupuf/valve-infra/valve-infra-cturner:latest -C containers/valve-infra/  push-container
+   podman inspect localhost:8088/mupuf/valve-infra/valve-infra-cturner:latest
+
+(Use make V=1 ... for extra logging in the various build components we use)
+
+To test this container (assuming the local registry case above, adjust
+as necessary), follow the following steps:
+
+   make REGISTRY=10.0.2.2:8088 CONTAINER=mupuf/valve-infra/valve-infra-$USER:latest -C containers/valve-infra/ test
+
  - In the QEMU window that got created, wait for the login screen
  - Press CTRL+F2 to switch to tty2, a dashboard should show the current state of the infra
  - Press CRTL+F3 to switch to tty3, type root, and you should be ready to work!

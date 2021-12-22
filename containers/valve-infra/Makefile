@@ -7,7 +7,9 @@ else
 	PORT ?= 22
 endif
 
-CONTAINER ?= valve-infra-containerized:latest
+# 10.0.2.2:8088 can be very useful inside QEMU ;)
+REGISTRY ?= registry.freedesktop.org
+CONTAINER ?= mupuf/valve-infra/valve-infra:latest
 
 PRIV_MAC=$(shell printf "DE:AD:BE:EF:%02X:%02X\n" $$((RANDOM%256)) $$((RANDOM%256)))
 PUBLIC_MAC=$(shell printf "DE:AD:BE:EF:%02X:%02X\n" $$((RANDOM%256)) $$((RANDOM%256)))
@@ -36,7 +38,7 @@ test: tmp/boot2container-$(B2C_VERSION)-linux_amd64.cpio.xz tmp/linux-b2c-$(B2C_
 		sudo iptables -I FORWARD -m physdev --physdev-is-bridged -j ACCEPT; \
 	)
 	@grep -e "^allow bridge_priv$$" /etc/qemu/bridge.conf > /dev/null 2> /dev/null || (echo "ERROR: Please run the following command: # echo 'allow bridge_priv' | tee -a /etc/qemu/bridge.conf"; exit 1)
-	qemu-system-x86_64 -m size=4096 -k en -display gtk -vga std -device virtio-net-pci,romfile=,netdev=net0,mac=$(PUBLIC_MAC) -netdev user,id=net0,hostfwd=tcp::5555-:22 -net nic,macaddr=$(PRIV_MAC),model=virtio-net-pci -net bridge,br=bridge_priv -drive file=tmp/disk.img,format=raw,index=0,media=disk -enable-kvm -smp 4 -serial stdio -kernel tmp/linux-b2c-$(B2C_VERSION) -initrd tmp/boot2container-$(B2C_VERSION)-linux_amd64.cpio.xz -append 'b2c.volume="tmp" b2c.volume="perm" b2c.container="--dns=none -v tmp:/mnt/tmp -v perm:/mnt/permanent --tls-verify=false --entrypoint=/bin/init docker://registry.freedesktop.org/mupuf/valve-infra/${CONTAINER}" b2c.ntp_peer=auto b2c.pipefail b2c.cache_device=auto net.ifnames=0'
+	qemu-system-x86_64 -m size=4096 -k en -display gtk -vga std -device virtio-net-pci,romfile=,netdev=net0,mac=$(PUBLIC_MAC) -netdev user,id=net0,hostfwd=tcp::5555-:22 -net nic,macaddr=$(PRIV_MAC),model=virtio-net-pci -net bridge,br=bridge_priv -drive file=tmp/disk.img,format=raw,index=0,media=disk -enable-kvm -smp 4 -serial stdio -kernel tmp/linux-b2c-$(B2C_VERSION) -initrd tmp/boot2container-$(B2C_VERSION)-linux_amd64.cpio.xz -append 'b2c.volume="tmp" b2c.volume="perm" b2c.container="--dns=none -v tmp:/mnt/tmp -v perm:/mnt/permanent --tls-verify=false --entrypoint=/bin/init docker://${REGISTRY}/${CONTAINER}" b2c.ntp_peer=auto b2c.pipefail b2c.cache_device=auto net.ifnames=0'
 
 start_netboot_dut:
 	qemu-system-x86_64 -m size=1024 -net nic,macaddr=$(PRIV_MAC),model=virtio-net-pci -net bridge,br=bridge_priv -boot n
