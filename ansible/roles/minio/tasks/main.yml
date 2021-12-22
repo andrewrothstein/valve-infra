@@ -26,16 +26,6 @@
       VALVETRACES_MINIO_PASSWORD={{ valvetraces_minio_password }}
       MINIO_ROOT_PASSWORD={{ minio_root_password }}
 
-- name: Adding minio firewall config
-  become: true
-  ansible.builtin.template:
-    src: 'minio.nft.j2'
-    dest: /etc/nftables.d/50-minio.nft
-    owner: root
-    group: root
-    mode: '0644'
-  notify: 'Restart nftables'
-
 # needed by minio_configure
 - name: Installing minio-client
   become: true

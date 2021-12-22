@@ -40,6 +40,10 @@
       - minio.io
 
       # others (cdn, etc)
+      # WARNING: Boot2container requires backblazeb2.com for the
+      # volume sync as of Dec 2021.
+      - backblazeb2.com
+
       - amazonaws.com
       - fastlydns.net
       - files.pythonhosted.org
@@ -62,10 +66,10 @@
   roles:
     - {role: base,                tags: base}
     - {role: network_setup,       tags: network_setup}
-    - {role: firewall,            tags: firewall}
+#    - {role: firewall,            tags: firewall}
     - {role: ntpd,                tags: ntpd}
     - {role: sshd,                tags: sshd}
-    - {role: dnsmasq,             tags: dnsmasq}
+#    - {role: dnsmasq,             tags: dnsmasq}
     - {role: dashboard,           tags: dashboard}
     - {role: autologin,           tags: autologin}
     - role: systemd_target

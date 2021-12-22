@@ -25,4 +25,5 @@ ip addr add {{private_interface_ip}}/24 dev $PRIVATE
 ip link set $PRIVATE up
 
 # point DNS to localhost, where dnsmasq should be listening
-echo "nameserver 127.0.0.1" > /etc/resolv.conf
+# For now, use a public resolver until we sort out the firewall.
+echo "nameserver 1.1.1.1" > /etc/resolv.conf
