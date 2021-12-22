@@ -20,4 +20,12 @@
       - tmux
       - tmuxp
 
+# REVIEW: Why is the needed? Umask is 0750 which seems fine as a default
+- name: Ensure root directory permissions
+  become: true
+  ansible.builtin.file:
+    mode: 0700
+    path: /root
+    state: directory
+
 - include_tasks: aur.yml

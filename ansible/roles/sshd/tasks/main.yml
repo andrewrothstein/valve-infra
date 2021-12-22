@@ -53,5 +53,5 @@
     dest: /etc/authorized_keys
     line: "{{ item }}"
     create: yes
-    mode: 0644
+    mode: 0600
   with_items: "{{ ssh_authorized_keys }}"

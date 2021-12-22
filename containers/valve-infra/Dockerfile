@@ -35,10 +35,6 @@ ARG EXTRA_ANSIBLE_FLAGS=0
 WORKDIR /app/valve-infra/ansible
 RUN ansible-playbook ${EXTRA_ANSIBLE_FLAGS} ./gateway.yml
 
-# Fix the access rights
-# TODO: Why can't ansible do this?
-RUN chmod 700 /root && chmod 600 /etc/authorized_keys
-
 # TODO: remove when building dnsmasq-nftset is no longer necessary:
 # This is "pacman -Rns base-devel" without packages that are dependencies for
 # things:
