@@ -13,7 +13,7 @@ Provided that you satisfy the hardware requirement, the container can thus be ru
 
     # podman volume create perm
     # podman volume create tmp
-    # podman run --privileged --network=host -v tmp:/mnt/tmp -v perm:/mnt/permanent --tls-verify=false --entrypoint=/bin/init docker://registry.freedesktop.org/mupuf/valve-infra/valve-infra-containerized:latest
+    # podman run --privileged --network=host -v tmp:/mnt/tmp -v perm:/mnt/permanent --tls-verify=false --entrypoint=/bin/init docker://registry.freedesktop.org/mupuf/valve-infra/valve-infra:latest
 
 For development purposes, it is advised to run the container in a virtual machine. For ease of use, a Makefile is
 provided to set up your test environment:
@@ -38,6 +38,7 @@ The valve-infra container is systemd-based. You will find the following services
 
 To build the container,
 
+
    make CONTAINER=mupuf/valve-infra/valve-infra-cturner:latest -C containers/valve-infra/ container
 
 By default it will tagged with the fd.o registry,
@@ -57,9 +58,15 @@ as necessary), follow the following steps:
 
    make REGISTRY=10.0.2.2:8088 CONTAINER=mupuf/valve-infra/valve-infra-$USER:latest -C containers/valve-infra/ test
 
+You may SSH into the VM using this,
+
+    make -C containers/valve-infra/ connect
+
  - In the QEMU window that got created, wait for the login screen
- - Press CTRL+F2 to switch to tty2, a dashboard should show the current state of the infra
- - Press CRTL+F3 to switch to tty3, type root, and you should be ready to work!
+ - Press Alt,-> or CTRL+F2 to switch to tty2, a dashboard should show the current state of the infra
+ - Press Ctrl-b c to start a new shell in the dashboard, or press
+   CRTL+F3 to switch to tty3, type root, and you should be ready to
+   work!
 
 WARNING: powering off the machine does not currently work, for reasons that are still being investigated. Just kill
 qemu when you are done!

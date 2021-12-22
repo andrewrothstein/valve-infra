@@ -7,6 +7,8 @@ else
 	PORT ?= 22
 endif
 
+V ?= 0
+
 # 10.0.2.2:8088 can be very useful inside QEMU ;)
 REGISTRY ?= registry.freedesktop.org
 CONTAINER ?= mupuf/valve-infra/valve-infra:latest
@@ -29,6 +31,20 @@ tmp/linux-b2c-$(B2C_VERSION):
 tmp/disk.img:
 	[ -d tmp/ ] || mkdir tmp
 	fallocate -l 10G tmp/disk.img
+
+ifeq ($(V), 1)
+EXTRA_ANSIBLE_FLAGS := "-vvv"
+else
+EXTRA_ANSIBLE_FLAGS := ""
+endif
+container:
+	@# --build-arg NO_CACHE
+	@# Creates ***tons*** of redundant images tho
+	podman build -v $(shell pwd)/../..:/app/valve-infra --build-arg EXTRA_ANSIBLE_FLAGS="$(EXTRA_ANSIBLE_FLAGS)"  --tag $(REGISTRY)/$(CONTAINER) -f Dockerfile .
+
+push-container:
+	@# Todo, condition on local vs prod
+	podman push --tls-verify=false $(REGISTRY)/$(CONTAINER)
 
 test: tmp/boot2container-$(B2C_VERSION)-linux_amd64.cpio.xz tmp/linux-b2c-$(B2C_VERSION) tmp/disk.img
 	@ip link show bridge_priv 2> /dev/null > /dev/null || ( \
