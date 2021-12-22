@@ -1,4 +1,13 @@
 ---
+- name: Install the seccomp policy for gitlab-runner
+  become: true
+  ansible.builtin.copy:
+    src: gitlab_runner_seccomp.json
+    dest: /etc/gitlab-runner-seccomp.json
+    owner: root
+    group: root
+    mode: 0644
+
 - name: gitlab-runner container service
   ansible.builtin.include_role:
     name: "systemd_podman"
@@ -15,6 +24,6 @@
       - "/mnt:/mnt"
       - "{{ perm_mount }}/gitlab-runner:/etc/gitlab-runner"
       - "/var/run/docker.sock:/var/run/docker.sock"
-      - "{{ playbook_dir }}/../containers/valve-infra/config/gitlab_runner_seccomp.json:/usr/share/containers/seccomp.json"
+      - "/etc/gitlab-runner-seccomp.json:/usr/share/containers/seccomp.json"
     container_depends:
       - executor.service
