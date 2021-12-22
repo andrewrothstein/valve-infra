@@ -16,11 +16,12 @@ RUN pacman --noconfirm -S base-devel
 # allows disabling cache on build for anything after this point, for re-running ansible config without rebuilding base OS install layers
 # to use: podman build --build-arg NOCACHE=$(date +%s) ...
 ARG NOCACHE=0
+ARG EXTRA_ANSIBLE_FLAGS=
 
 # TODO: replace with mupuf/valve-infra repo:
 RUN git clone --single-branch --branch ansible https://gitlab.freedesktop.org/craftyguy/valve-infra.git /app/valve-infra
 WORKDIR /app/valve-infra/ansible
-RUN ansible-playbook ./gateway.yml
+RUN ansible-playbook $EXTRA_ANSIBLE_FLAGS ./gateway.yml
 
 # Fix the access rights
 RUN chmod 700 /root && chmod 600 /etc/authorized_keys
