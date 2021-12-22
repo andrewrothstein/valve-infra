@@ -15,6 +15,6 @@
       - "/mnt:/mnt"
       - "{{ perm_mount }}/gitlab-runner:/etc/gitlab-runner"
       - "/var/run/docker.sock:/var/run/docker.sock"
-      - "{{ playbook_dir }}/../config/gitlab_runner_seccomp.json:/usr/share/containers/seccomp.json"
+      - "{{ playbook_dir }}/../containers/valve-infra/config/gitlab_runner_seccomp.json:/usr/share/containers/seccomp.json"
     container_depends:
       - executor.service
