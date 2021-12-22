@@ -8,7 +8,7 @@
     container_privileged: true
     container_image: registry.freedesktop.org/mupuf/valve-infra/executor
     container_volumes:
-      - "{{ tmp_mount }}/gitlab-runner:/etc/gitlab-runner"
+      - "{{ perm_mount }}/gitlab-runner:/etc/gitlab-runner"
       - "{{ tmp_mount }}/boots:/boots"
     container_host_network: true
     container_env_files:
