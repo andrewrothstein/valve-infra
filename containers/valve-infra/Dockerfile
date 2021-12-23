@@ -3,7 +3,7 @@ FROM archlinux:latest
 # Make a standalone container, bootable with b2c
 RUN echo 'nameserver 1.1.1.1' > /etc/resolv.conf
 
-RUN pacman -Suy --noconfirm podman-docker bash rsync wget systemd glances nano htop speedtest-cli tcpdump ansible git \
+RUN pacman -Suy --noconfirm podman-docker bash bash-completion rsync wget systemd glances nano htop speedtest-cli tcpdump ansible git \
     && systemctl enable podman.service \
     && pacman -Scc --noconfirm
 COPY rootfs /

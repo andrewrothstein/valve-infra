@@ -9,5 +9,6 @@ if [ -z "$SSH_CONNECTION" ]; then
    exec bash
 fi
 
-# present the shell if coming from SSH
-export TERM=xterm
+[ -r /etc/bash.bashrc ] && . /etc/bash.bashrc
+
+
