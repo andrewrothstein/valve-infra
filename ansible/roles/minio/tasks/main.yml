@@ -51,6 +51,23 @@
     dest: '/etc/systemd/system/minio_configure.service'
     mode: 0644
 
+- name: Ensure minio configuration directory exists
+  become: true
+  ansible.builtin.file:
+    mode: 0744
+    path: /etc/minio
+    state: directory
+
+- name: Installing minio bucket policies
+  become: true
+  ansible.builtin.template:
+    src: "{{ item.src }}"
+    dest: "{{ item.dest }}"
+    mode: 0644
+  loop:
+    - { src: 'valvetraces.json.j2', dest: '/etc/minio/valvetraces.json' }
+    - { src: 'valvetraces-ro.json.j2', dest: '/etc/minio/valvetraces-ro.json' }
+
 - name: Enable minio_configure service
   become: true
   ansible.builtin.systemd:

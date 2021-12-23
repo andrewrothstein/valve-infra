@@ -7,7 +7,6 @@ RUN pacman -Suy --noconfirm podman-docker bash rsync wget systemd glances nano h
     && systemctl enable podman.service \
     && pacman -Scc --noconfirm
 COPY rootfs /
-COPY minio_policies/ /app/minio_policies/
 
 # plugin needed to build dnsmasq-nftset from AUR
 # TODO: remove when building dnsmasq-nftset is no longer necessary:

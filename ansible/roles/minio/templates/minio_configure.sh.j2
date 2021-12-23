@@ -28,12 +28,12 @@ mcli policy set public minio/jobs
 # Create a valvetraces bucket and user
 mcli mb --ignore-existing minio/valvetraces
 mcli admin user add minio valvetraces "$VALVETRACES_MINIO_PASSWORD"
-mcli admin policy add minio u_valvetraces {{ playbook_dir }}/../minio_policies/valvetraces.json
+mcli admin policy add minio u_valvetraces /etc/minio/valvetraces.json
 mcli admin policy set minio u_valvetraces user=valvetraces
 
 # Create a valvetraces-ro group, and add the valvetraces user to it
 mcli admin group add minio valvetraces-ro valvetraces
-mcli admin policy add minio g_valvetraces-ro {{ playbook_dir }}/../minio_policies/valvetraces-ro.json
+mcli admin policy add minio g_valvetraces-ro /etc/minio/valvetraces-ro.json
 mcli admin policy set minio g_valvetraces-ro group=valvetraces-ro
 
 # Download a default kernel and initramfs for our infra
