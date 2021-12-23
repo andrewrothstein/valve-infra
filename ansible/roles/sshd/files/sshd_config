@@ -1,6 +1,11 @@
 #### DO NOT EDIT ####
 # Managed by Ansible
 
+Port 22
+# Igalia exposes SSH on a non-standard port
+# TODO: Figure out how to have ansible add this conditioned on the farm name...
+Port 4044
+
 HostKey /mnt/permanent/ssh/ssh_host_rsa_key
 HostKey /mnt/permanent/ssh/ssh_host_ecdsa_key
 HostKey /mnt/permanent/ssh/ssh_host_ed25519_key
