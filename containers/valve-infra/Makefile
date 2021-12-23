@@ -37,10 +37,10 @@ EXTRA_ANSIBLE_FLAGS := "-vvv"
 else
 EXTRA_ANSIBLE_FLAGS := ""
 endif
+EXTRA_ANSIBLE_VARS := "farm_name=cturner-ansible-test other_variable=foo"
 container:
-	@# --build-arg NO_CACHE
-	@# Creates ***tons*** of redundant images tho
-	podman build --dns=none -v $(shell pwd)/../..:/app/valve-infra --build-arg EXTRA_ANSIBLE_FLAGS=$(EXTRA_ANSIBLE_FLAGS) --build-arg NOCACHE=$(shell date +%s)  --tag $(REGISTRY)/$(CONTAINER) -f Dockerfile . 2>&1 | tee container_build.log
+
+	podman build --dns=none -v $(shell pwd)/../..:/app/valve-infra --build-arg EXTRA_ANSIBLE_FLAGS=$(EXTRA_ANSIBLE_FLAGS) --build-arg EXTRA_ANSIBLE_VARS=$(EXTRA_ANSIBLE_VARS) --build-arg NOCACHE=$(shell date +%s)  --tag $(REGISTRY)/$(CONTAINER) -f Dockerfile . 2>&1 | tee container_build.log
 
 push-container: container
 	@# Todo, condition on local vs prod

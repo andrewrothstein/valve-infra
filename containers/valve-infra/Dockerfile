@@ -16,7 +16,8 @@ RUN pacman --noconfirm -S base-devel
 # allows disabling cache on build for anything after this point, for re-running ansible config without rebuilding base OS install layers
 # to use: podman build --build-arg NOCACHE=$(date +%s) ...
 ARG NOCACHE=0
-ARG EXTRA_ANSIBLE_FLAGS=0
+ARG EXTRA_ANSIBLE_FLAGS=""
+ARG EXTRA_ANSIBLE_VARS=""
 
 # TODO: it's more convenient to just build and push from the pwd, but I get the safety of pulling from a URI instead...
 # not sure how to parameterize this in the Dockerfile,
@@ -34,7 +35,7 @@ ARG EXTRA_ANSIBLE_FLAGS=0
 
 WORKDIR /app/valve-infra/ansible
 
-RUN ansible-playbook ${EXTRA_ANSIBLE_FLAGS} ./gateway.yml
+RUN ansible-playbook ${EXTRA_ANSIBLE_FLAGS} --extra-vars "${EXTRA_ANSIBLE_VARS}" ./gateway.yml
 
 # TODO: remove when building dnsmasq-nftset is no longer necessary:
 # This is "pacman -Rns base-devel" without packages that are dependencies for

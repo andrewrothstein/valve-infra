@@ -8,6 +8,11 @@
     dest: /etc/resolv.conf
     mode: 0744
 
+- name: Set a hostname
+  become: true
+  shell: |
+    printf "{{ farm_name }}-gw\n" > /etc/hostname
+
 - name: Update pacman cache
   become: true
   pacman:
