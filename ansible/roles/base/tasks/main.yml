@@ -10,8 +10,10 @@
 
 - name: Set a hostname
   become: true
-  shell: |
+  ansible.builtin.shell: |
     printf "{{ farm_name }}-gw\n" > /etc/hostname
+  changed_when: false
+
 
 - name: Update pacman cache
   become: true

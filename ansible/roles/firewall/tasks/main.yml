@@ -10,7 +10,7 @@
   become: true
   ansible.builtin.systemd:
     name: nftables
-    enabled: yes
+    enabled: true
 
 - name: Creating nftables.d
   become: true

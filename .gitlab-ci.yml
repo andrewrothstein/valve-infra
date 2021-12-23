@@ -6,7 +6,7 @@ stages:
 
 variables:
   GIT_SUBMODULE_STRATEGY: recursive
-  FDO_DISTRIBUTION_TAG: 'valve-infra-arch-ansible-2021-11-01'
+  FDO_DISTRIBUTION_TAG: 'valve-infra-arch-ansible-2021-12-23'
 
 include:
   - project: 'freedesktop/ci-templates'
@@ -20,7 +20,7 @@ build-arch-ansible-container:
     - changes:
       - .gitlab-ci.yml
   variables:
-    FDO_DISTRIBUTION_PACKAGES: "ansible ansible-lint"
+    FDO_DISTRIBUTION_PACKAGES: "ansible ansible-lint yamllint"
 
 ansible:
   stage: lint

@@ -20,4 +20,4 @@
   become: true
   ansible.builtin.systemd:
     name: network-setup
-    enabled: yes
+    enabled: true

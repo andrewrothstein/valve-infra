@@ -24,14 +24,14 @@
   become: true
   ansible.builtin.systemd:
     name: dnsmasq
-    enabled: yes
+    enabled: true
 
 - name: Disable systemd-resolved
   become: true
   ansible.builtin.systemd:
     name: systemd-resolved
-    masked: yes
-    enabled: no
+    masked: true
+    enabled: false
 
 - name: Reading mirrorlist
   no_log: true

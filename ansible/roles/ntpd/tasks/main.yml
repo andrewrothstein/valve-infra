@@ -10,7 +10,7 @@
   become: true
   ansible.builtin.systemd:
     name: 'chronyd'
-    enabled: yes
+    enabled: true
 
 - name: Adding configuration for Chrony
   become: true

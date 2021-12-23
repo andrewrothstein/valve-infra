@@ -1,7 +1,14 @@
 skip_list:
   # suppress failures about missing ansible galaxy info
   - meta-no-info
+  # tyranical rules..
+  - line-length
+  - commas
+  - braces
+  - comments
 
 enable_list:
   # fail if builtins are not using fqcn
   - fqcn-builtins
+  # even if yamllint is not installed, fail the run
+  - yaml

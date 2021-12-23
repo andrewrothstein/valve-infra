@@ -19,7 +19,7 @@
   become: true
   ansible.builtin.systemd:
     name: sshdgenkeys
-    enabled: yes
+    enabled: true
 
 - name: Installing sshd service
   become: true
@@ -35,7 +35,7 @@
   become: true
   ansible.builtin.systemd:
     name: sshd
-    enabled: yes
+    enabled: true
 
 - name: Installing sshd_config
   become: true
@@ -52,6 +52,6 @@
   ansible.builtin.lineinfile:
     dest: /etc/authorized_keys
     line: "{{ item }}"
-    create: yes
+    create: true
     mode: 0600
   with_items: "{{ ssh_authorized_keys }}"

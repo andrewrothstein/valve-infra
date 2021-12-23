@@ -64,7 +64,6 @@
       - "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQDstcXqWJGzpy0kTEB3rf5LNfLCfeqjwyh06bHO5LBBw05TNSJomBQjvBJzVKbT9QB9x8MfVf+Z/MrFo37NkdoOK/w7tb/1PGaGIVp6FOOyjznO87sLniVxzcJLOgPTA6iejfnXpAS3iUgKxyxouMykeWuGh5KRW/bT+HL+bPZPhk/fXskynCdEH0J6ZDI3+F5kPHVEbdSDeT+BvwJsbyHtdDsDigP/vGJyPn5uEpkCEkScsIqy5/GdXsgyTW9jX6gziZZFW4r5MQlKUX0ALvEGoh5n4rl491QoxOEJxLMcEmfyR3d+TN4XBG1pW/s5qoFXBmDABYrMZh1lk2RRlrnJ pabelenda@ideafix"
       - "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQDHOZAQx1PVe60GBLRYh6V7KdH5l5lsQkFWNQoM7t+UyGDd+YnpBJ66vLAE8Omqh4kk1eZlZDE7EV2ID5YXNWiMqojhq3UDmZ/Syvea/4wP3W33smQur2uR826VAt/F5ePWtRMr9VegTZwiHEzmCDXp9DhwRek58L3Quju3u9Z/kDNoKAJ3197dGtti6icv4zBKYSK+lxrMy2oH4gfJtljpW5JTVsSYvuGRYesQQKpNl6gULfeL3Vh0DkaGhNkf8e7mdXmgAMbMW61P5oMFJXoNt6NJBRq3BbaQ4R/0L3SHgqnaT58LR5a+fRXimcomMD3g8GhSpYY2b+3iUhskrdbh pabelenda@maestria"
 
-
   roles:
     - {role: base,                tags: base}
     - {role: network_setup,       tags: network_setup}

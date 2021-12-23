@@ -10,4 +10,4 @@
 - name: Enabling service
   ansible.builtin.systemd:
     name: "{{ container_name }}.service"
-    enabled: yes
+    enabled: true
