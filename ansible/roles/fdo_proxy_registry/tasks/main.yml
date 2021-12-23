@@ -1,4 +1,11 @@
 ---
+- name: ensure the registry directory exists
+  become: true
+  ansible.builtin.file:
+    mode: 0700
+    path: "{{ registry_mount }}"
+    state: directory
+
 - name: fdo proxy registry container service
   ansible.builtin.include_role:
     name: "systemd_podman"

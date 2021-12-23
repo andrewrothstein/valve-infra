@@ -1,4 +1,11 @@
 ---
+- name: Ensure salad bind mount exists
+  become: true
+  ansible.builtin.file:
+    mode: 0744
+    path: /run/salad_socks
+    state: directory
+
 - name: salad container service
   ansible.builtin.include_role:
     name: "systemd_podman"
