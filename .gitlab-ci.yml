@@ -35,7 +35,8 @@ ansible:
     - cd ansible
     # dependency for role(s) that build packages from AUR
     - ansible-galaxy collection install kewlfft.aur
-    - ansible-lint
+    - ansible-lint --version
+    - ansible-lint -f plain
     - ansible-playbook --syntax-check gateway.yml
 
 .python_package base:
