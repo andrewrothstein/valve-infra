@@ -3,7 +3,7 @@
   become: true
   ansible.builtin.file:
     mode: 0744
-    path: /run/salad_socks
+    path: /etc/salad_socks
     state: directory
 
 - name: salad container service
@@ -15,7 +15,7 @@
     container_privileged: true
     container_image: registry.freedesktop.org/mupuf/valve-infra/salad
     container_volumes:
-      - "/run/salad_socks:/run/salad_socks"
+      - "/etc/salad_socks:/run/salad_socks"
     container_host_network: true
     container_env_files:
       - "{{ prod_env_file }}"
