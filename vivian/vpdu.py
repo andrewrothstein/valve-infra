@@ -6,8 +6,6 @@ import socketserver
 import struct
 import subprocess
 import sys
-import logging
-
 
 BRIDGE = 'vivianbr0'
 SALAD_TCP_CONSOLE_PORT = os.getenv("SALAD_TCPCONSOLE_PORT", 8100)
@@ -15,6 +13,9 @@ NUM_PORTS = 16
 DUT_DISK_SIZE = '32G'
 OUTLETS = []
 
+
+def log(msg, *args):
+    print(msg % args)
 
 def check_bridge():
     global BRIDGE
@@ -28,9 +29,9 @@ def check_bridge():
 
 def get_disk(index):
     hda = f'dut_disk{index}.qcow2'
-    logging.info("Machine %d using disk %s", index, hda)
+    log("Machine %d using disk %s", index, hda)
     if not os.path.exists(hda):
-        logging.info("Disk %s does not exist, creating it...", index, hda)
+        log("Disk %s does not exist, creating it...", index)
         subprocess.run(['qemu-img', 'create', '-f', 'qcow2', hda, DUT_DISK_SIZE],
                         stdout=subprocess.DEVNULL)
     return hda
@@ -53,7 +54,6 @@ OUTLETS = [
      'monitor_port': 4444 + i,
      'state': PowerState.OFF} for i in range(16)
 ]
-
 
 def cleanup(signum=-1, frame=-1):
     # You can not log inside the signal handler, buffered writers are not reentrant.
@@ -95,7 +95,7 @@ class DUT:
             '-chardev', f'socket,id=saladtcp,host=localhost,port={SALAD_TCP_CONSOLE_PORT},server=off,logfile={log_name}',
             '-device', 'pci-serial,chardev=saladtcp',
         ]
-        logging.info('starting DUT: %s', ' '.join(cmd))
+        log('starting DUT: %s', ' '.join(cmd))
         self.qemu = subprocess.Popen(cmd)
 
     def stop(self):
@@ -111,9 +111,9 @@ def gen_mac(index):
 
 def get_disk(index):
     hda = f'dut_disk{index}.qcow2'
-    logging.info("Machine %d using disk %s", index, hda)
+    log("Machine %d using disk %s", index, hda)
     if not os.path.exists(hda):
-        logging.info("Disk %s does not exist, creating it...", hda)
+        log("Disk %s does not exist, creating it...", hda)
         subprocess.run(['qemu-img', 'create', '-f', 'qcow2', hda, DUT_DISK_SIZE],
                        stdout=subprocess.DEVNULL)
     return hda
@@ -121,15 +121,15 @@ def get_disk(index):
 
 class PDUTCPHandler(socketserver.StreamRequestHandler):
     def handle(self):
-        logging.info("client: %s", self.client_address[0])
+        log("client: %s", self.client_address[0])
         try:
             data = self.rfile.read(4)
             if len(data) != 4:
                 raise ValueError
             payload = int.from_bytes(data[:4], byteorder='big')
-            logging.info("payload: %s  %s", hex(payload), bin(payload))
+            log("payload: %s  %s", hex(payload), bin(payload))
         except ValueError:
-            logging.info("Bad input: %s", data)
+            log("Bad input: %s", data)
             self.wfile.write(b'\x00')
             self.request.close()
             return
@@ -152,43 +152,43 @@ class PDUTCPHandler(socketserver.StreamRequestHandler):
             setattr(self.server, '_BaseServer__shutdown_request', True)
 
         if not (port >= 0 and port < len(OUTLETS)):
-            logging.info("port %d out of range", port)
+            log("port %d out of range", port)
             self.wfile.write(b'\x00')
             return
 
         machine = OUTLETS[port]
         assert(machine)
 
-        logging.info("cmd=%s on port=%d", hex(cmd), port)
+        log("cmd=%s on port=%d", hex(cmd), port)
 
         if cmd & 0x03 == 3:
-            logging.info("status for port=%d", port)
+            log("status for port=%d", port)
             self.wfile.write(struct.pack('!B', int(machine['state'])))
         elif cmd & 0x01:
-            logging.info("turning port=%d ON", port)
+            log("turning port=%d ON", port)
             if machine['state'] == PowerState.ON:
-                logging.info('already ON')
+                log('already ON')
                 self.wfile.write(b'\x01')
             else:
                 machine['instance'] = DUT(machine['mac'],
                                           machine['disk'])
                 machine['state'] = PowerState.ON
                 self.wfile.write(b'\x01')
-                logging.info("port=%d turned ON", port)
+                log("port=%d turned ON", port)
         elif cmd & 0x02:
-            logging.info("turning port=%d OFF", port)
+            log("turning port=%d OFF", port)
             if machine['state'] == PowerState.OFF:
-                logging.info("already off")
+                log("already off")
                 self.wfile.write(b'\x01')
             else:
                 assert(machine['instance'])
                 machine['instance'].stop()
                 machine['state'] = PowerState.OFF
                 self.wfile.write(b'\x01')
-                logging.info("port %d turned OFF", port)
+                log("port %d turned OFF", port)
         else:
             assert(cmd == 0)
-            logging.info("return num ports")
+            log("return num ports")
             self.wfile.write(struct.pack('!B', len(OUTLETS)))
 
 
@@ -198,17 +198,12 @@ if __name__ == "__main__":
     parser.add_argument('--port', default=9191, type=int)
     parser.add_argument('--num-ports', default=16, type=int)
     parser.add_argument('--log-file', default='vpdu.log', type=str)
-    parser.add_argument('--log-level', default='DEBUG', type=str)
-    parser.add_argument('--salad-console-port', default=8006, type=int)
+    parser.add_argument('--log-level', default='INFO', type=str)
+    parser.add_argument('--salad-console-port', default=8100, type=int)
     parser.add_argument('--dut-disk-size', default='32G', type=str,
                         help='In the format expected by qemu-img. Default 32G')
 
     args = parser.parse_args()
-
-    logging.basicConfig(filename=args.log_file,
-                        format='%(asctime)s - %(levelname)s - %(message)s',
-                        filemode='w',
-                        level=getattr(logging, args.log_level.upper()))
 
     SALAD_TCP_CONSOLE_PORT = args.salad_console_port
     DUT_DISK_SIZE = args.dut_disk_size
@@ -226,7 +221,7 @@ if __name__ == "__main__":
             server.allow_reuse_address = True
             server.serve_forever()
     finally:
-        logging.info("Final cleanup")
+        log("Final cleanup")
         for machine in OUTLETS:
-            logging.info("Removing disk %s", machine['disk'])
+            log("Removing disk %s", machine['disk'])
             os.remove(machine['disk'])

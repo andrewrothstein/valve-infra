@@ -15,11 +15,16 @@ Provided that you satisfy the hardware requirement, the container can thus be ru
     # podman volume create tmp
     # podman run --privileged --network=host -v tmp:/mnt/tmp -v perm:/mnt/permanent --tls-verify=false --entrypoint=/bin/init docker://registry.freedesktop.org/mupuf/valve-infra/valve-infra:latest
 
-For development purposes, it is advised to run the container in a virtual machine. For ease of use, a Makefile is
-provided to set up your test environment:
+For development purposes, it is advised to run the container in a virtual machine. The infrastructure for virtual testing is called Vivian. To get started quickly and check everything is working as expected on your device, run,
 
- - `make` or `make test`: start the qemu instance
- - `make connect`: Connect via SSH (requires the public key to be already known)
+ - `./tools/vivian-tmux.sh`
+
+This will start a tmux dashboard with several panes showing the status
+of the virtual infrastrcuture. Pane 1 contains a shell to the virtual
+gateway. If you'd like create more SSH connections, use
+
+ - `make vivian-connect`: Connect via SSH (requires the public key to be already known)
+
  - `make clean`: removes all the files created for the test environment
 
 NOTE: Systemd will try to take over the current console at boot. To see the infrastructure's dashboard, just press

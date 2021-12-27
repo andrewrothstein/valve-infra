@@ -54,11 +54,11 @@ development host to interrogate the virtual infrastructure.
 
 List all registered machines and their executor status,
 
-: curl -sL localhost:8080/api/v1/machines | jq
+: curl -sL localhost:8000/api/v1/machines | jq
 
 List all registered PDUs
 
-: curl -sL localhost:8081/api/v1/pdu | jq
+: watch -n10 curl -sL localhost:8081/api/v1/pdu | jq
 
 Query the virtual PDUs port from the host machine,
 

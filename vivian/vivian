@@ -6,6 +6,8 @@
 
 set -ex
 
+SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
+
 usage() {
     echo "Usage: $0 TODO TODO TODO"
 }
@@ -34,6 +36,11 @@ __initial_fleet_size=2
 
 __boot_mode=""
 
+__kernel_img=''
+__kernel_append=''
+__ramdisk=''
+
+
 if [ -z ${1+x} ]; then
     usage
     exit 1
@@ -51,6 +58,15 @@ while test -n "$1"; do
 	--gateway-monitor-socket=*)
 	    __gateway_monitor_socket="${1#--gateway-monitor-socket=}"
 	    ;;
+	--kernel-img=*)
+	    __kernel_img="${1#--kernel-img=}"
+            ;;
+	--kernel-append=*)
+	    __kernel_append="${1#--kernel-append=}"
+            ;;
+	--ramdisk=*)
+	    __ramdisk="${1#--ramdisk=}"
+            ;;
 	--gateway-disk-img=*)
 	    __disk_img="${1#--gateway-disk-img=}"
             ;;
@@ -119,10 +135,19 @@ done
 
 __gateway_nic_opts="-nic user,ipv6=off,mac=$__gateway_public_mac_addr,hostfwd=tcp::$__ssh_port-:22,hostfwd=tcp::$__executor_port-:80,hostfwd=tcp::$__mars_port-:8000,hostfwd=tcp::$__docker_port-:2375,hostfwd=tcp::$__salad_port-:$__salad_port,hostfwd=tcp::$__minio_port-:9000,model=virtio-net-pci -nic bridge,br=$__host_bridge_name,mac=$__gateway_private_mac_addr,model=virtio-net-pci"
 
+
+
 start_gateway() {
     # TODO export a 9P share into /root/valve-infra to support
     # host-local editing of the infra code?
     [ -f $__disk_img ] || ( echo "$__disk_image is not a file" && exit 1 )
+
+    if [ -n "$__kernel_img" ] || [ -n "$__ramdisk" ] || [ "$__kernel_append" ]; then
+	__qemu_kernel_opts="-kernel $__kernel_img -initrd $__ramdisk"
+    else
+	__qemu_kernel_opts=""
+    fi
+
     echo "Starting gateway..."
     qemu-system-x86_64 \
 	-daemonize \
@@ -130,9 +155,12 @@ start_gateway() {
         -monitor unix:"$__gateway_monitor_socket",server,nowait \
 	$__gateway_nic_opts \
 	$__boot_mode \
+	$__qemu_kernel_opts \
+	-append "$__kernel_append" \
 	-m 4G \
-	-enable-kvm
+	-enable-kvm -smp 4
     __gateway_qemu_pid=$!
+
     echo "Started gateway"
 }
 
@@ -142,32 +170,10 @@ wait_for_endpoint() {
 
     echo "Waiting for http://localhost:$port/$endpoint to respond..."
     { local prev_shell_config=$-; set +x; } 2>/dev/null
-    while ! curl -sL "http://localhost:$port/$endpoint" ; do
+    while ! curl -sL "http://localhost:$port/$endpoint" -o/dev/null; do
 	sleep 0.1
     done
     set "-$prev_shell_config"
-}
-
-start_vpdu() {
-    python3 vpdu.py --port "$__vpdu_port" &
-    __vpdu_pid=$!
-}
-stop_vpdu() {
-    echo "Killing VPDU($__vpdu_pid)"
-    # This does not work for Python programs launched from an
-    # interactive shell, from the BASH manpage, I learned async
-    # commands will ignore SIGINT and SIGQUIT in addition to inherited
-    # handlers. Cpython doesn't bother to register the SIGINT handler
-    # for keyboard interrupts (kinda makes sense), but the seemingly
-    # innocent construction below just fails to work, when in other,
-    # simpler, cases, it works just fine. Beware!
-    #  kill -INT "$__vpdu_pid"
-    # So, instead use a special method on the server to shut it down
-    # gracefully.
-    echo -e '\x00\x00\x20\x00' | nc localhost "$__vpdu_port"
-    sleep 2
-    # Kill it off if it languishes (defensive, not seen this happen so far!)
-    kill -9 "$__vpdu_pid" || true
 }
 
 provision_infra() {
@@ -214,12 +220,11 @@ remove_host_bridge() {
 
 cleanup() {
     echo "Performing cleanup"
-    stop_vpdu
     # Gracefully powerdown the gateway, I've noticed the disk can
     # become corrupted without being gentle.
     echo "system_powerdown" | socat - unix-connect:"$__gateway_monitor_socket"
-    echo "Please wait until the gateway has gracefully shutdown..."
-    sleep 20
+    echo "WARNING! No way to shut down the VM gracefully, be careful with disk corruption!"
+    sleep 2
     rm "$__gateway_monitor_socket"
     remove_host_bridge
 }
@@ -240,8 +245,8 @@ test_installer() {
         shift
     done
 
-    [ -z "$__iso"] && echo "ERROR: --iso required" && exit 1
-    [ -z "$__gateway_disk_img"] && echo "ERROR: --gateway-disk-img required" && exit 1
+    [ -z "$__iso" ] && echo "ERROR: --iso required" && exit 1
+    [ -z "$__gateway_disk_img" ] && echo "ERROR: --gateway-disk-img required" && exit 1
 
     if [ ! -e "$__gateway_disk_img" ]; then
         qemu-img create -f qcow2 -o size=100G "$__gateway_disk_img"
@@ -269,15 +274,15 @@ case "$cmd" in
 	fi
 	trap cleanup EXIT
 	create_host_bridge
-	start_vpdu
 	start_gateway
 	provision_infra || true
-	while true ; do
-	    sleep 1
+	for i in seq 1 30 ; do
+	    ssh root@localhost -p "$__ssh_port" -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null journalctl -f ; sleep 1
 	done
 	;;
     test-installer)
 	create_host_bridge
+	trap cleanup EXIT
 	test_installer "$@"
 	;;
     integration-tests)
