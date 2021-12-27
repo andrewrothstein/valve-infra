@@ -1,5 +1,3 @@
-# Used for private configuration, such as API tokens
-config/*.env
 **/htmlcov/
 .coverage
 *.pyc
@@ -8,5 +6,13 @@ config/*.env
 *.cache
 **/build/
 **/dist/
-vivian/*.qcow2
+*.qcow2
+*.img
 vivian/*.log
+/containers/valve-infra/*.log
+/containers/valve-infra/tmp/
+/ipxe-boot-server/ca_cert/
+/ipxe-boot-server/deps/
+/ipxe-boot-server/files/
+/ipxe-boot-server/infra_isos/
+/ipxe-boot-server/ipxe/
