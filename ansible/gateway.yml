@@ -2,7 +2,8 @@
   vars:
     tmp_mount: /mnt/tmp
     perm_mount: /mnt/permanent
-    prod_env_file: "{{ perm_mount }}/infra.env"
+    # env files override in order of entry
+    base_config_env_file: "/etc/base_config.env"
     config_env_file: "{{ perm_mount }}/config.env"
     registry_mount: "{{ tmp_mount }}/registry"
     private_interface_ip: "10.42.0.1"

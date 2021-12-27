@@ -1,6 +1,15 @@
 ---
 - include_tasks: time.yml
 
+- name: Check the build environment is correct
+  assert:
+    that:
+      - farm_name is defined
+      - valvetraces_minio_password is defined
+      - gitlab_access_token is defined
+      - gitlab_registration_token is defined
+    msg: "environment not correctly setup"
+
 - name: Ensure custom resolv.conf
   become: true
   ansible.builtin.copy:

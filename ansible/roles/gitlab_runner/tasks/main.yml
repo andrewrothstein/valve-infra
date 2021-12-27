@@ -16,7 +16,7 @@
     container_service_target: infra.target
     container_image: registry.freedesktop.org/mupuf/valve-infra/gitlab-runner:alpine-v13.12.0
     container_env_files:
-      - "{{ prod_env_file }}"
+      - "{{ base_config_env_file }}"
       - "{{ config_env_file }}"
     container_ports:
       - "{{ gitlab_runner_port }}:80/tcp"

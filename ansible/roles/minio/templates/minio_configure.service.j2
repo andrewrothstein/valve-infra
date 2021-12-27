@@ -8,7 +8,7 @@ Type=oneshot
 # This is set so a successful run will have the
 # 'active' status in systemd:
 RemainAfterExit=yes
-EnvironmentFile={{ prod_env_file }}
+EnvironmentFile={{ base_config_env_file }}
 EnvironmentFile={{ config_env_file }}
 ExecStart=/usr/local/bin/minio_configure
 # If minio is not up yet, this retries:
