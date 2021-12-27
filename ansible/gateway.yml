@@ -1,6 +1,5 @@
 - hosts: gateway
   vars:
-    ansible_connection: local
     tmp_mount: /mnt/tmp
     perm_mount: /mnt/permanent
     prod_env_file: "{{ perm_mount }}/infra.env"
