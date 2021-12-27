@@ -20,6 +20,8 @@
       - mars.service
       - fdo-proxy-registry.service
       - local-registry.service
+    service_pre_conditions:
+      - "mkdir -pv {{ tmp_mount }}/boots {{ perm_mount }}/gitlab-runner"
 
 - name: configuring env
   become: true

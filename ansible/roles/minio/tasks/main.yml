@@ -13,6 +13,8 @@
       - "{{ prod_env_file }}"
       - "{{ config_env_file }}"
     container_cmd: "server /data"
+    service_pre_conditions:
+      - "mkdir -pv {{ tmp_mount }}/minio"
 
 - name: configuring minio user/passwords
   become: true

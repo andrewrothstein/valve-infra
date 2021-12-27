@@ -10,6 +10,9 @@ EnvironmentFile={{ env }}
 {% endfor %}
 ExecStartPre=-/usr/bin/podman stop {{ container_name }}
 ExecStartPre=-/usr/bin/podman rm {{ container_name }}
+{% for pre_condition in service_pre_conditions %}
+ExecStartPre=-{{ pre_condition }}
+{% endfor %}
 {% if container_pull %}
 ExecStartPre=-/usr/bin/podman pull {{ container_image }}
 {% endif %}
