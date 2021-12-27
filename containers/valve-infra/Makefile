@@ -30,7 +30,7 @@ tmp/linux-b2c-$(B2C_VERSION):
 
 tmp/disk.img:
 	[ -d tmp/ ] || mkdir tmp
-	fallocate -l 10G tmp/disk.img
+	qemu-img create -f qcow2 tmp/disk.img 10G
 
 ifeq ($(V), 1)
 EXTRA_ANSIBLE_FLAGS := "-vvv"

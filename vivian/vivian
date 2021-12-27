@@ -126,7 +126,6 @@ start_gateway() {
     echo "Starting gateway..."
     qemu-system-x86_64 \
 	-daemonize \
-	`# nvme boots fail to find legacy boot partition, looks like a bug in the nvme emulator` \
 	-hda "$__disk_img" \
         -monitor unix:"$__gateway_monitor_socket",server,nowait \
 	$__gateway_nic_opts \
