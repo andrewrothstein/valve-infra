@@ -73,7 +73,6 @@ To build all the containers used by the infrastrucuture,
 To run the tests for a container, the process is not as automated as
 we'd like, being project specific, but generally it's based on
 docker-compose. For example, to run the executor tests,
-	
 
     docker-compose --env ./config/prod.env run --rm --entrypoint=bash executor
     executor # pip install pytest

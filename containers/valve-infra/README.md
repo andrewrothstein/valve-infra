@@ -21,11 +21,49 @@ For development purposes, it is advised to run the container in a virtual machin
 
 This will start a tmux dashboard with several panes showing the status
 of the virtual infrastrcuture. Pane 1 contains a shell to the virtual
-gateway. If you'd like create more SSH connections, use
+gateway. You can now validate a couple things,
 
- - `make vivian-connect`: Connect via SSH (requires the public key to be already known)
+  1. Check in pane 0 that all the services are looking healthy. This
+  is simply the system journal being followed.
 
- - `make clean`: removes all the files created for the test environment
+  2. Check in vPDU status that all ports are OFF, this is the starting
+  configuration.
+
+  3. Check there is on virtual PDU registered in pane 4.
+
+  4. Check there are no DUTs currently registered in the gateway under pane 5.
+
+  5. Open a shell and manually power on a virtual test device,
+
+     valve-infra $ python ./vivian/client.py --outlet 3 --on
+
+  6. Check the machine boots and registers with the executor
+  correctly, pane 5 will now show the newly registered machine (from
+  the internal machine DB)
+
+  7. Notice the newly created machine is not registered remotely yet,
+  this is because it hasn't completed the pre-service checks
+  (Sgt. Hartman)
+
+  8. Navigate to http://localhost:8001/admin/ to modify the machine
+  configuration. The default username and password is =admin= and
+  =password=.
+
+  9. Set the PDU port for this machine, in our example the port ID is
+  3 and the PDU is vpdu1. These data are not auto-discovered
+  currently.
+
+  10. Check the local TTY device, it should be autoconfigured as
+  =ttyS1=.
+
+  11. Check the "Ready for service" box and click save.
+
+  12. Go to Gitlab and check that the new runner has been registered.
+
+Congratulations! You seem to have a functional setup! Most of the
+steps above are amenable to further configuration. You are now in a
+position to play around and modify defaults to your testing
+requirements.
 
 NOTE: Systemd will try to take over the current console at boot. To see the infrastructure's dashboard, just press
 CTRL+F2. This will be addressed in a future series.
@@ -43,35 +81,47 @@ The valve-infra container is systemd-based. You will find the following services
 
 To build the container,
 
-
    make CONTAINER=mupuf/valve-infra/valve-infra-cturner:latest -C containers/valve-infra/ container
 
 By default it will tagged with the fd.o registry,
 
    podman inspect registry.freedesktop.org/mupuf/valve-infra/valve-infra-cturner:latest
 
+To force a rebuild, ignoring the container build cache,
+
+   make IGNORE_CACHE=1 CONTAINER=mupuf/valve-infra/valve-infra-cturner:latest -C containers/valve-infra/ container
+
 To build and push the container to local registry for faster debugging,
 
    podman run --rm -p 8088:5000  --name registry registry:2
-   make REGISTRY=localhost:8088 CONTAINER=mupuf/valve-infra/valve-infra-cturner:latest -C containers/valve-infra/  push-container
+   make IGNORE_CACHE=1 REGISTRY=localhost:8088 CONTAINER=mupuf/valve-infra/valve-infra-cturner:latest -C containers/valve-infra/  push-container
    podman inspect localhost:8088/mupuf/valve-infra/valve-infra-cturner:latest
 
 (Use make V=1 ... for extra logging in the various build components we use)
 
-To test this container (assuming the local registry case above, adjust
-as necessary), follow the following steps:
+To test this container in a virtualized environment (assuming the
+local registry case above, adjust as necessary),
 
-   make REGISTRY=10.0.2.2:8088 CONTAINER=mupuf/valve-infra/valve-infra-$USER:latest -C containers/valve-infra/ test
+   make REGISTRY=10.0.2.2:8088 CONTAINER=mupuf/valve-infra/valve-infra-$USER:latest -C containers/valve-infra/ vivian
 
 You may SSH into the VM using this,
 
-    make -C containers/valve-infra/ connect
+    make -C containers/valve-infra/ vivian-connect
+
+Test iterate on changes to the ansible configuration, start Vivian as
+above, and then treat it like a typical remote target with playbook
+commands,
+
+    cd ansible ; ansible-playbook gateway.yml --extra-vars "farm_name=$FARM_NAME gitlab_registration_token=$GITLAB_REGISTRATION_TOKEN"  -l vivian
+
+Other notes,
 
  - In the QEMU window that got created, wait for the login screen
  - Press Alt,-> or CTRL+F2 to switch to tty2, a dashboard should show the current state of the infra
  - Press Ctrl-b c to start a new shell in the dashboard, or press
    CRTL+F3 to switch to tty3, type root, and you should be ready to
    work!
+ - `make clean`: removes all the files created for the test environment.
 
 WARNING: powering off the machine does not currently work, for reasons that are still being investigated. Just kill
 qemu when you are done!

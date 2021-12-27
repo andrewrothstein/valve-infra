@@ -35,7 +35,10 @@ ARG EXTRA_ANSIBLE_VARS=""
 
 WORKDIR /app/valve-infra/ansible
 
-RUN ansible-playbook ${EXTRA_ANSIBLE_FLAGS} --extra-vars "${EXTRA_ANSIBLE_VARS}" ./gateway.yml
+# REVIEW: Why not use the podman_container modules, rather than having
+# ansible in dockerfiles, just have ansible build the containers for
+# us...
+RUN ansible-playbook ${EXTRA_ANSIBLE_FLAGS} --extra-vars "${EXTRA_ANSIBLE_VARS}" ./gateway.yml -l localhost
 
 # TODO: remove when building dnsmasq-nftset is no longer necessary:
 # This is "pacman -Rns base-devel" without packages that are dependencies for
