@@ -51,4 +51,14 @@
     path: /root
     state: directory
 
+- name: configure farm name
+  become: true
+  ansible.builtin.blockinfile:
+    create: true
+    path: "{{ base_config_env_file }}"
+    mode: '0644'
+    marker: "# {mark} ANSIBLE MANAGED BLOCK {{ role_name }}"
+    block: |
+      FARM_NAME={{ farm_name }}
+
 - include_tasks: aur.yml
