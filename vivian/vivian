@@ -180,10 +180,10 @@ provision_infra() {
     ## MaRS setup
     wait_for_endpoint "$__mars_port" "api/v1/machines"
 
-    # Setup an administrator account for the MaRS web interface
-    # Do not fail if this username already exists...
-    docker -H tcp://localhost:"$__docker_port" \
-	exec app_mars_1 env \
+    # Used to use remote docker for this, but I couldn't get the
+    # podman-client stuff working. So, do the SSH proxing manually,
+    ssh root@localhost -p "$__ssh_port" -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
+	podman exec mars env \
 	DJANGO_SUPERUSER_PASSWORD="$__mars_admin_password" \
 	./manage.py createsuperuser --username "$__mars_admin_name" \
 	--noinput --email=eva.lu.ator@vivian.org || true
