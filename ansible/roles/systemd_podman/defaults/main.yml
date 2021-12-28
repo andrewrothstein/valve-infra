@@ -12,5 +12,6 @@ container_repository: "{{ container_name }}"
 container_volumes: []
 container_depends: []
 container_env_files: []
+optional_container_env_files: []
 container_service_target: ""
 service_pre_conditions: []

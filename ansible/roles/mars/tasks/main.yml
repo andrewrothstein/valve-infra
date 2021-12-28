@@ -8,6 +8,7 @@
     container_image: registry.freedesktop.org/mupuf/mars
     container_env_files:
       - "{{ base_config_env_file }}"
+    optional_container_env_files:
       - "{{ config_env_file }}"
     container_ports:
       - "{{ mars_port }}:80/tcp"

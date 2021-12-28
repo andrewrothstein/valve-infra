@@ -8,6 +8,7 @@
     container_image: registry.freedesktop.org/mupuf/valve-infra/docker-registry
     container_env_files:
       - "{{ base_config_env_file }}"
+    optional_container_env_files:
       - "{{ config_env_file }}"
     container_ports:
       - "{{ local_registry_port }}:5000/tcp"

@@ -8,6 +8,9 @@ TimeoutStartSec=0
 {% for env in container_env_files %}
 EnvironmentFile={{ env }}
 {% endfor %}
+{% for env in optional_container_env_files %}
+EnvironmentFile=-{{ env }}
+{% endfor %}
 ExecStartPre=-/usr/bin/podman stop {{ container_name }}
 ExecStartPre=-/usr/bin/podman rm {{ container_name }}
 {% for pre_condition in service_pre_conditions %}
@@ -33,6 +36,9 @@ ExecStart=/usr/bin/podman run --rm -t \
     --privileged \
 {% endif %}
 {% for env in container_env_files %}
+    --env-file {{ env }} \
+{% endfor %}
+{% for env in optional_container_env_files %}
     --env-file {{ env }} \
 {% endfor %}
 {% for env in container_env %}
