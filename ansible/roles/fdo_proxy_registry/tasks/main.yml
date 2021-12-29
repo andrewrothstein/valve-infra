@@ -31,4 +31,4 @@
     marker: "# {mark} ANSIBLE MANAGED BLOCK {{ role_name }}"
     block: |
       REGISTRY_PROXY_REMOTEURL=https://registry.freedesktop.org
-      FDO_PROXY_REGISTRY=http://{{ private_interface_ip }}:{{ fdo_proxy_registry_port }}
+      FDO_PROXY_REGISTRY={{ private_interface_ip }}:{{ fdo_proxy_registry_port }}
