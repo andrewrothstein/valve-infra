@@ -110,11 +110,11 @@ executor:
       - executor/**/*
       - .gitlab-ci.yml
   script:
-    - docker build -t $IMAGE_NAME -f executor/Dockerfile .
+    - docker build -t $IMAGE_NAME -f executor/Dockerfile executor
     - |
        docker run --rm \
            --entrypoint=sh $IMAGE_NAME \
-           -c 'pip install tox && cd executor && tox'
+           -c 'pip install tox && tox'
 
 machine_registration:
   extends:

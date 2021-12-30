@@ -1,6 +1,6 @@
 FROM python:3.9-slim
 
-COPY executor/requirements.txt /app/executor/requirements.txt
+COPY requirements.txt /app/requirements.txt
 WORKDIR /app
 
 RUN set -ex \
@@ -8,7 +8,7 @@ RUN set -ex \
          && cat /etc/apt/sources.list \
          && apt-get update -y \
          && apt-get install -y --no-install-recommends gcc libsnmp-dev snmp-mibs-downloader dnsmasq vim \
-         && pip install --no-cache-dir -r executor/requirements.txt \
+         && pip install --no-cache-dir -r requirements.txt \
 	 && wget -O /usr/bin/mcli https://dl.min.io/client/mc/release/linux-amd64/mc \
 	 && chmod +x /usr/bin/mcli \
          && apt-get remove -y gcc \
@@ -17,4 +17,5 @@ RUN set -ex \
          && rm -rf /var/lib/apt/lists/*
 
 COPY . /app/
-CMD /app/executor/app.py run
+
+CMD /app/app.py run
