@@ -64,7 +64,7 @@ def generate_policy(statements):
 class MinioClient():
     def __init__(self,
                  url=config.MINIO_URL,
-                 user=config.MINIO_USER,
+                 user=config.MINIO_ROOT_USER,
                  secret_key=config.MINIO_ROOT_PASSWORD,
                  alias=config.MINIO_ADMIN_ALIAS):
         self.url = url

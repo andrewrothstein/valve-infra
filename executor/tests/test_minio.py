@@ -56,11 +56,11 @@ def test_generate_policy():
 def test_client_instantiation__defaults(subproc_mock, minio_mock):
     MinioClient()
     minio_mock.assert_called_once_with(endpoint=urlparse(config.MINIO_URL).netloc,
-                                       access_key=config.MINIO_USER, secret_key=config.MINIO_ROOT_PASSWORD,
+                                       access_key=config.MINIO_ROOT_USER, secret_key=config.MINIO_ROOT_PASSWORD,
                                        secure=False)
     subproc_mock.assert_called_once_with(['mcli', '-q', '--no-color', 'alias', 'set',
                                           config.MINIO_ADMIN_ALIAS, config.MINIO_URL,
-                                          config.MINIO_USER, config.MINIO_ROOT_PASSWORD])
+                                          config.MINIO_ROOT_USER, config.MINIO_ROOT_PASSWORD])
 
 
 @patch("minioclient.Minio", autospec=True)
