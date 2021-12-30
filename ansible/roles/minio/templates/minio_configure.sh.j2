@@ -37,8 +37,8 @@ mcli admin policy add minio g_valvetraces-ro /etc/minio/valvetraces-ro.json
 mcli admin policy set minio g_valvetraces-ro group=valvetraces-ro
 
 # Download a default kernel and initramfs for our infra
-upload_to_minio_if_missing https://gitlab.freedesktop.org/mupuf/boot2container/-/releases/v0.9.2/downloads/initramfs.linux_amd64.cpio.xz /boot/"{{ dut_b2c_version }}"
-mcli cp minio/boot/"{{ dut_b2c_version }}" minio/boot/default_boot2container.cpio.xz
+upload_to_minio_if_missing "{{ b2c_url }}" /boot/b2c_initrd_"{{ b2c_release }}"
+mcli cp minio/boot/b2c_initrd_"{{ b2c_release }}" minio/boot/default_boot2container.cpio.xz
 
-upload_to_minio_if_missing https://gitlab.freedesktop.org/mupuf/valve-infra/-/jobs/13477001/artifacts/raw/linux/v5.14-for-valve-ci /boot/"{{ dut_kernel_version }}"
-mcli cp minio/boot/"{{ dut_kernel_version }}" minio/boot/default_kernel
+upload_to_minio_if_missing "{{ kernel_url }}" /boot/kernel_"{{ kernel_release }}"
+mcli cp minio/boot/kernel_"{{ kernel_release }}" minio/boot/default_kernel

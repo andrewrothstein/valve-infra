@@ -17,8 +17,12 @@
     minio_port: 9000
 
     minio_root_user: minioadmin
-    dut_b2c_version: "boot2container_2021_09_09.cpio.xz"
-    dut_kernel_version: "default_kernel_2021_09_09"
+
+    # Default boot files for DUTs.
+    b2c_release: v0.9.3
+    kernel_release: v5.14-for-valve-ci
+    b2c_url: "https://gitlab.freedesktop.org/mupuf/boot2container/-/releases/{{ b2c_release }}/downloads/initramfs.linux_amd64.cpio.xz"
+    kernel_url: "https://gitlab.freedesktop.org/mupuf/valve-infra/-/jobs/13477001/artifacts/raw/linux/{{ kernel_release }}"
 
     sergent_hartman_boot_count: 100
     sergent_hartman_qualifying_boot_count: 100
