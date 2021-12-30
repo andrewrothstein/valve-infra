@@ -261,7 +261,7 @@ test_installer() {
 	$__gateway_nic_opts \
 	$__boot_mode \
 	-m 4G \
-	-display sdl \
+	-display gtk \
 	-enable-kvm \
 	-serial stdio
 }
