@@ -1,6 +1,8 @@
 FROM archlinux:latest
 
 # Make a standalone container, bootable with b2c
+RUN echo 'nameserver 1.1.1.1' > /etc/resolv.conf
+
 RUN pacman -Suy --noconfirm podman-docker bash rsync wget systemd glances nano htop speedtest-cli tcpdump ansible git \
     && systemctl enable podman.service \
     && pacman -Scc --noconfirm
@@ -32,6 +34,7 @@ ARG EXTRA_ANSIBLE_FLAGS=0
 # RUN git clone --single-branch --branch cturner/ansible https://gitlab.freedesktop.org/mupuf/valve-infra.git /app/valve-infra
 
 WORKDIR /app/valve-infra/ansible
+
 RUN ansible-playbook ${EXTRA_ANSIBLE_FLAGS} ./gateway.yml
 
 # TODO: remove when building dnsmasq-nftset is no longer necessary:

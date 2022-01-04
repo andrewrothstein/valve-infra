@@ -1,6 +1,13 @@
 ---
 - include_tasks: time.yml
 
+- name: Ensure custom resolv.conf
+  become: true
+  ansible.builtin.copy:
+    src: resolv.conf
+    dest: /etc/resolv.conf
+    mode: 0744
+
 - name: Update pacman cache
   become: true
   pacman:
@@ -27,12 +34,5 @@
     mode: 0700
     path: /root
     state: directory
-
-- name: Ensure resolv.conf permissions
-  become: true
-  ansible.builtin.file:
-    mode: 0744
-    path: /etc/resolv.conf
-    state: touch
 
 - include_tasks: aur.yml

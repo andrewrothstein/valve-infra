@@ -40,7 +40,7 @@ endif
 container:
 	@# --build-arg NO_CACHE
 	@# Creates ***tons*** of redundant images tho
-	podman build -v $(shell pwd)/../..:/app/valve-infra --build-arg EXTRA_ANSIBLE_FLAGS=$(EXTRA_ANSIBLE_FLAGS) --build-arg NOCACHE=$(shell date +%s)  --tag $(REGISTRY)/$(CONTAINER) -f Dockerfile .
+	podman build --dns=none -v $(shell pwd)/../..:/app/valve-infra --build-arg EXTRA_ANSIBLE_FLAGS=$(EXTRA_ANSIBLE_FLAGS) --build-arg NOCACHE=$(shell date +%s)  --tag $(REGISTRY)/$(CONTAINER) -f Dockerfile . 2>&1 | tee container_build.log
 
 push-container: container
 	@# Todo, condition on local vs prod
@@ -63,4 +63,4 @@ connect:
 	ssh root@${HOST} -p ${PORT} -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null
 
 clean:
-	-rm tmp/*
+	-rm tmp/* container_build.log
