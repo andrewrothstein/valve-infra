@@ -11,7 +11,7 @@ COPY rootfs /
 # plugin needed to build dnsmasq-nftset from AUR
 # TODO: remove when building dnsmasq-nftset is no longer necessary:
 RUN ansible-galaxy collection install kewlfft.aur
-RUN pacman --noconfirm -S base-devel
+RUN pacman --noconfirm -Suy base-devel
 
 # allows disabling cache on build for anything after this point, for re-running ansible config without rebuilding base OS install layers
 # to use: podman build --build-arg NOCACHE=$(date +%s) ...
