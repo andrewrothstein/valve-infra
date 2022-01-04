@@ -13,6 +13,8 @@
     container_name: "fdo-proxy-registry"
     container_service_target: infra.target
     container_image: registry.freedesktop.org/mupuf/valve-infra/docker-registry
+    container_env:
+      - "REGISTRY_PROXY_REMOTEURL=https://registry.freedesktop.org"
     container_env_files:
       - "{{ base_config_env_file }}"
     optional_container_env_files:
@@ -30,5 +32,4 @@
     mode: '0644'
     marker: "# {mark} ANSIBLE MANAGED BLOCK {{ role_name }}"
     block: |
-      REGISTRY_PROXY_REMOTEURL=https://registry.freedesktop.org
       FDO_PROXY_REGISTRY={{ private_interface_ip }}:{{ fdo_proxy_registry_port }}
