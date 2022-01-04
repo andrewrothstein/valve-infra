@@ -35,6 +35,15 @@
     group: root
     mode: 0755
 
+- name: Installing selftest monitoring script
+  become: true
+  ansible.builtin.copy:
+    src: selftest
+    dest: /usr/local/bin/selftest
+    owner: root
+    group: root
+    mode: 0755
+
 - name: Installing bash_login
   become: true
   ansible.builtin.copy:
