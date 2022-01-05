@@ -20,7 +20,7 @@ if !  tmux list-sessions | grep -q $__vivian_tmux_session ; then
     tmux send-keys -t 'vPDU server' "python3 $SCRIPT_DIR/../vivian/vpdu.py --port 9191" C-m
 
     tmux new-window -t $__vivian_tmux_session:3 -n 'vPDU status'
-    tmux send-keys -t 'vPDU status' "watch -n10 python $SCRIPT_DIR/../vivian/client.py --status" C-m
+    tmux send-keys -t 'vPDU status' "watch -n10 python3 $SCRIPT_DIR/../vivian/client.py --status" C-m
 
     tmux new-window -t $__vivian_tmux_session:4 -n 'Gateway PDUs'
     tmux send-keys -t 'Gateway PDUs' "watch -n10 \"curl -sL localhost:8001/api/v1/pdu | jq\"" C-m
