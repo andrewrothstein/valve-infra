@@ -17,6 +17,8 @@
     minio_port: 9000
 
     minio_root_user: minioadmin
+    gitlab_access_token: ''
+    gitlab_registration_token: ''
 
     # Default boot files for DUTs.
     b2c_release: v0.9.3
