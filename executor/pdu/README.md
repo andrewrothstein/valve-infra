@@ -18,7 +18,11 @@ Any SNMP-enabled PDU is supported by this project, but the following models have
 pre-baked configuration to make things easier:
 
  * APC's Masterswitch: `apc_masterswitch`
- * Cyberpower's PDU41004: `cyberpower_pdu41004` (probably working on all cyberpower PDUs)
+ * Cyberpower's PDU41004: `cyberpower_pdu41004`
+ * Cyberpower's pdu15swhviec12atnet:`cyberpower_pdu15swhviec12atnet`
+ * A generic SNMP driver: `snmp`
+ * A virtual PDU: `vpdu`
+ * A dummy PDU: `dummy`
 
 See [Instanciating an SNMP-enabled PDU](#instanciating-an-snmp-enabled-pdu) for more
 information on how to set up your PDU.
