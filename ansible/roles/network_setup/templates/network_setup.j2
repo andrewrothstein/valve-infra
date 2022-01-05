@@ -21,4 +21,4 @@ PRIVATE=`find_nic -r private`
 ip link set $PRIVATE down
 ip link set $PRIVATE name private
 ip addr add {{private_interface_ip}}/24 dev private
-ip link set $PRIVATE up
+ip link set private up
