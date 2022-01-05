@@ -46,8 +46,6 @@
       SERGENT_HARTMAN_QUALIFYING_BOOT_COUNT={{ sergent_hartman_qualifying_boot_count }}
       SERGENT_HARTMAN_REGISTRATION_RETRIAL_DELAY={{ sergent_hartman_registration_retrial_delay }}
       GITLAB_CONF_FILE=/etc/gitlab-runner/config.toml
-      GITLAB_ACCESS_TOKEN={{ gitlab_access_token }}
-      GITLAB_REGISTRATION_TOKEN={{ gitlab_registration_token }}
       BOOTS_URL=http://{{ private_interface_ip }}:8087
       BOOTS_DEFAULT_KERNEL=http://{{ private_interface_ip }}:{{ minio_port }}/boot/default_kernel
       BOOTS_DEFAULT_INITRD=http://{{ private_interface_ip }}:{{ minio_port }}/boot/default_boot2container.cpio.xz

@@ -10,7 +10,6 @@ import flask
 import json
 
 from executor import SergentHartman, MachineState
-from gitlab_runner import GitlabRunnerAPI
 from mars import Mars, Machine
 from minioclient import MinioClient
 from boots import BootService
@@ -309,33 +308,20 @@ def post_job():
 
 
 @click.group()
-@click.option('--gitlab-url', envvar='GITLAB_URL', default='https://gitlab.freedesktop.org')
-@click.option('--gitlab-conf-file', envvar='GITLAB_CONF_FILE')
-@click.option('--gitlab-access-token', envvar='GITLAB_ACCESS_TOKEN')
-@click.option('--gitlab-registration-token', envvar='GITLAB_REGISTRATION_TOKEN')
-@click.option('--gitlab-generic-runner/--no-gitlab-generic-runner', default=True)
-@click.option('--farm-name', envvar='FARM_NAME')
 @click.pass_context
-def cli(ctx, gitlab_url, gitlab_conf_file, gitlab_access_token,
-        gitlab_registration_token, gitlab_generic_runner, farm_name):  # pragma: nocover
+def cli(ctx):  # pragma: nocover
     # ensure that ctx.obj exists and is a dict (in case `cli()` is called
     # by means other than the `if` block below)
     ctx.ensure_object(dict)
-
-    if farm_name and gitlab_conf_file and gitlab_access_token and gitlab_registration_token:
-        ctx.obj['GITLAB_RUNNER_API'] = GitlabRunnerAPI(gitlab_url, gitlab_conf_file, gitlab_access_token,
-                                                       gitlab_registration_token, farm_name,
-                                                       expose_generic_runner=gitlab_generic_runner)
-    else:
-        print(("WARNING: The runners won't be exposed on GitLab because the default configuration file, "
-               "and/or the access/registration tokens are not set"))
-
-    ctx.obj['FARM_NAME'] = farm_name
 
 
 @cli.command()
 @click.pass_context
 def run(ctx):  # pragma: nocover
+    # Make sure the farm name has been set
+    if config.FARM_NAME is None:
+        raise ValueError("Please the FARM_NAME environment variable")
+
     # Start the network boot service
     boots = BootService(config_paths={
         'BOOTS_ROOT': config.BOOTS_ROOT,
@@ -344,7 +330,7 @@ def run(ctx):  # pragma: nocover
     })
 
     # Create all the workers based on the machines found in MaRS
-    mars = Mars(boots, gitlab_runner_api=ctx.obj.get('GITLAB_RUNNER_API'))
+    mars = Mars(boots)
     mars.start()
 
     # Start flask

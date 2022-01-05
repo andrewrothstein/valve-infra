@@ -1,0 +1,62 @@
+check_interval = 0
+concurrent = 128
+
+# Gateway runners
+{% for gl in mars_db.gitlab.values() if gl.should_expose_gateway_runner %}
+[[runners]]
+name = "{{farm_name}}-gateway"
+limit = 1
+url = "{{gl.url}}"
+token = "{{gl.gateway_runner.token}}"
+executor = "docker"
+environment = [{% for k, v in config.job_environment_vars().items() %}
+    "{{k}}={{v}}",{% endfor %}
+]
+[runners.docker]
+tls_verify = false
+image = "registry.freedesktop.org/mupuf/valve-infra/gitlab-trigger"
+privileged = true
+disable_entrypoint_overwrite = false
+oom_kill_disable = false
+disable_cache = false
+volumes = [ "local-container-volume:/var/lib/containers", "/var/run/docker.sock:/var/run/docker.sock", "/cache",]
+network_mode = "host"
+shm_size = 0
+cpus = "4"
+memory = "4GB"
+memory_swap = "8GB"
+memory_reservation = "2GB"
+{% endfor %}
+
+# DUTs
+{% for dut in mars_db.duts.values() if dut.available %}
+{% for gl_name, cfg in dut.gitlab.items() if cfg.exposed %}{% set gl = mars_db.gitlab[gl_name] -%}{% if gl.expose_runners %}
+[[runners]]
+name = "{{dut.full_name}}"
+limit = 1
+url = "{{gl.url}}"
+token = "{{cfg.token}}"
+executor = "docker"
+environment = [{% for k, v in config.job_environment_vars().items() %}
+    "{{k}}={{v}}",{% endfor %}
+]
+[runners.docker]
+tls_verify = false
+image = "registry.freedesktop.org/mupuf/valve-infra/gitlab-trigger"
+privileged = true
+disable_entrypoint_overwrite = false
+oom_kill_disable = false
+disable_cache = false
+volumes = [ "local-container-volume:/var/lib/containers", "/var/run/docker.sock:/var/run/docker.sock", "/cache",]
+network_mode = "host"
+shm_size = 0
+cpus = "1"
+memory = "1GB"
+memory_swap = "0MB"
+memory_reservation = "768MB"
+{% endif %}
+{% endfor %}
+{% endfor %}
+
+[session_server]
+session_timeout = 1800

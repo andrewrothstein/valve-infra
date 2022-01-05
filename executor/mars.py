@@ -5,15 +5,16 @@ from ipaddress import IPv4Address
 from pathlib import Path
 
 from pydantic.dataclasses import dataclass
-from pydantic import validator
+from pydantic import validator, PositiveInt
 from inotify_simple import INotify, flags
 from boots import split_mac_addr
 from logger import logger
 from pdu import PDU
 from executor import Executor
 
-import traceback
 import config
+import gitlab
+import traceback
 import time
 import yaml
 
@@ -25,11 +26,52 @@ class ConfigPDU:
 
 
 @dataclass
+class ConfigGitlabRunner:
+    token: str = "<invalid default>"
+    exposed: bool = True
+
+    def verify_or_renew_token(self, gl, description, tags):
+        # Remove the runner when not exposed
+        if not self.exposed:
+            self.remove(gl)
+            return
+
+        log_prefix = f"{description}'s {gl.name} runner"
+
+        logger.debug(f"{log_prefix}: Verifying the token {self.token}")
+        if not gitlab.verify_runner_token(gitlab_url=gl.url,
+                                          token=self.token):
+            logger.warning(f"{log_prefix}: The token {self.token} is invalid. "
+                           "Starting the renewal process...")
+
+            self.remove(gl)
+
+            runner = gitlab.register_runner(gitlab_url=gl.url,
+                                            registration_token=gl.registration_token,
+                                            description=description,
+                                            tag_list=tags,
+                                            maximum_timeout=gl.maximum_timeout)
+            if runner:
+                self.token = runner.token
+                logger.info(f"{log_prefix}: Got assigned the token {self.token}")
+            else:
+                logger.error(f"{log_prefix}: Could not register the runner on {gl.name}")
+
+    def remove(self, gl):
+        if self.token != "<invalid default>":
+            print(f"Unregister {gl.name}'s runner {self.token}")
+
+        gitlab.unregister_runner(gitlab_url=gl.url, token=self.token)
+        self.token = "<invalid default>"
+
+
+@dataclass
 class ConfigDUT:
     base_name: str
     tags: list[str]
     ip_address: str  # TODO: Make sure all machines have a unique IP
     local_tty_device: str = None
+    gitlab: dict[str, ConfigGitlabRunner] = field(default_factory=dict)
     pdu: str = None
     pdu_port_id: str = None
     pdu_off_delay: float = 30
@@ -53,11 +95,62 @@ class ConfigDUT:
 
         return f"{config.FARM_NAME}-{self.base_name}-{idx}"
 
+    @property
+    def available(self):
+        return self.ready_for_service and not self.is_retired
+
+    def expose_on_forges(self):
+        # Make sure every gitlab instance is represented in the DUT's config
+        for gl in self.mars_db.gitlab.values():
+            if self.gitlab.get(gl.name) is None:
+                self.gitlab[gl.name] = ConfigGitlabRunner()
+
+        if self.available:
+            for gl in self.mars_db.gitlab.values():
+                local_cfg = self.gitlab.get(gl.name)
+                if gl.expose_runners:
+                    local_cfg.verify_or_renew_token(gl, description=self.full_name, tags=self.tags)
+                else:
+                    local_cfg.remove(gl)
+        else:
+            # Un-register every associated runner
+            for gl_name, local_cfg in self.gitlab.items():
+                if gl := self.mars_db.gitlab.get(gl_name):
+                    local_cfg.remove(gl)
+
+
+@dataclass
+class ConfigGitlab:
+    url: str
+    registration_token: str
+    expose_runners: bool = True
+    maximum_timeout: PositiveInt = 21600
+    gateway_runner: ConfigGitlabRunner = None
+
+    # Function called once all the objects have been converted from dict
+    # to their dataclass equivalent
+    def __post_init_post_parse__(self):
+        if self.gateway_runner is not None:
+            self.gateway_runner.mars_db = self
+
+    @validator("url")
+    def url_is_valid(cls, v):
+        assert v.startswith("https://")
+        return v
+
+    @property
+    def should_expose_gateway_runner(self):
+        if not self.expose_runners or self.gateway_runner is None:
+            return False
+
+        return self.gateway_runner.exposed
+
 
 @dataclass
 class MarsDB:
     pdus: dict[str, ConfigPDU] = field(default_factory=dict)
     duts: dict[str, ConfigDUT] = field(default_factory=dict)
+    gitlab: dict[str, ConfigGitlab] = field(default_factory=dict)
 
     def reset_taint(self):
         self._disk_state = asdict(self)
@@ -87,6 +180,10 @@ class MarsDB:
             dut.mac_address = mac_address
             dut.mars_db = self
 
+        for name, gitlab_instance in self.gitlab.items():
+            gitlab_instance.name = name
+            gitlab_instance.mars_db = self
+
         self.reset_taint()
 
     @classmethod
@@ -98,14 +195,14 @@ class MarsDB:
     def save(self, file_path):
         with open(file_path, 'w') as f:
             yaml.dump(asdict(self), f, sort_keys=False)
+        self.reset_taint()
 
 
 # TODO: Finish the Machine -> DUT rename
 class Machine:
-    def __init__(self, db_dut, boots, gitlab_runner_api=None):
+    def __init__(self, db_dut, boots):
         self.db_dut = db_dut
         self.boots = boots
-        self.gitlab_runner_api = gitlab_runner_api
 
         self.pdu_port = self._create_pdu_port()
 
@@ -113,12 +210,9 @@ class Machine:
         self.executor = Executor(self)
 
         # Make sure the updates are reflected in the runner's state
-        self.update_runner_state()
+        self.update_config()
 
     def remove(self):
-        if self.gitlab_runner_api is not None:
-            self.gitlab_runner_api.remove(self.full_name)
-
         self.executor.stop_event.set()
         self.executor.join()
 
@@ -138,11 +232,13 @@ class Machine:
     def ready_for_service(self, val):
         self.db_dut.ready_for_service = val
 
-        # Make sure the update gets written to disk.
-        self.db_dut.mars_db.save(config.MARS_DB_FILE)
-
         # Make sure the updates are reflected in the runner's state
-        self.update_runner_state()
+        self.update_config()
+
+        # Make sure the update gets written to disk.
+        # HACK: This will force a reload of the configuration and thus
+        # update the gitlab runner config
+        self.db_dut.mars_db.save(config.MARS_DB_FILE)
 
     def _create_pdu_port(self):
         config_pdu = self.mars_db.pdus.get(self.db_dut.pdu)
@@ -170,23 +266,13 @@ class Machine:
                                         self.db_dut.ip_address,
                                         self.full_name)
 
-    def update_runner_state(self):
-        if self.gitlab_runner_api is None:
-            return
-
-        if self.ready_for_service and not self.is_retired:
-            self.gitlab_runner_api.expose(self.full_name, self.tags)
-        else:
-            self.gitlab_runner_api.remove(self.full_name)
-
 
 class Mars(Thread):
-    def __init__(self, boots, gitlab_runner_api=None):
+    def __init__(self, boots):
         super().__init__(name='MarsClient')
 
         self.boots = boots
         self.mars_db = None
-        self.gitlab_runner_api = gitlab_runner_api
 
         self._machines = {}
 
@@ -205,13 +291,11 @@ class Mars(Thread):
     def _machine_update_or_create(self, db_dut):
         machine = self._machines.get(db_dut.mac_address)
         if machine is None:
-            machine = Machine(db_dut, self.boots,
-                              gitlab_runner_api=self.gitlab_runner_api)
+            machine = Machine(db_dut, self.boots)
             self._machines[machine.mac_address] = machine
         else:
             machine.update_config(db_dut)
 
-        # Update the machine in MaRS DB
         self.mars_db.duts[machine.mac_address] = db_dut
 
         return machine
@@ -224,6 +308,7 @@ class Mars(Thread):
 
     def add_or_update_machine(self, fields: dict):
         mac_address = fields.pop("mac_address")
+
         if db_dut := self.mars_db.duts.get(mac_address):
             cur_state = asdict(db_dut)
             db_dut = ConfigDUT(**(cur_state | fields))
@@ -258,16 +343,24 @@ class Mars(Thread):
             self._machines[machine.id].remove()
             del self._machines[machine.id]
 
+        # Expose the gateway runners
+        for gl in self.mars_db.gitlab.values():
+            if gl.should_expose_gateway_runner:
+                gl.gateway_runner.verify_or_renew_token(gl,
+                                                        description=f"{config.FARM_NAME}-gateway",
+                                                        tags=[f"{config.FARM_NAME}-gateway", 'CI-gateway'])
+            else:
+                gl.gateway_runner.remove(gl)
+
+        # Expose the DUTs on all the forges
+        for m in self.mars_db.duts.values():
+            m.expose_on_forges()
+
+        # Update the gitlab runner configuration
+        gitlab.generate_runner_config(self.mars_db)
+
         # Save any change that may have happened after reloading
         self.save_db_if_needed()
-
-        # Delete all the Gitlab Runner that are not found locally
-        if self.gitlab_runner_api is not None:
-            gitlab_runners = self.gitlab_runner_api.exposed_machines
-            non_local_runners = set(gitlab_runners) - set([m.full_name for m in self.known_machines])
-
-            for machine_name in non_local_runners:
-                self.gitlab_runner_api.remove(machine_name)
 
     def stop(self, wait=True):
         self.stop_event.set()
