@@ -27,16 +27,6 @@ def check_bridge():
         subprocess.check_call(['ip', 'link', 'set', BRIDGE, 'up'])
 
 
-def get_disk(index):
-    hda = f'dut_disk{index}.qcow2'
-    log("Machine %d using disk %s", index, hda)
-    if not os.path.exists(hda):
-        log("Disk %s does not exist, creating it...", index)
-        subprocess.run(['qemu-img', 'create', '-f', 'qcow2', hda, DUT_DISK_SIZE],
-                        stdout=subprocess.DEVNULL)
-    return hda
-
-
 class PowerState(enum.IntEnum):
     ON = 3
     OFF = 4
@@ -46,6 +36,15 @@ class PowerState(enum.IntEnum):
 def gen_mac(index):
     counter = format(index, '02x')
     return f'52:54:00:11:22:{counter}'
+
+
+
+def get_disk(index):
+    hda = f'{VPDU_DIR}/dut_disk{index}.qcow2'
+    if not os.path.exists(hda):
+        subprocess.run(['qemu-img', 'create', '-f', 'qcow2', hda, DUT_DISK_SIZE],
+                        stdout=subprocess.DEVNULL)
+    return hda
 
 
 OUTLETS = [
@@ -107,16 +106,6 @@ class DUT:
 def gen_mac(index):
     counter = format(index, '02x')
     return f'52:54:00:11:22:{counter}'
-
-
-def get_disk(index):
-    hda = f'dut_disk{index}.qcow2'
-    log("Machine %d using disk %s", index, hda)
-    if not os.path.exists(hda):
-        log("Disk %s does not exist, creating it...", hda)
-        subprocess.run(['qemu-img', 'create', '-f', 'qcow2', hda, DUT_DISK_SIZE],
-                       stdout=subprocess.DEVNULL)
-    return hda
 
 
 class PDUTCPHandler(socketserver.StreamRequestHandler):
