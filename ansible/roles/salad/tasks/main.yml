@@ -20,6 +20,8 @@
     container_env_files:
       - "{{ base_config_env_file }}"
       - "{{ config_env_file }}"
+    part_of:
+      - "infra.service"
 
 - name: configuring salad env
   become: true

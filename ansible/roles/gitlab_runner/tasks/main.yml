@@ -28,3 +28,5 @@
       - "/etc/gitlab-runner-seccomp.json:/usr/share/containers/seccomp.json"
     container_depends:
       - executor.service
+    part_of:
+      - "infra.service"

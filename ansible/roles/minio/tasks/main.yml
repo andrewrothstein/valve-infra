@@ -16,6 +16,8 @@
     container_cmd: "server /data"
     service_pre_conditions:
       - "mkdir -pv {{ tmp_mount }}/minio"
+    part_of:
+      - "infra.service"
 
 - name: configuring minio user/passwords
   become: true

@@ -1,0 +1,21 @@
+# Parent service, useful as a handle to restart en masse and perform
+# early system sanity checks specific to the infra.
+[Unit]
+Description=Valve Infra parent service
+# Somewhat useful for really important services, though one loses the ability to manually stop them.
+#Upholds=
+
+[Service]
+Type=oneshot
+# This is set so a successful run will have the
+# 'active' status in systemd:
+RemainAfterExit=yes
+# Due to bind-mounting the permanent volume when valve-infra starts,
+# it could be the case the infra config file does not exist if
+# anything went wrong with S3 background sync. Ensure it exists, even
+# if empty so that services can start.
+ExecStartPre=touch /mnt/permanent/config.env
+ExecStart=echo
+
+[Install]
+WantedBy=multi-user.target

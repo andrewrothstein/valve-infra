@@ -14,6 +14,8 @@
       - "{{ mars_port }}:80/tcp"
     container_volumes:
       - "/mnt:/mnt"
+    part_of:
+      - "infra.service"
 
 - name: configuring env
   become: true

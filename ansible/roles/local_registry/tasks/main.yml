@@ -14,6 +14,8 @@
       - "{{ local_registry_port }}:5000/tcp"
     container_volumes:
       - "{{ registry_mount }}:/var/lib/registry"
+    part_of:
+      - "infra.service"
 
 - name: configuring env
   become: true

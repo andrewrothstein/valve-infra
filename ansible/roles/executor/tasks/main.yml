@@ -23,6 +23,9 @@
       - local-registry.service
     service_pre_conditions:
       - "mkdir -pv {{ tmp_mount }}/boots {{ perm_mount }}/gitlab-runner"
+      - "touch {{ perm_mount }}/gitlab-runner/config.toml"
+    part_of:
+      - "infra.service"
 
 - name: configuring env
   become: true

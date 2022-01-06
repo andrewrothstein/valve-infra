@@ -2,6 +2,7 @@
 Description=minio configuration helper
 After=minio.service
 Requires=minio.service
+PartOf=infra.service
 
 [Service]
 Type=oneshot

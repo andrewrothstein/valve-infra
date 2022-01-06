@@ -1,0 +1,13 @@
+---
+- name: Installing valve-infra systemd.service file
+  become: true
+  ansible.builtin.copy:
+    src: 'infra.service'
+    dest: '/etc/systemd/system/infra.service'
+    mode: 0644
+
+- name: Enable the valve-infra systemd.service file
+  become: true
+  ansible.builtin.systemd:
+    name: 'infra.service'
+    enabled: true

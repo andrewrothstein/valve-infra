@@ -79,14 +79,6 @@
 #    - {role: dnsmasq,             tags: dnsmasq}
     - {role: dashboard,           tags: dashboard}
     - {role: autologin,           tags: autologin}
-    - role: systemd_target
-      tags: systemd_target
-      vars:
-        target_name: infra
-        target_description: Valve Infra
-        target_after:
-          - multi-user.target
-        target_wantedby: multi-user.target
     - {role: salad,               tags: salad}
     - {role: minio,               tags: minio}
     - {role: mars,                tags: mars}
@@ -94,3 +86,4 @@
     - {role: fdo_proxy_registry,  tags: fdo_proxy_registry}
     - {role: local_registry,      tags: local_registry}
     - {role: executor,            tags: executor}
+    - {role: infra,               tags: infra}

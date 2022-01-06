@@ -2,6 +2,9 @@
 Description={{ container_description }}
 # After=podman.service {% for d in container_depends %}{{ d }} {% endfor %}{{''}}
 # Requires=podman.service {% for d in container_depends %}{{ d }} {% endfor %}{{''}}
+{% if part_of %}
+PartOf={% for d in part_of %}{{ d }} {% endfor %}{{''}}
+{% endif %}
 
 [Service]
 TimeoutStartSec=0
@@ -47,12 +50,10 @@ ExecStart=/usr/bin/podman run --rm -t \
     --name {{ container_name }} {{ container_image }} {{ container_cmd }}
 ExecStop=-/usr/bin/podman stop -t 3 {{ container_name }}
 ExecStop=-/usr/bin/podman rm {{ container_name }}
-Restart=always
+Restart=on-failure
 RestartSec=10s
 
 [Install]
-{% if container_service_target %}
-WantedBy={{ container_service_target }}
+{% if part_of %}
+WantedBy={% for d in part_of %}{{ d }} {% endfor %}{{''}}
 {% endif %}
-# add to multi-user.target so it starts on boot
-WantedBy=multi-user.target
