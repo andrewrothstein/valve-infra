@@ -16,3 +16,4 @@ vivian/*.log
 /ipxe-boot-server/files/
 /ipxe-boot-server/infra_isos/
 /ipxe-boot-server/ipxe/
+/tmp*

@@ -70,6 +70,12 @@ ansible:
           twine upload -u "__token__" $CI_JOB_NAME/dist/*; \
       fi
 
+.valve-infra-rules:
+  rules:
+    - changes: &valve_infra_core_file_list
+      - Makefile
+      - .gitlab-ci.yml
+
 gfxinfo:
   extends:
     - .pip_package base
@@ -102,12 +108,27 @@ valvetraces:
   after_script:
     - if [[ "$CI_COMMIT_BRANCH" == "master" ]]; then docker push $IMAGE_NAME; fi
 
+valve-infra:
+  extends:
+    - .container base
+  rules:
+    - changes:
+        *valve_infra_core_file_list
+      when: on_success
+    - changes:
+      - containers/valve-infra/**
+      when: on_success
+    - when: never
+  script:
+    - make FARM_NAME=ci-master REGISTRY=$CI_REGISTRY CONTAINER=$IMAGE_NAME valve-infra-container
+
 executor:
   extends:
     - .container base
   rules:
     - changes:
       - executor/**/*
+      - Makefile
       - .gitlab-ci.yml
   script:
     - docker build -t $IMAGE_NAME -f executor/Dockerfile executor
