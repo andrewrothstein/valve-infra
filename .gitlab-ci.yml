@@ -120,6 +120,7 @@ valve-infra:
       when: on_success
     - when: never
   script:
+    - apk --no-cache add make bash
     - make FARM_NAME=ci-master REGISTRY=$CI_REGISTRY CONTAINER=$IMAGE_NAME valve-infra-container
 
 executor:
