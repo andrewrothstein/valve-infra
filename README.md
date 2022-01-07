@@ -83,7 +83,7 @@ To test a built container image, first start a local registry to host
 it, this will save round-trips to an external registry, the container
 is too big,
 
-    podman run --rm -p 8088:5000  --name registry registry:2
+    podman run --rm -p 8088:5000  --name registry docker.io/library/registry:2
 
 The other testing dependency we need a virtual PDU, start that service
 on the host like so,
