@@ -23,6 +23,8 @@
       - "{{ fdo_proxy_registry_port }}:5000/tcp"
     container_volumes:
       - "{{ registry_mount }}:/var/lib/registry"
+    service_pre_conditions:
+      - "mkdir -pv {{ registry_mount }}"
     part_of:
       - "infra.service"
 
