@@ -49,4 +49,4 @@
       BOOTS_URL=http://{{ private_interface_ip }}:8087
       BOOTS_DEFAULT_KERNEL=http://{{ private_interface_ip }}:{{ minio_port }}/boot/default_kernel
       BOOTS_DEFAULT_INITRD=http://{{ private_interface_ip }}:{{ minio_port }}/boot/default_boot2container.cpio.xz
-      BOOTS_DEFAULT_CMDLINE='b2c.container="-ti --tls-verify=false docker://{{ private_interface_ip }}:{{ fdo_proxy_registry_port }}/mupuf/valve-infra/machine_registration:latest register" b2c.ntp_peer="{{ private_interface_ip }}" b2c.cache_device=none loglevel=6'
+      BOOTS_DEFAULT_CMDLINE=b2c.container="-ti --tls-verify=false docker://{{ private_interface_ip }}:{{ fdo_proxy_registry_port }}/mupuf/valve-infra/machine_registration:latest register" b2c.ntp_peer="{{ private_interface_ip }}" b2c.cache_device=none loglevel=6
