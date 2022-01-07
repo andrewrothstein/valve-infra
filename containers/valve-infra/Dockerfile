@@ -1,4 +1,4 @@
-FROM docker.io/archlinux:base-20211219.0.41944
+FROM docker.io/library/archlinux:base-20211219.0.41944
 
 # Make a standalone container, bootable with b2c
 RUN echo 'nameserver 1.1.1.1' > /etc/resolv.conf

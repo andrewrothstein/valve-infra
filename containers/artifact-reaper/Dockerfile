@@ -1,4 +1,4 @@
-FROM alpine:latest
+FROM docker.io/library/alpine:latest
 RUN set -ex \
         && apk add --no-cache bash curl
 WORKDIR /app
