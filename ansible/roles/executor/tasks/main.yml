@@ -8,8 +8,8 @@
     container_privileged: true
     container_image: registry.freedesktop.org/mupuf/valve-infra/executor
     container_volumes:
-      - "{{ perm_mount }}/gitlab-runner:/etc/gitlab-runner"
       - "{{ perm_mount }}/mars_db.yaml:/etc/mars_db.yaml"
+      - "{{ tmp_mount }}/gitlab-runner:/etc/gitlab-runner"
       - "{{ tmp_mount }}/boots:/boots"
     container_host_network: true
     container_env_files:
@@ -23,8 +23,8 @@
       - fdo-proxy-registry.service
       - local-registry.service
     service_pre_conditions:
-      - "mkdir -pv {{ tmp_mount }}/boots {{ perm_mount }}/gitlab-runner"
-      - "touch {{ perm_mount }}/gitlab-runner/config.toml"
+      - "mkdir -pv {{ tmp_mount }}/boots {{ tmp_mount }}/gitlab-runner"
+      - "touch {{ tmp_mount }}/gitlab-runner/config.toml"
       - "touch {{ perm_mount }}/mars_db.yaml"
     part_of:
       - "infra.service"

@@ -23,7 +23,7 @@
       - "{{ gitlab_runner_port }}:80/tcp"
     container_volumes:
       - "/mnt:/mnt"
-      - "{{ perm_mount }}/gitlab-runner:/etc/gitlab-runner"
+      - "{{ tmp_mount }}/gitlab-runner:/etc/gitlab-runner"
       - "/var/run/docker.sock:/var/run/docker.sock"
       - "/etc/gitlab-runner-seccomp.json:/usr/share/containers/seccomp.json"
     container_depends:
