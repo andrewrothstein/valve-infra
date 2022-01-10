@@ -155,11 +155,17 @@ gateway:
     $ $EDITOR files/$fingerprint/boot.ipxe
     #!ipxe
 
-    kernel /files/kernel <kernel cmdline>
+    kernel /files/kernel <kernel cmdline> b2c.extra_args_url="${secrets_url}"
     initrd /files/initrd
     boot
+    $ $EDITOR files/$fingerprint/secrets
+    # Put here any b2c argument you want to keep secret (fscrypt key, S3 credentials, ...)
     $ cp bzImage files/$fingerprint/kernel
     $ cp my_initramfs.cpio files/$fingerprint/initrd
+
+NOTE: The secrets you put in the `secrets` template file will be exposed at the
+`${secrets_url}` for a default time of 60s (use `--secrets-expiration-period` to
+change it)
 
 If you don't know what kernel/initrd to use, you may want to look into using
 [boot2container](https://gitlab.freedesktop.org/mupuf/boot2container) which
@@ -184,7 +190,28 @@ boot on it.
 
 That should be all!
 
-# TODO
+## Advanced boot configuration
+
+The template format of the `boot.ipxe` and `secrets` is python's
+template strings, a very simple template engine. In a nutshell,
+`${variable}` will be substituted with the content of `variable`, and use `$$`
+if you want to display a dollar sign. Check out its
+[documentation](https://docs.python.org/3/library/string.html#template-strings)
+for more details.
+
+The following variables are available in the templates:
+
+ * All:
+   * Scratch space for the machine:
+     * `s3_endpoint`: endpoint of the S3-compatible Bucket
+     * `s3_access_key_id`: login/key id of the S3-compatible bucket
+     * `s3_access_key`: password/access key of the S3-compatible bucket
+     * `s3_bucket_name`: name of the S3-compatible bucket
+   * `client_cert_fingerprint`: Fingerprint of iPXE's client certificate
+ * `boot.ipxe`:
+   * `secrets_url`: Short-lived and one-time URL containing the rendered `secrets` template
+
+## TODO
 
  - Have a default target, for machines that do not have a configuration yet
  - Keep the configuration in git, and pull the configuration from a private
