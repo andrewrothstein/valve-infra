@@ -12,6 +12,7 @@ executor = "docker"
 environment = [{% for k, v in config.job_environment_vars().items() %}
     "{{k}}={{v}}",{% endfor %}
 ]
+pre_build_script = "/usr/local/bin/gitlab_runner_prebuild.sh"
 [runners.docker]
 tls_verify = false
 image = "registry.freedesktop.org/mupuf/valve-infra/gitlab-trigger"
@@ -19,7 +20,7 @@ privileged = true
 disable_entrypoint_overwrite = false
 oom_kill_disable = false
 disable_cache = false
-volumes = [ "local-container-volume:/var/lib/containers", "/var/run/docker.sock:/var/run/docker.sock", "/cache",]
+volumes = [ "local-container-volume:/var/lib/containers", "/var/run/docker.sock:/var/run/docker.sock", "/cache", "/usr/local/bin/gitlab_runner_prebuild.sh:/usr/local/bin/gitlab_runner_prebuild.sh" ]
 network_mode = "host"
 shm_size = 0
 cpus = "4"
@@ -40,6 +41,7 @@ executor = "docker"
 environment = [{% for k, v in config.job_environment_vars().items() %}
     "{{k}}={{v}}",{% endfor %}
 ]
+pre_build_script = "/usr/local/bin/gitlab_runner_prebuild.sh"
 [runners.docker]
 tls_verify = false
 image = "registry.freedesktop.org/mupuf/valve-infra/gitlab-trigger"
@@ -47,7 +49,7 @@ privileged = true
 disable_entrypoint_overwrite = false
 oom_kill_disable = false
 disable_cache = false
-volumes = [ "local-container-volume:/var/lib/containers", "/var/run/docker.sock:/var/run/docker.sock", "/cache",]
+volumes = [ "local-container-volume:/var/lib/containers", "/var/run/docker.sock:/var/run/docker.sock", "/cache", "/usr/local/bin/gitlab_runner_prebuild.sh:/usr/local/bin/gitlab_runner_prebuild.sh"]
 network_mode = "host"
 shm_size = 0
 cpus = "1"

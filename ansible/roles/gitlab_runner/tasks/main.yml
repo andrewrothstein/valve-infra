@@ -8,6 +8,15 @@
     group: root
     mode: 0644
 
+- name: Install the prebuild script for gitlab-runner
+  become: true
+  ansible.builtin.template:
+    src: 'gitlab_runner_prebuild.sh.j2'
+    dest: '/usr/local/bin/gitlab_runner_prebuild.sh'
+    owner: root
+    group: root
+    mode: 0700
+
 - name: gitlab-runner container service
   ansible.builtin.include_role:
     name: "systemd_podman"

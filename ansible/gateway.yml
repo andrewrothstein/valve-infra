@@ -20,6 +20,32 @@
     gitlab_access_token: ''
     gitlab_registration_token: ''
 
+    gitlab_runner_user_whitelist:
+      - marge-bot
+      - chturne
+      - mupuf
+      - craftyguy
+      - tanty
+      - bnieuwenhuizen
+      - cwabbott0
+      - daniel-schuermann
+      - flightlessmango
+      - JoshuaAshton
+      - pendingchaos
+      - hakzsam
+      - tarceri
+      - Venemo
+      - neobrain
+
+    gitlab_runner_namespace_whitelist:
+      - mesa
+      - mupuf
+      - tanty
+      - chturne
+      - flightlessmango
+      - gfx-ci
+      - drm
+
     # Default boot files for DUTs.
     b2c_release: v0.9.3
     kernel_release: v5.14-for-valve-ci
