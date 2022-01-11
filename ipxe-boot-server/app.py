@@ -10,6 +10,7 @@ from pprint import pformat
 from secrets import token_urlsafe
 import socket
 from string import Template
+import subprocess
 import os
 
 
@@ -177,6 +178,28 @@ def secrets(token):
         return secret
     else:
         return abort(404)
+
+
+@app.route("/update-cfg")
+def update_cfg():
+    def run(cmd):
+        err_msg = f"ERROR: Got the following unexpected error while executing '{cmd}':"
+        try:
+            return subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                                  shell=True, universal_newlines=True,
+                                  cwd=current_app.config['DATA_ROOT'])
+        except subprocess.CalledProcessError as e:
+            return abort(500, description=f"{err_msg}: {e.stderr}")
+        except Exception as e:
+            return abort(500, description=f"{err_msg}: {e}")
+
+    fetch = run("git fetch")
+    reset = run(f'git reset --hard "`git branch --format "%(upstream:short)"`"')
+
+    return f"""$ {fetch.args}
+{fetch.stdout}
+$ {reset.args}
+{reset.stdout}"""
 
 
 if __name__ == "__main__":

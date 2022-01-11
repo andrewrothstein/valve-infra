@@ -211,9 +211,32 @@ The following variables are available in the templates:
  * `boot.ipxe`:
    * `secrets_url`: Short-lived and one-time URL containing the rendered `secrets` template
 
+## Keeping the boot configuration in GIT
+
+The data root (`./files/` by default) contains a lot of sensitive files which
+are probably best stored in a GIT repository on a private forge. This allows
+developers to follow the typical development workflow, by submitting merge
+requests when they want to alter the boot configuration of a machine. The
+commit log will also make it clear which changes your colleagues have made
+while you were on vacation, for example.
+
+Once a change has been made to the GIT repository, it is possible to ask the
+web service to update its local copy by calling `/update-cfg`). This feature
+requires:
+
+ - git to be installed
+ - no credentials to be requested upon calling git fetch, which can be
+   achieved using:
+   - SSH keys
+   - embedding the credentials in the remote URL
+     (eg. `https://$login:$password@gitlab.freedesktop.org`)
+ - the current branch to have an `upstream` remote/branch set
+   (eg. `git branch --set-upstream-to origin/main`).
+
+You can then call `https://${IPXE_SERVER_FQDN}/update-cfg` as part of the
+deployment pipeline of your git repository, to make sure that the server
+remains in sync with your git repository \o/.
+
 ## TODO
 
  - Have a default target, for machines that do not have a configuration yet
- - Keep the configuration in git, and pull the configuration from a private
-   repo on request so that everyone can edit the files without needing access
-   to the server, and changes can be reviewed like any other code.
