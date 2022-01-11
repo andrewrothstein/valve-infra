@@ -4,6 +4,10 @@ stages:
 - containers
 - python
 
+default:
+  tags:
+    - CI-gateway
+
 variables:
   GIT_SUBMODULE_STRATEGY: recursive
   FDO_DISTRIBUTION_TAG: 'valve-infra-arch-ansible-2021-12-23'
