@@ -1,6 +1,5 @@
 certifi==2020.12.5
 chardet==4.0.0
-click==7.1.2
 easysnmp==0.2.5
 Flask==1.1.2
 freezegun==1.1.0

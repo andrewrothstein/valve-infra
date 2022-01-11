@@ -5,7 +5,6 @@ from datetime import datetime
 
 import traceback
 import config
-import click
 import flask
 import json
 
@@ -307,17 +306,7 @@ def post_job():
     return flask.make_response(flask.jsonify(response), error_code)
 
 
-@click.group()
-@click.pass_context
-def cli(ctx):  # pragma: nocover
-    # ensure that ctx.obj exists and is a dict (in case `cli()` is called
-    # by means other than the `if` block below)
-    ctx.ensure_object(dict)
-
-
-@cli.command()
-@click.pass_context
-def run(ctx):  # pragma: nocover
+def run():  # pragma: nocover
     # Make sure the farm name has been set
     if config.FARM_NAME is None:
         raise ValueError("Please the FARM_NAME environment variable")
@@ -344,4 +333,4 @@ def run(ctx):  # pragma: nocover
 
 
 if __name__ == '__main__':  # pragma: nocover
-    cli()
+    run()
