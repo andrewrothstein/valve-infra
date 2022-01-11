@@ -198,8 +198,6 @@ if __name__ == "__main__":
     parser.add_argument("-e", "--secrets-expiration-period",
                         help="Secrets expiration period, in seconds (default: 60)",
                         default=60, type=float)
-    # TODO: Make the secret timeout configurable
-
     args = parser.parse_args()
 
     # Argument validation
