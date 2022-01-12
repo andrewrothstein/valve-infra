@@ -1,25 +1,12 @@
 ---
 - include_tasks: time.yml
 
-- name: Check that a farm name has been chosen
-  assert:
-    that:
-      - farm_name is defined
-    msg: "farm_name must be provided"
-
 - name: Ensure custom resolv.conf
   become: true
   ansible.builtin.copy:
     src: resolv.conf
     dest: /etc/resolv.conf
     mode: 0744
-
-- name: Set a hostname
-  become: true
-  ansible.builtin.shell: |
-    printf "{{ farm_name }}-gw\n" > /etc/hostname
-  changed_when: false
-
 
 - name: Update pacman cache
   become: true
@@ -47,15 +34,5 @@
     mode: 0700
     path: /root
     state: directory
-
-- name: configure farm name
-  become: true
-  ansible.builtin.blockinfile:
-    create: true
-    path: "{{ base_config_env_file }}"
-    mode: '0644'
-    marker: "# {mark} ANSIBLE MANAGED BLOCK {{ role_name }}"
-    block: |
-      FARM_NAME={{ farm_name }}
 
 - include_tasks: aur.yml

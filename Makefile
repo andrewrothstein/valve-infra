@@ -37,10 +37,6 @@ endif
 ifdef IGNORE_CACHE
 	$(eval EXTRA_PODMAN_BUILD_ARGS += --build-arg NOCACHE=$(shell date +%s))
 endif
-ifndef FARM_NAME
-	$(error "FARM_NAME is a required parameter")
-endif
-	$(eval EXTRA_ANSIBLE_VARS += farm_name=$(FARM_NAME))
 	podman build --dns=none -v $(shell pwd):/app/valve-infra --build-arg EXTRA_ANSIBLE_FLAGS="$(ANSIBLE_EXTRA_FLAGS)" --build-arg EXTRA_ANSIBLE_VARS="$(EXTRA_ANSIBLE_VARS)" $(EXTRA_PODMAN_BUILD_ARGS) --tag $(REGISTRY)/$(CONTAINER) -f containers/valve-infra/Dockerfile
 
 # Run the valve-infra multi-service container inside a VM for local testing.
@@ -70,12 +66,9 @@ vivian-connect:
 
 .PHONY: vivian-provision
 vivian-provision:
-ifndef FARM_NAME
-	$(error "FARM_NAME is a required parameter")
-endif
 	if [ -n "$(TAGS)" ]; then _TAGS="-t $(TAGS)" ; else _TAGS="" ; fi
 	cd ansible
-	ansible-playbook gateway.yml --extra-vars "farm_name=$(FARM_NAME)" $$_TAGS -l vivian
+	ansible-playbook gateway.yml $$_TAGS -l vivian
 
 .PHONY: vpdu
 vpdu:
