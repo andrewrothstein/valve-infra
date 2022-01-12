@@ -4,7 +4,7 @@ concurrent = 128
 # Gateway runners
 {% for gl in mars_db.gitlab.values() if gl.should_expose_gateway_runner %}
 [[runners]]
-name = "{{farm_name}}-gateway"
+name = "{{config.FARM_NAME}}-gateway"
 limit = 1
 url = "{{gl.url}}"
 token = "{{gl.gateway_runner.token}}"
