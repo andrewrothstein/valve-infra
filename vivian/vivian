@@ -16,7 +16,6 @@ __host_bridge_name='vivianbr0'
 
 __docker_port=2375
 __executor_port=8000
-__mars_port=8001
 __salad_port=8100
 __minio_port=9000
 __ssh_port=60022
@@ -28,9 +27,6 @@ __gateway_monitor_socket='gateway_monitor.sock'
 __gateway_qemu_log_file='gateway_qemu.log'
 __gateway_public_mac_addr='DE:AD:BE:EF:00:11'
 __gateway_private_mac_addr='DE:AD:BE:EF:00:12'
-
-__mars_admin_name='admin'
-__mars_admin_password='password'
 
 __initial_fleet_size=2
 
@@ -133,7 +129,7 @@ while test -n "$1"; do
     shift
 done
 
-__gateway_nic_opts="-nic user,ipv6=off,mac=$__gateway_public_mac_addr,hostfwd=tcp::$__ssh_port-:22,hostfwd=tcp::$__executor_port-:80,hostfwd=tcp::$__mars_port-:8000,hostfwd=tcp::$__docker_port-:2375,hostfwd=tcp::$__salad_port-:$__salad_port,hostfwd=tcp::$__minio_port-:9000,model=virtio-net-pci -nic bridge,br=$__host_bridge_name,mac=$__gateway_private_mac_addr,model=virtio-net-pci"
+__gateway_nic_opts="-nic user,ipv6=off,mac=$__gateway_public_mac_addr,hostfwd=tcp::$__ssh_port-:22,hostfwd=tcp::$__executor_port-:80,hostfwd=tcp::$__docker_port-:2375,hostfwd=tcp::$__salad_port-:$__salad_port,hostfwd=tcp::$__minio_port-:9000,model=virtio-net-pci -nic bridge,br=$__host_bridge_name,mac=$__gateway_private_mac_addr,model=virtio-net-pci"
 
 
 
@@ -177,27 +173,42 @@ wait_for_endpoint() {
 }
 
 provision_infra() {
-    ## MaRS setup
-    wait_for_endpoint "$__mars_port" "api/v1/machines"
+    local ssh_options="-p "$__ssh_port" -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
+    local scp_options="-P "$__ssh_port" -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
 
-    # Used to use remote docker for this, but I couldn't get the
-    # podman-client stuff working. So, do the SSH proxing manually,
-    ssh root@localhost -p "$__ssh_port" -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
-	podman exec mars env \
-	DJANGO_SUPERUSER_PASSWORD="$__mars_admin_password" \
-	./manage.py createsuperuser --username "$__mars_admin_name" \
-	--noinput --email=eva.lu.ator@vivian.org || true
-
-    # Add the default virtual PDU
-    curl \
-	-H "Content-Type: application/json" \
-	--request POST \
-	--data '{"name": "vpdu1", "pdu_model": "vpdu", "config": {"hostname": "10.0.2.2:'"$__vpdu_port"'"}}' \
-	http://localhost:"$__mars_port"/api/v1/pdu/
-
-    ## Executor setup
+    ## MaRS DB configuration
     wait_for_endpoint "$__executor_port" "api/v1/machine"
-    # TODO: Provision a given fleet size...
+
+    # Set the farm name
+    echo FARM_NAME=${FARM_NAME} | ssh $ssh_options root@localhost tee /mnt/permanent/config.env
+
+    # Unregister all the current runners
+    ssh $ssh_options root@localhost systemctl stop executor
+    ssh $ssh_options root@localhost "sed -i 's/expose_runners: true/expose_runners: false/' /mnt/permanent/mars_db.yaml"
+    ssh $ssh_options root@localhost systemctl start executor
+
+    # Reset the mars config file
+    cat << EOF > vivian/__mars_db.yaml
+pdus:
+  VPDU:
+    driver: vpdu
+    config:
+      hostname: 10.0.2.2:$__vpdu_port
+
+gitlab:
+  freedesktop:
+    url: ${GITLAB_URL}
+    registration_token: ${GITLAB_REGISTRATION_TOKEN}
+    expose_runners: true
+    maximum_timeout: 21600
+    gateway_runner:
+      token: <invalid>
+      exposed: true
+EOF
+    ssh $ssh_options root@localhost systemctl stop executor
+    scp  $scp_options vivian/__mars_db.yaml root@localhost:/mnt/permanent/mars_db.yaml
+    ssh $ssh_options root@localhost systemctl start executor
+    rm vivian/__mars_db.yaml
 }
 
 create_host_bridge() {
