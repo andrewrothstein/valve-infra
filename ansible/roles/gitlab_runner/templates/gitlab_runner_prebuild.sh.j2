@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 # -*- mode: shell-script -*-
 
 # Limit which Gitlab users / namespaces are allowed to submit jobs on
@@ -6,13 +6,14 @@
 
 set -eu
 
-if [[ $GITLAB_USER_LOGIN =~ ^({{ "|".join(gitlab_runner_user_whitelist) }})$ ]] || \
-   [[ $CI_PROJECT_NAMESPACE =~ ^({{ "|".join(gitlab_runner_namespace_whitelist) }})$ ]]; then
-    echo "Access permitted"
-    exit 0
+if echo "$GITLAB_USER_LOGIN" | grep -qE '^({{ "|".join(gitlab_runner_user_whitelist) }})$' || \
+   echo "$CI_PROJECT_NAMESPACE" | grep -qE '^({{ "|".join(gitlab_runner_namespace_whitelist) }})$';
+then
+   echo "Access permitted"
+   exit 0
 else
-    echo "Access denied"
-    echo "The machines exposed by this runner are only allowed to be used by Valve-authorized projects and/or persons"
-    echo "Please contact either @chturne or @mupuf in Gitlab if you would need access"
-    exit 1
+   echo "Access denied"
+   echo "The machines exposed by this runner are only allowed to be used by Valve-authorized projects and/or persons"
+   echo "Please contact either @chturne or @mupuf in Gitlab if you want access to this service"
+   exit 1
 fi
