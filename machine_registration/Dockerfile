@@ -6,7 +6,7 @@ COPY machine_registration /app/machine_registration
 COPY gfxinfo /app/gfxinfo
 
 RUN set -ex \
-	 && apt-get update -qyy && apt-get install -qyy gcc libvulkan-dev mesa-vulkan-drivers git \
+	 && apt-get update -qyy && apt-get install -qyy gcc libvulkan-dev mesa-vulkan-drivers \
 	 && pip install --no-cache-dir -r /app/machine_registration/requirements.txt \
          && pip install --no-cache-dir /app/gfxinfo \
 	 && apt-get remove -y gcc && apt-get autoremove -y && apt-get clean -y
