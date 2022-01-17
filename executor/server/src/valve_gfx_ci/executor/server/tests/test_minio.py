@@ -1,5 +1,6 @@
 from unittest.mock import call, patch, MagicMock
 from urllib.parse import urlparse
+import tarfile
 import json
 
 from minio.error import S3Error
@@ -140,9 +141,20 @@ def test_extract_archive(subproc_mock, tarfile_mock, minio_mock):
 
     archive_mock = tarfile_mock.return_value.__enter__.return_value
     file_obj = MagicMock()
-    members = [MagicMock(isfile=MagicMock(return_value=True), size=42),
-               MagicMock(isfile=MagicMock(return_value=False)),
-               None]
+
+    member1 = MagicMock(spec=tarfile.TarInfo)
+    member1.isfile = MagicMock(return_value=True)
+    member1.size.return_value = 42
+    member1.mode = 0o777
+    member1.get_info.return_value = {
+        'gid': 1,
+        'gname': 'group',
+        'mtime': 42,
+        'uid': 2,
+        'uname': 'frank'
+    }
+
+    members = [member1, MagicMock(isfile=MagicMock(return_value=False)), None]
     members[0].name = "toto"
     archive_mock.next = MagicMock(side_effect=members)
 
@@ -151,11 +163,13 @@ def test_extract_archive(subproc_mock, tarfile_mock, minio_mock):
     tarfile_mock.assert_called_once_with(fileobj=file_obj, mode='r')
     archive_mock.extractfile.assert_called_once_with(members[0])
 
-    client._client.put_object.assert_called_once_with("bucket/rootpath",
-                                                      "toto",
-                                                      archive_mock.extractfile(),
-                                                      members[0].size,
-                                                      num_parallel_uploads=1)
+    client._client.put_object.assert_called_once_with(
+        "bucket/rootpath",
+        "toto",
+        archive_mock.extractfile(),
+        members[0].size,
+        num_parallel_uploads=1,
+        metadata={'X-Amz-Meta-Mc-Attrs': 'gid:1/gname:group/mode:2384495103/mtime:42/uid:2/uname:frank'})
 
 
 @patch("server.minioclient.Minio", autospec=True)

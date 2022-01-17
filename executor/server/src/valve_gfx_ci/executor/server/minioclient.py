@@ -8,6 +8,7 @@ from minio.error import S3Error
 from typing import List
 
 import subprocess
+import struct
 import ipaddress
 import tempfile
 import requests
@@ -109,14 +110,48 @@ class MinioClient():
             self._client.fput_object(minio_bucket_name, minio_object_name,
                                      temp_download_area.name)
 
+    def _build_mc_attrs_str(self, tarball_member):
+        ti = tarball_member.get_info()
+        m = tarball_member
+        # Unfortunately mc uses non-portable Go encodings in their public protocol:
+        #   https://pkg.go.dev/io/fs#FileMode
+        # They shouldn't do that, instead only the least
+        # significant 9 bits of the go FileMode structure should be
+        # exposed (the UNIX permissions). This is reality however, so
+        # we need to deal with the fact they don't do it like that,
+        # and try our best.  Currently mc ignores the non-standard
+        # bits at least, but be a little defensive in case they change
+        # their minds.
+        gomode = 0
+        if m.isdir():
+            gomode |= 1 << 31
+        if m.islnk():
+            gomode |= 1 << 27
+        if m.isdev():
+            gomode |= 1 << 26
+        if m.isfifo():
+            gomode |= 1 << 25
+        if m.ischr():
+            gomode |= 1 << 21
+        if m.isreg():
+            gomode |= 1 << 15
+        # Low 9-bits for file mode
+        gomode |= m.mode
+        # Yes, they pack is little-endian over the network.
+        mode = int.from_bytes(struct.pack('<I', gomode), byteorder='little')
+        return f"gid:{ti['gid']}/gname:{ti['gname']}/mode:{mode}/mtime:{int(ti['mtime'])}/uid:{ti['uid']}/uname:{ti['uname']}"  # noqa
+
     def extract_archive(self, archive_fileobj, bucket_name):
         with TarFile.open(fileobj=archive_fileobj, mode='r') as archive:
             while (member := archive.next()) is not None:
                 # Ignore everything that isn't a file
                 if not member.isfile():
                     continue
+                metadata = {
+                    'X-Amz-Meta-Mc-Attrs': self._build_mc_attrs_str(member)
+                }
                 self._client.put_object(bucket_name, member.name, archive.extractfile(member),
-                                        member.size, num_parallel_uploads=1)
+                                        member.size, num_parallel_uploads=1, metadata=metadata)
 
     def make_bucket(self, bucket_name):
         try:
