@@ -87,7 +87,7 @@ endif
 	mkdir $(TMP_DIR)
 	mkdir $(OUTPUT_ISO_FOLDER)
 
-	openssl req -newkey rsa -nodes -keyout $(TMP_DIR)/client.key -out $(TMP_DIR)/client.req -subj "/CN=$(CLIENT_NAME)"
+	openssl req -newkey rsa -nodes -keyout $(TMP_DIR)/client.key -out $(TMP_DIR)/client.req -subj "/CN=$(CLIENT_NAME)" -days 3650
 	openssl ca -batch -config $(CA_CNF) -in $(TMP_DIR)/client.req -out $(TMP_DIR)/client.crt
 	openssl verify -verbose -CAfile $(CA_CERT) $(TMP_DIR)/client.crt || exit 1
 	CLIENT_FINGERPRINT=`openssl x509 -in "$(TMP_DIR)/client.crt" -noout -fingerprint | sed 's/^SHA1 Fingerprint=\(.*\)/\1/' | tr '[:upper:]' '[:lower:]' | tr -d ':'`
