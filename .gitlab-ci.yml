@@ -81,6 +81,7 @@ ansible:
     - changes: &valve_infra_core_file_list
       - Makefile
       - .gitlab-ci.yml
+      - ansible/**/*
 
 gfxinfo:
   extends:
