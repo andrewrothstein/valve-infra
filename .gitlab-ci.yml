@@ -124,7 +124,7 @@ valve-infra:
     - when: never
   script:
     - dnf install -y make && dnf clean all && rm -rf /var/cache/yum
-    - make REGISTRY=$CI_REGISTRY CONTAINER=$IMAGE_NAME valve-infra-container
+    - make REGISTRY=$CI_REGISTRY CONTAINER=$CI_PROJECT_PATH/$CI_JOB_NAME:latest valve-infra-container
 
 executor:
   extends:
