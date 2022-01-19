@@ -87,7 +87,7 @@ gfxinfo:
   extends:
     - .pip_package base
   variables:
-    TWINE_PASSWORD: $PIP_GFXINFO_TOKEN
+    TWINE_PASSWORD: $PYPI_GFXINFO_TOKEN
   before_script:
     - pushd gfxinfo/src/gfxinfo
     # Impossible to re-use cache_database() as it would force us to install all the deps of gfxinfo just to access these URLs...
@@ -99,7 +99,7 @@ valvetraces:
   extends:
     - .pip_package base
   variables:
-    TWINE_PASSWORD: $PIP_VALVETRACES_TOKEN
+    TWINE_PASSWORD: $PYPI_VALVETRACES_TOKEN
 
 .container base:
   image: quay.io/podman/stable:latest
