@@ -1,2 +1,2 @@
-include src/gfxinfo/amdgpu_drv.c
-include src/gfxinfo/amdgpu.ids
+include src/valve_gfx_ci/gfxinfo/amdgpu_drv.c
+include src/valve_gfx_ci/gfxinfo/amdgpu.ids

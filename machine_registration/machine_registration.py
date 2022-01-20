@@ -3,8 +3,7 @@
 from serial.tools import list_ports as serial_list_port
 from functools import cached_property, cache
 from collections import namedtuple
-from gfxinfo import find_gpu, VulkanInfo, cache_db
-from gfxinfo import amdgpu
+from valve_gfx_ci.gfxinfo import find_gpu, VulkanInfo, cache_db, amdgpu
 import multiprocessing
 import netifaces
 import argparse
