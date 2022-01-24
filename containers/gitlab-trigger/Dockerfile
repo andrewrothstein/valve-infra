@@ -7,6 +7,8 @@ RUN set -ex \
 	 && chmod +x /usr/bin/mcli \
 	 && dnf -y clean all
 
+COPY containers/gitlab-trigger/bin/ensure_container.sh /usr/local/bin
+COPY containers/gitlab-trigger/bin/submit_job.sh /usr/local/bin
 COPY valvetraces/ /src/valvetraces
 COPY executor/client/ /src/executor/client/
 
