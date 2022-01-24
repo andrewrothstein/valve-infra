@@ -6,13 +6,13 @@ from collections import defaultdict, namedtuple
 from urllib.parse import urlsplit, urlparse
 from enum import Enum, IntEnum
 
-from message import LogLevel, JobIOMessage, ControlMessage, SessionEndMessage, Message, MessageType
-from pdu import PDUState
-from message import JobStatus
-from job import Job
-from logger import logger
-from minioclient import MinioClient, MinIOPolicyStatement, generate_policy
-import config
+from .message import LogLevel, JobIOMessage, ControlMessage, SessionEndMessage, Message, MessageType
+from .pdu import PDUState
+from .message import JobStatus
+from .job import Job
+from .logger import logger
+from .minioclient import MinioClient, MinIOPolicyStatement, generate_policy
+from . import config
 
 import traceback
 import requests

@@ -3,7 +3,7 @@ from datetime import datetime
 import logging
 import base64
 
-from message import Message, MessageType, ControlMessage, JobIOMessage, SessionEndMessage, JobStatus
+from server.message import Message, MessageType, ControlMessage, JobIOMessage, SessionEndMessage, JobStatus
 import pytest
 
 

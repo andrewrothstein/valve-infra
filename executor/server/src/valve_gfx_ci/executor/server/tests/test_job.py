@@ -3,8 +3,7 @@ from freezegun import freeze_time
 import pytest
 from unittest.mock import patch, MagicMock
 
-from job import Target, Timeout, Timeouts, ConsoleState, _multiline_string, Deployment, Job
-
+from server.job import Target, Timeout, Timeouts, ConsoleState, _multiline_string, Deployment, Job
 
 # Target
 
@@ -430,13 +429,14 @@ class MockBucket:
         return MagicMock(dut=("access", "secret"))
 
 
-@patch('config.job_environment_vars')
+@patch('server.config.job_environment_vars')
 def test_Job__sample(job_env):
     job_env.return_value = {'MINIO_URL': 'testing-url',
                             'NTP_PEER': '10.42.0.1',
                             'PULL_THRU_REGISTRY': '10.42.0.1:8001'}
+
     m = MockMachine()
-    job = Job.from_path("tests/sample_job.yml", m)
+    job = Job.from_path("src/valve_gfx_ci/executor/server/tests/sample_job.yml", m)
 
     assert job.version == 1
     assert job.deadline == datetime.fromisoformat("2021-03-31 00:00:00")
@@ -481,7 +481,7 @@ deployment:
     assert str(exc.value) == "{'console_patterns': {'reboot': ['Unknown field.']}}"
 
 
-@patch('config.job_environment_vars')
+@patch('server.config.job_environment_vars')
 def test_Job__from_machine(job_env):
     job_env.return_value = {'NTP_PEER': '10.42.0.1'}
 

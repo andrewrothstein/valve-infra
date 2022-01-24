@@ -1,12 +1,11 @@
-from pdu import PDU, PDUPort, PDUState
-from .. import logger
+from .. import logger, PDU, PDUPort, PDUState
 
 import time
 import socket
 from contextlib import contextmanager
 
 
-class VirtualPDU(PDU):
+class VirtualPDU(PDU):  # pragma: nocover
     def __init__(self, name, config):
         logger.info("Creating a virtual PDU named %s", name)
         self.host, self.port = config.get('hostname', 'localhost:9191').split(':')

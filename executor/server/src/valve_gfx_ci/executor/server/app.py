@@ -4,16 +4,16 @@ from dataclasses import dataclass
 from datetime import datetime
 
 import traceback
-import config
 import flask
 import json
 
-from executor import SergentHartman, MachineState
-from mars import Mars, Machine
-from minioclient import MinioClient
-from boots import BootService
-from client import JobStatus
-from job import Job, Target
+from .executor import SergentHartman, MachineState
+from .mars import Mars, Machine
+from .minioclient import MinioClient
+from .boots import BootService
+from .message import JobStatus
+from .job import Job, Target
+from . import config
 
 
 class CustomJSONEncoder(flask.json.JSONEncoder):

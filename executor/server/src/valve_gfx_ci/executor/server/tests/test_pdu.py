@@ -3,11 +3,11 @@ import pytest
 import copy
 import time
 
-from pdu import PDUState, PDUPort, PDU
-from pdu.drivers.apc import ApcMasterswitchPDU
-from pdu.drivers.cyberpower import PDU41004
-from pdu.drivers.dummy import DummyPDU
-from pdu.drivers.snmp import (
+from server.pdu import PDUState, PDUPort, PDU
+from server.pdu.drivers.apc import ApcMasterswitchPDU
+from server.pdu.drivers.cyberpower import PDU41004
+from server.pdu.drivers.dummy import DummyPDU
+from server.pdu.drivers.snmp import (
     retry_on_known_errors,
     SnmpPDU,
     ManualSnmpPDU,
@@ -99,14 +99,15 @@ def test_PDU_create():
 
 @pytest.fixture(autouse=True)
 def reset_easysnmp_mock(monkeypatch):
-    import pdu.drivers.snmp
+    import server.pdu.drivers.snmp as snmp
+
     global snmp_get, snmp_set, snmp_walk, time_sleep
     m1, m2, m3, m4 = MagicMock(), MagicMock(), MagicMock(), MagicMock()
     # REVIEW: I wonder if there's a clever way of covering the
     # difference in import locations between here and snmp.py
-    monkeypatch.setattr(pdu.drivers.snmp, "snmp_walk", m1)
-    monkeypatch.setattr(pdu.drivers.snmp, "snmp_get", m2)
-    monkeypatch.setattr(pdu.drivers.snmp, "snmp_set", m3)
+    monkeypatch.setattr(snmp, "snmp_walk", m1)
+    monkeypatch.setattr(snmp, "snmp_get", m2)
+    monkeypatch.setattr(snmp, "snmp_set", m3)
     monkeypatch.setattr(time, "sleep", m4)
     snmp_walk = m1
     snmp_get = m2

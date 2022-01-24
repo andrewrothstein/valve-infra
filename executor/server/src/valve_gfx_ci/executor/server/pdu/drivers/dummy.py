@@ -1,4 +1,4 @@
-from pdu import PDU, PDUPort, PDUState
+from .. import PDU, PDUPort, PDUState
 
 
 class DummyPDU(PDU):

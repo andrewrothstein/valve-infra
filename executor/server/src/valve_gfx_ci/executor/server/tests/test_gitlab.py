@@ -1,7 +1,8 @@
 from unittest.mock import MagicMock, patch, mock_open
-from gitlab import GitlabRunnerRegistration, register_runner, unregister_runner
-from gitlab import verify_runner_token, generate_runner_config
-import config
+
+from server.gitlab import GitlabRunnerRegistration, register_runner, unregister_runner
+from server.gitlab import verify_runner_token, generate_runner_config
+import server.config as config
 
 
 def test_register_runner():
@@ -15,7 +16,7 @@ def test_register_runner():
 
     post_mock_return_value = MagicMock(status_code=201,
                                        json=MagicMock(return_value={"id": runner_id, "token": runner_token}))
-    with patch("gitlab.requests.post", return_value=post_mock_return_value) as post_mock:
+    with patch("server.gitlab.requests.post", return_value=post_mock_return_value) as post_mock:
         r = register_runner(gitlab_url=url, registration_token=registration_token,
                             description=description, tag_list=tag_list)
         assert r == GitlabRunnerRegistration(id=runner_id, token=runner_token)
@@ -27,7 +28,7 @@ def test_register_runner():
                                              'run_untagged': False,
                                              'maximum_timeout': 3600})
 
-    with patch("gitlab.requests.post", return_value=MagicMock(status_code=403)) as post_mock:
+    with patch("server.gitlab.requests.post", return_value=MagicMock(status_code=403)) as post_mock:
         r = register_runner(gitlab_url=url, registration_token=registration_token,
                             description=description, tag_list=tag_list)
         assert r is None
@@ -37,7 +38,7 @@ def test_unregister_runner():
     url = "my url"
     runner_token = "my token"
 
-    with patch("gitlab.requests.delete") as delete_mock:
+    with patch("server.gitlab.requests.delete") as delete_mock:
         unregister_runner(gitlab_url=url, token=runner_token)
         delete_mock.assert_called_with(f"{url}/api/v4/runners", params={"token": runner_token})
 
@@ -46,7 +47,7 @@ def test_verify_runner_token():
     url = "my url"
     runner_token = "my token"
 
-    with patch("gitlab.requests.post", return_value=MagicMock(status_code=403)) as post_mock:
+    with patch("server.gitlab.requests.post", return_value=MagicMock(status_code=403)) as post_mock:
         verify_runner_token(gitlab_url=url, token=runner_token)
         post_mock.assert_called_with(f"{url}/api/v4/runners/verify", params={"token": runner_token})
 
@@ -54,7 +55,7 @@ def test_verify_runner_token():
 def test_generate_runner_config():
     template_data = "data"
 
-    with patch("gitlab.Template") as template_mock:
+    with patch("server.gitlab.Template") as template_mock:
         with patch("builtins.open", mock_open(read_data=template_data)) as mock_file:
             mars_db = MagicMock()
 

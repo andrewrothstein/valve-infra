@@ -11,8 +11,8 @@ import sys
 import tempfile
 import time
 
-import config
-from logger import logger
+from . import config
+from .logger import logger
 
 DEFAULT_CONFIG_PATHS = {
     'BOOTS_ROOT': '/boots',

@@ -1,12 +1,12 @@
 from unittest.mock import call, patch, MagicMock
 from urllib.parse import urlparse
-import config
 import json
 
-from minioclient import MinioClient, MinIOPolicyStatement, generate_policy
 from minio.error import S3Error
-
 import pytest
+
+from server.minioclient import MinioClient, MinIOPolicyStatement, generate_policy
+import server.config as config
 
 
 def test_generate_policy():
@@ -51,7 +51,7 @@ def test_generate_policy():
     }
 
 
-@patch("minioclient.Minio", autospec=True)
+@patch("server.minioclient.Minio", autospec=True)
 @patch("subprocess.check_call")
 def test_client_instantiation__defaults(subproc_mock, minio_mock):
     MinioClient()
@@ -63,7 +63,7 @@ def test_client_instantiation__defaults(subproc_mock, minio_mock):
                                           config.MINIO_ROOT_USER, config.MINIO_ROOT_PASSWORD])
 
 
-@patch("minioclient.Minio", autospec=True)
+@patch("server.minioclient.Minio", autospec=True)
 @patch("subprocess.check_call")
 def test_client_instantiation__custom_params(subproc_mock, minio_mock):
     MinioClient(url="http://hello-world", user="accesskey", secret_key="secret_key", alias="toto")
@@ -73,7 +73,7 @@ def test_client_instantiation__custom_params(subproc_mock, minio_mock):
                                           "toto", "http://hello-world", "accesskey", "secret_key"])
 
 
-@patch("minioclient.Minio", autospec=True)
+@patch("server.minioclient.Minio", autospec=True)
 @patch("subprocess.check_call")
 def test_client_instantiation__no_aliases(subproc_mock, minio_mock):
     MinioClient(url="http://hello-world", user="accesskey", secret_key="secret_key", alias=None)
@@ -82,7 +82,7 @@ def test_client_instantiation__no_aliases(subproc_mock, minio_mock):
     subproc_mock.assert_not_called()
 
 
-@patch("minioclient.Minio", autospec=True)
+@patch("server.minioclient.Minio", autospec=True)
 @patch("subprocess.check_call")
 def test_client_remove_alias(subproc_mock, minio_mock):
     client = MinioClient(url="http://hello-world", user="accesskey", secret_key="secret_key", alias="toto")
@@ -119,9 +119,9 @@ class MockStream:
         pass
 
 
-@patch("minioclient.requests.get", return_value=MockStream())
-@patch("minioclient.Minio", autospec=True)
-@patch("minioclient.tempfile.NamedTemporaryFile", autospec=True)
+@patch("server.minioclient.requests.get", return_value=MockStream())
+@patch("server.minioclient.Minio", autospec=True)
+@patch("server.minioclient.tempfile.NamedTemporaryFile", autospec=True)
 @patch("subprocess.check_call")
 def test_save_boot_artifact(subproc_mock, named_temp_mock, minio_mock, get_mock):
     client = MinioClient()
@@ -132,8 +132,8 @@ def test_save_boot_artifact(subproc_mock, named_temp_mock, minio_mock, get_mock)
     client._client.fput_object.assert_called_once_with("boot", "/toto/path", "/tmp/temp_file")
 
 
-@patch("minioclient.Minio", autospec=True)
-@patch("minioclient.TarFile.open", autospec=True)
+@patch("server.minioclient.Minio", autospec=True)
+@patch("server.minioclient.TarFile.open", autospec=True)
 @patch("subprocess.check_call")
 def test_extract_archive(subproc_mock, tarfile_mock, minio_mock):
     client = MinioClient()
@@ -158,7 +158,7 @@ def test_extract_archive(subproc_mock, tarfile_mock, minio_mock):
                                                       num_parallel_uploads=1)
 
 
-@patch("minioclient.Minio", autospec=True)
+@patch("server.minioclient.Minio", autospec=True)
 @patch("subprocess.check_call")
 def test_make_bucket(subproc_mock, minio_mock):
     client = MinioClient()
@@ -175,7 +175,7 @@ def test_make_bucket(subproc_mock, minio_mock):
     assert "The bucket already exists" in str(exc.value)
 
 
-@patch("minioclient.Minio", autospec=True)
+@patch("server.minioclient.Minio", autospec=True)
 @patch("subprocess.check_call")
 def test_remove_bucket(subproc_mock, minio_mock):
     client = MinioClient(url='http://test.invalid', user='test', secret_key='test', alias="local")
@@ -185,7 +185,7 @@ def test_remove_bucket(subproc_mock, minio_mock):
         call(['mcli', '-q', '--no-color', 'rb', '--force', 'local/test-id'])])
 
 
-@patch("minioclient.Minio", autospec=True)
+@patch("server.minioclient.Minio", autospec=True)
 @patch("subprocess.check_call")
 def test_minio_add_user(subproc_mock, minio_mock):
     client = MinioClient(url='http://test.invalid', user='test', secret_key='test', alias="local")
@@ -196,7 +196,7 @@ def test_minio_add_user(subproc_mock, minio_mock):
     ])
 
 
-@patch("minioclient.Minio", autospec=True)
+@patch("server.minioclient.Minio", autospec=True)
 @patch("subprocess.check_call")
 def test_minio_remove_user(subproc_mock, minio_mock):
     client = MinioClient(url='http://test.invalid', user='test', secret_key='test', alias="local")
@@ -207,7 +207,7 @@ def test_minio_remove_user(subproc_mock, minio_mock):
     ])
 
 
-@patch("minioclient.Minio", autospec=True)
+@patch("server.minioclient.Minio", autospec=True)
 @patch("subprocess.check_call")
 @patch("subprocess.check_output", return_value="""{"status": "success", "accessKey": "username",
     "userStatus": "enabled", "memberOf": ["group1", "group2"]}""")
@@ -221,7 +221,7 @@ def test_minio_groups_user_is_in(subproc_mock, _, minio_mock):
     ])
 
 
-@patch("minioclient.Minio", autospec=True)
+@patch("server.minioclient.Minio", autospec=True)
 @patch("subprocess.check_call")
 def test_minio_add_user_to_group(subproc_mock, minio_mock):
     client = MinioClient(url='http://test.invalid', user='test', secret_key='test', alias="local")
@@ -233,7 +233,7 @@ def test_minio_add_user_to_group(subproc_mock, minio_mock):
 
 
 @patch("subprocess.check_call")
-@patch("minioclient.tempfile.NamedTemporaryFile", autospec=True)
+@patch("server.minioclient.tempfile.NamedTemporaryFile", autospec=True)
 def test_minio_add_user_policy_add(named_temp_mock, subproc_mock):
     temp_mock = MagicMock()
     temp_mock.name = '/tmp/temp_file'

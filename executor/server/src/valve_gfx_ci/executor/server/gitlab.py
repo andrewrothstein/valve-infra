@@ -1,9 +1,9 @@
 from dataclasses import dataclass
 from jinja2 import Template
-from logger import logger
-
 import requests
-import config
+
+from .logger import logger
+from . import config
 
 
 @dataclass

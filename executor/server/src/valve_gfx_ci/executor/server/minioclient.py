@@ -11,9 +11,10 @@ import subprocess
 import ipaddress
 import tempfile
 import requests
-import config
 import json
 import re
+
+from . import config
 
 
 @dataclass

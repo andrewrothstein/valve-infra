@@ -1,6 +1,5 @@
-from pdu import PDU, PDUPort, PDUState
 from easysnmp import snmp_get, snmp_set, snmp_walk
-from .. import logger
+from .. import logger, PDU, PDUPort, PDUState
 from typing import Dict
 
 import random

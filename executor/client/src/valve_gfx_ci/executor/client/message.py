@@ -1,3 +1,6 @@
+# WARNING: Changes to this file need to be backwards/forwards compatible
+# WARNING 2: You will need to edit the client's message.py file yourself!
+
 from dataclasses import dataclass, field
 from functools import cached_property
 from collections import namedtuple

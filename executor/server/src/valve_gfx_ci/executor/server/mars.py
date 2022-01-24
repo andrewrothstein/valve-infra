@@ -7,16 +7,16 @@ from pathlib import Path
 from pydantic.dataclasses import dataclass
 from pydantic import validator, PositiveInt
 from inotify_simple import INotify, flags
-from boots import split_mac_addr
-from logger import logger
-from pdu import PDU
-from executor import Executor
-
-import config
-import gitlab
 import traceback
 import time
 import yaml
+
+from .boots import split_mac_addr
+from .logger import logger
+from .pdu import PDU
+from .executor import Executor
+from . import config
+from . import gitlab
 
 
 @dataclass

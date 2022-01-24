@@ -1,7 +1,6 @@
 from pathlib import Path
 from unittest.mock import patch
-import boots
-from boots import (
+from server.boots import (
     split_mac_addr,
     parse_dhcp_hosts,
     Dnsmasq,
@@ -11,6 +10,8 @@ import glob
 import os
 import pytest
 import shutil
+
+import server
 
 
 def test_split_mac_addr():
@@ -55,16 +56,14 @@ def test_parse_dhcp_hosts():
 """)
 
 
-@patch.object(boots.Dnsmasq,
-              '_wait_for_dnsmasq_to_fork')
+@patch.object(server.boots.Dnsmasq, '_wait_for_dnsmasq_to_fork')
 @patch("subprocess.Popen")
 def test_dnsmasq_no_binary(popen_mock, dnsmasq_waiter, tmp_path):
     with patch.object(shutil, 'which', lambda _: False), pytest.raises(RuntimeError):
         _ = Dnsmasq('br0', {})
 
 
-@patch.object(boots.Dnsmasq,
-              '_wait_for_dnsmasq_to_fork')
+@patch.object(server.boots.Dnsmasq, '_wait_for_dnsmasq_to_fork')
 @patch("subprocess.Popen")
 def test_dnsmasq_launch(popen_mock, dnsmasq_waiter, tmp_path):
     paths = {
@@ -94,10 +93,8 @@ def test_dnsmasq_launch(popen_mock, dnsmasq_waiter, tmp_path):
          '--interface=br0'], bufsize=0)
 
 
-@patch.object(boots.Dnsmasq,
-              'reload')
-@patch.object(boots.Dnsmasq,
-              '_wait_for_dnsmasq_to_fork')
+@patch.object(server.boots.Dnsmasq, 'reload')
+@patch.object(server.boots.Dnsmasq, '_wait_for_dnsmasq_to_fork')
 @patch("subprocess.Popen")
 def test_dnsmasq_add_static_address(popen_mock, dnsmasq_waiter,
                                     dnsmasq_reloader, tmp_path):
@@ -122,8 +119,8 @@ def test_dnsmasq_add_static_address(popen_mock, dnsmasq_waiter,
     assert len(dnsmasq_reloader.mock_calls) == 2
 
 
-@patch("boots.Dnsmasq", autospec=True)
-@patch("boots.provision_network_boot_service")
+@patch("server.boots.Dnsmasq", autospec=True)
+@patch("server.boots.provision_network_boot_service")
 def test_bootservice(mock_provisioner, mock_dnsmasq, tmp_path):
     paths = {
         'BOOTS_ROOT': tmp_path,
@@ -141,8 +138,8 @@ def test_bootservice(mock_provisioner, mock_dnsmasq, tmp_path):
     service.dnsmasq.stop.assert_called_once()
 
 
-@patch("boots.Dnsmasq", autospec=True)
-@patch("boots.provision_network_boot_service")
+@patch("server.boots.Dnsmasq", autospec=True)
+@patch("server.boots.provision_network_boot_service")
 def test_bootservice_write_config(mock_provisioner, mock_dnsmasq, tmp_path):
     paths = {
         'BOOTS_ROOT': tmp_path,
@@ -194,8 +191,8 @@ label default
     assert len(config_files) == 0
 
 
-@patch("boots.Dnsmasq", autospec=True)
-@patch("boots.provision_network_boot_service")
+@patch("server.boots.Dnsmasq", autospec=True)
+@patch("server.boots.provision_network_boot_service")
 def test_bootservice_remove_config(mock_provisioner, mock_dnsmasq, tmp_path):
     paths = {
         'BOOTS_ROOT': tmp_path,

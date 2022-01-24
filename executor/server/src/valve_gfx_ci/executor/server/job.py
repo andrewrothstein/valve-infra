@@ -5,7 +5,8 @@ from marshmallow.exceptions import ValidationError
 from jinja2 import Template
 import yaml
 import re
-import config
+
+from . import config
 
 
 class Target:

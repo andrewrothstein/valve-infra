@@ -96,7 +96,7 @@ executor:
     - |
        podman run --rm \
            --entrypoint=sh $IMAGE_NAME \
-           -c 'pip install tox && tox'
+           -c 'pip install tox && tox -c server/setup.cfg'
 
 machine_registration:
   extends:
@@ -168,6 +168,19 @@ ipxe-boot-server:
           pip install twine; \
           twine upload -u "__token__" $CI_JOB_NAME/dist/*; \
       fi
+
+executor/client:
+  extends:
+    - .pip_package base
+  variables:
+    TWINE_PASSWORD: $PYPI_EXECUTOR_CLIENT_TOKEN
+
+executor/server:
+  extends:
+    - .pip_package base
+  variables:
+    TWINE_PASSWORD: $PYPI_EXECUTOR_SERVER_TOKEN
+  # NOTE: The code has been tested in the executor container already
 
 gfxinfo:
   extends:
