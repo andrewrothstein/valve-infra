@@ -12,6 +12,8 @@ variables:
   GIT_SUBMODULE_STRATEGY: recursive
   FDO_DISTRIBUTION_TAG: 'valve-infra-arch-ansible-2021-12-23'
 
+
+# Ansible
 include:
   - project: 'freedesktop/ci-templates'
     ref: 14731f78c23c7b523a85a26a068ade9ac1ecd2f3
@@ -45,62 +47,8 @@ ansible:
     - ansible-lint -f plain
     - ansible-playbook --syntax-check gateway.yml
 
-.python_package base:
-  image: python:3.9
-  stage: python
-  rules:
-    - changes:
-      - $CI_JOB_NAME/**/*
-      - .gitlab-ci.yml
-  script:
-    - cd $CI_JOB_NAME
-    - pip install build pycodestyle
-    - pycodestyle --max-line-length=120 .
-    - pip install -r requirements.txt
-    - python -m unittest *.py
 
-.pip_package base:
-  image: python:3.9
-  stage: python
-  rules:
-    - changes:
-      - $CI_JOB_NAME/setup.cfg
-      # - .gitlab-ci.yml  # NOTE: We can only release a new version when the version changed
-  script:
-    - pip install build pycodestyle
-    - pycodestyle $CI_JOB_NAME
-    - python3 -m build $CI_JOB_NAME
-    - |
-      if [[ "$CI_COMMIT_BRANCH" == "master" && -n "$TWINE_PASSWORD" ]]; then \
-          pip install twine; \
-          twine upload -u "__token__" $CI_JOB_NAME/dist/*; \
-      fi
-
-.valve-infra-rules:
-  rules:
-    - changes: &valve_infra_core_file_list
-      - Makefile
-      - .gitlab-ci.yml
-      - ansible/**/*
-
-gfxinfo:
-  extends:
-    - .pip_package base
-  variables:
-    TWINE_PASSWORD: $PYPI_GFXINFO_TOKEN
-  before_script:
-    - pushd gfxinfo/src/valve_gfx_ci/gfxinfo
-    # Impossible to re-use cache_database() as it would force us to install all the deps of gfxinfo just to access these URLs...
-    - wget "https://gitlab.freedesktop.org/agd5f/linux/-/raw/amd-staging-drm-next/drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c"
-    - wget "https://gitlab.freedesktop.org/mesa/drm/-/raw/master/data/amdgpu.ids"
-    - popd
-
-valvetraces:
-  extends:
-    - .pip_package base
-  variables:
-    TWINE_PASSWORD: $PYPI_VALVETRACES_TOKEN
-
+# Containers
 .container base:
   image: quay.io/podman/stable:latest
   stage: containers
@@ -110,6 +58,14 @@ valvetraces:
     - rm /var/lib/containers/storage/* -rf
     - if [[ "$CI_COMMIT_BRANCH" == "master" ]]; then podman login -u gitlab-ci-token -p $CI_JOB_TOKEN $CI_REGISTRY; fi
   # WARNING: after_script does not currently seem to work, we had to duplicate it into every container.
+
+
+.valve-infra-rules:
+  rules:
+    - changes: &valve_infra_core_file_list
+      - Makefile
+      - .gitlab-ci.yml
+      - ansible/**/*
 
 valve-infra:
   extends:
@@ -176,6 +132,58 @@ salad:
     - podman build -t $IMAGE_NAME salad/
     - if [[ "$CI_COMMIT_BRANCH" == "master" ]]; then podman push $IMAGE_NAME; fi
 
+
+# Python packages
+.python_package base:
+  image: python:3.9
+  stage: python
+  rules:
+    - changes:
+      - $CI_JOB_NAME/**/*
+      - .gitlab-ci.yml
+  script:
+    - cd $CI_JOB_NAME
+    - pip install build pycodestyle
+    - pycodestyle --max-line-length=120 .
+    - pip install -r requirements.txt
+    - python -m unittest *.py
+
 ipxe-boot-server:
   extends:
     - .python_package base
+
+.pip_package base:
+  image: python:3.9
+  stage: python
+  rules:
+    - changes:
+      - $CI_JOB_NAME/setup.cfg
+      # - .gitlab-ci.yml  # NOTE: We can only release a new version when the version changed
+  script:
+    - pip install build pycodestyle
+    - pycodestyle $CI_JOB_NAME
+    - python3 -m build $CI_JOB_NAME
+    - |
+      if [[ "$CI_COMMIT_BRANCH" == "master" && -n "$TWINE_PASSWORD" ]]; then \
+          pip install twine; \
+          twine upload -u "__token__" $CI_JOB_NAME/dist/*; \
+      fi
+
+gfxinfo:
+  extends:
+    - .pip_package base
+  variables:
+    TWINE_PASSWORD: $PYPI_GFXINFO_TOKEN
+  before_script:
+    - pushd gfxinfo/src/valve_gfx_ci/gfxinfo
+    # Impossible to re-use cache_database() as it would force us to install all the deps of gfxinfo just to access these URLs...
+    - wget "https://gitlab.freedesktop.org/agd5f/linux/-/raw/amd-staging-drm-next/drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c"
+    - wget "https://gitlab.freedesktop.org/mesa/drm/-/raw/master/data/amdgpu.ids"
+    - popd
+
+valvetraces:
+  extends:
+    - .pip_package base
+  variables:
+    TWINE_PASSWORD: $PYPI_VALVETRACES_TOKEN
+
