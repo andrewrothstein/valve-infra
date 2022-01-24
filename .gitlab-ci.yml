@@ -116,6 +116,8 @@ gitlab-trigger:
   rules:
     - changes:
       - containers/gitlab-trigger/**/*
+      - executor/client/**/*
+      - valvetraces/**/*
       - .gitlab-ci.yml
   script:
     - podman build -t $IMAGE_NAME -f containers/gitlab-trigger/Dockerfile .
