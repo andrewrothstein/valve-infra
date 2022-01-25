@@ -36,3 +36,6 @@ def find_gpu():
 def cache_db():
     for gpu_db in SUPPORTED_GPU_DBS:
         gpu_db.cache_db()
+
+
+__all__ = ['pci_devices', 'find_gpu', 'cache_db', 'VulkanInfo']
