@@ -1,5 +1,4 @@
 from logging import getLogger, getLevelName, Formatter, StreamHandler
-from collections import namedtuple
 from dataclasses import dataclass
 from tarfile import TarFile
 
