@@ -903,7 +903,7 @@ def cache_all_traces_to_local_minio(minio_client, minio_bucket, traces):
                 # print("Request headers: %s", r.headers)  # for caching debugging
                 r.raise_for_status()
                 print(f'Uploading {trace.filename} of size {naturalsize(trace.size)}...')
-                minio_client.put_object(args.bucket, object_name,
+                minio_client.put_object(minio_bucket, object_name,
                                         r.raw, -1, part_size=10*1024*1024)
 
 
