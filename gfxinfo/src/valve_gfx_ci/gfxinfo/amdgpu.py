@@ -299,7 +299,8 @@ class AmdGpuDeviceDB:
             amdgpu_ids = open(self.amdgpu_ids_cache_path, 'r').read()
         except FileNotFoundError:
             amdgpu_ids = ""
-        self._parse_amdgpu_ids(amdgpu_drv)
+
+        self._parse_amdgpu_ids(amdgpu_ids)
 
     @property
     def amdgpu_drv_cache_path(self):
