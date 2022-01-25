@@ -3,6 +3,7 @@ import sys
 import os
 
 from . import Job
+from .client import logger
 
 
 def run_job(args):
