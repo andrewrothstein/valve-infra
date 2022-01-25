@@ -238,7 +238,8 @@ class AMDGPU:
         return f"{hex(self.vendor_id)}:{hex(self.product_id)}"
 
     def __str__(self):
-        return f"<AMDGPU: PCIID {self.pciid} - {self.codename} - {self.family} - {self.architecture} - {self.gfx_version.lower()}>"
+        return (f"<AMDGPU: PCIID {self.pciid} - {self.codename} - {self.family} - "
+                f"{self.architecture} - {self.gfx_version.lower()}>")
 
     def __repr__(self):
         return f"{self.__class__}({self.__dict__})"
@@ -276,7 +277,8 @@ class AmdGpuId:
 
 class AmdGpuDeviceDB:
     # WARNING: Don't forget to update .gitlab-ci.yml when changing these URLs
-    AMDGPU_DRV_URL = "https://gitlab.freedesktop.org/agd5f/linux/-/raw/amd-staging-drm-next/drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c"
+    AMDGPU_DRV_URL = ("https://gitlab.freedesktop.org/agd5f/linux/-/raw/amd-staging-drm-next/"
+                      "drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c")
     AMDGPU_DRV_FILENAME = "amdgpu_drv.c"
 
     MARKETING_NAMES_URL = "https://gitlab.freedesktop.org/mesa/drm/-/raw/master/data/amdgpu.ids"

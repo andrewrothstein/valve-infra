@@ -19,7 +19,7 @@ class VirtGPU:
     def tags(self):
         return {
             f"virtio:pciid:{self.pciid}",
-            f"virtio:family:VIRTIO",
+            "virtio:family:VIRTIO",
         }
 
     @property
