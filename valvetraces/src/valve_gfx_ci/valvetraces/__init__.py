@@ -1229,7 +1229,7 @@ Debug information:
                                             is_released_code=self.is_postmerge)
 
         # Check what has already been uploaded, so we can ignore it :)
-        print(f" - Fetching the list of already-uploaded trace executions")
+        print(" - Fetching the list of already-uploaded trace executions")
         existing_trace_execs = {te.trace.id: te for te in self.client.trace_exec_list(gpu_pciid=self.gfxinfo.gpu_pciid,
                                                                                       job_id=job.id)}
         print(f" - Found {len(existing_trace_execs)} already-uploaded trace executions")
@@ -1276,7 +1276,7 @@ Debug information:
 
                     if logs_task := trace_execs_logs[trace_exec]:
                         if not logs_task.ready():
-                            print(f"   - Waiting on the upload of the execution log")
+                            print("   - Waiting on the upload of the execution log")
                         logs_blob_id = logs_task.get()
                     else:
                         logs_blob_id = None
@@ -1286,7 +1286,7 @@ Debug information:
                     traceback.print_exc()
                     print(" - Ignoring this trace execution")
 
-            print(f" - Done uploading the report")
+            print(" - Done uploading the report")
 
     @property
     def all_frames(self):
