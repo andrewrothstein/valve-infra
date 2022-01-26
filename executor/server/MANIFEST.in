@@ -1,0 +1,2 @@
+# Include the various template files used by the executor server.
+global-include *.j2 *.jinja *.yml
