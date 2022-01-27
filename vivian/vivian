@@ -42,6 +42,9 @@ if [ -z ${1+x} ]; then
     exit 1
 fi
 
+# Use doas if available
+type -P doas &>/dev/null && _sudo=doas || _sudo=sudo
+
 while test -n "$1"; do
     case "$1" in
         --help*|-h*)
@@ -213,17 +216,17 @@ EOF
 
 create_host_bridge() {
     if ! ip link show "$__host_bridge_name" 2>&1>/dev/null ; then
-	sudo ip link add name "$__host_bridge_name" type bridge
-	sudo ip link set "$__host_bridge_name" up
-	sudo iptables -I FORWARD -m physdev --physdev-is-bridged -j ACCEPT
+	$_sudo ip link add name "$__host_bridge_name" type bridge
+	$_sudo ip link set "$__host_bridge_name" up
+	$_sudo iptables -I FORWARD -m physdev --physdev-is-bridged -j ACCEPT
     else
 	echo "Host bridge $__host_bridge_name already exists"
     fi
 }
 remove_host_bridge() {
     if ip link show "$__host_bridge_name" 2>&1>/dev/null ; then
-	sudo ip link set "$__host_bridge_name" down
-	sudo ip link del name "$__host_bridge_name" type bridge
+	$_sudo ip link set "$__host_bridge_name" down
+	$_sudo ip link del name "$__host_bridge_name" type bridge
 	# TODO: Should we get rid of this? Maybe it already existed on the system, eh...
 	# iptables -I FORWARD -m physdev --physdev-is-bridged -j ACCEPT
     fi
