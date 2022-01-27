@@ -158,7 +158,6 @@ start_gateway() {
 	-append "$__kernel_append" \
 	-m 4G \
 	-enable-kvm -smp 4
-    __gateway_qemu_pid=$!
 
     echo "Started gateway"
 }
