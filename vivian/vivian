@@ -99,6 +99,9 @@ while test -n "$1"; do
         --ssh-port=*)
             __ssh_port="${1#--ssh-port=}"
             ;;
+        --ssh-id=*)
+            __ssh_id="${1#--ssh-id=}"
+            ;;
         --initial-fleet-size=*)
             __initial_fleet_size=="${1#--initial-fleet-size=}"
             ;;
@@ -177,6 +180,10 @@ wait_for_endpoint() {
 provision_infra() {
     local ssh_options="-p "$__ssh_port" -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
     local scp_options="-P "$__ssh_port" -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
+    if [ ! -z "$__ssh_id" ]; then
+        local ssh_options="$ssh_options -i $__ssh_id"
+        local scp_options="$ssh_options -i $__ssh_id"
+    fi
 
     ## MaRS DB configuration
     wait_for_endpoint "$__executor_port" "api/v1/machine"
