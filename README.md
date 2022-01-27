@@ -103,6 +103,10 @@ Now, run a virtual gateway machine, which will boot directly into this container
 
 	make REGISTRY=10.0.2.2:8088 CONTAINER=mupuf/valve-infra/valve-infra-$(whoami):latest vivian
 
+Note: options to vivian can be passed by setting `VIVIAN_OPTS`, for example:
+
+	make VIVIAN_OPTS="--ssh-id=~/.ssh/foo" ... vivian
+
 The virtual testing recipes will fetch a Linux kernel and a
 boot2container ramdisk, and start the system. After the kernel boots
 and loads the ramdisk, the ramdisk will then pull the valve-infra
