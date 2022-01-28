@@ -26,20 +26,16 @@
     group: root
     mode: 0644
 
-- name: Installing monitoring script for infra.target
-  become: true
-  ansible.builtin.copy:
-    src: infra_monitor.sh
-    dest: /usr/local/bin/infra_monitor.sh
-    owner: root
-    group: root
-    mode: 0755
+- name: Creating dashboard script install dir
+  ansible.builtin.file:
+    path: /usr/local/lib/dashboard
+    state: directory
 
-- name: Installing selftest monitoring script
+- name: Installing dashboard scripts
   become: true
   ansible.builtin.copy:
-    src: selftest
-    dest: /usr/local/bin/selftest
+    src: bin/
+    dest: /usr/local/lib/dashboard
     owner: root
     group: root
     mode: 0755

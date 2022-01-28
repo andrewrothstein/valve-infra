@@ -46,6 +46,14 @@
       - gfx-ci
       - drm
 
+    dashboard_monitor_services:
+      - executor
+      - minio
+      - salad
+      - gitlab-runner
+      - local-registry
+      - fdo-proxy-registry
+
     # Default boot files for DUTs.
     b2c_release: v0.9.3
     kernel_release: v5.14-for-valve-ci
