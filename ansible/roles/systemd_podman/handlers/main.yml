@@ -3,4 +3,4 @@
     name: "{{ container_name }}"
     daemon_reload: true
     state: restarted
-  when: ansible_service_mgr == "systemd"
+  when: pid_1_name == "systemd"

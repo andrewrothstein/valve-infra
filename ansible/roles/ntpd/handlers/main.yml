@@ -3,4 +3,4 @@
   ansible.builtin.systemd:
     name: 'chronyd'
     state: restarted
-  when: ansible_service_mgr == "systemd"
+  when: pid_1_name == "systemd"

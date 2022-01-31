@@ -2,4 +2,4 @@
   ansible.builtin.systemd:
     name: 'dnsmasq'
     state: restarted
-  when: ansible_service_mgr == "systemd"
+  when: pid_1_name == "systemd"
