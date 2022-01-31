@@ -16,6 +16,15 @@
     group: root
     mode: 0644
 
+- name: Installing find_nic script
+  become: true
+  ansible.builtin.copy:
+    src: find_nic
+    dest: /usr/bin/find_nic
+    owner: root
+    group: root
+    mode: 0755
+
 - name: Enabling network_setup service
   become: true
   ansible.builtin.systemd:
