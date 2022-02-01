@@ -120,7 +120,7 @@ function job_container() {
 }
 
 function build_container() {
-    __TEST_CONTAINER=$($__BUILDAH from "docker://$1")
+    __TEST_CONTAINER=$($__BUILDAH from --tls-verify=false "docker://$1")
     __TEST_CONTAINER_MOUNT=$($__BUILDAH mount $__TEST_CONTAINER)
 
     "$3" "$__TEST_CONTAINER" "$__TEST_CONTAINER_MOUNT"
