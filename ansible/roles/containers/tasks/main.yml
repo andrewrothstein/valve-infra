@@ -1,4 +1,10 @@
 ---
+- name: Enable podman.service
+  become: true
+  ansible.builtin.systemd:
+    name: podman
+    enabled: true
+
 - name: Install container configuration files
   ansible.builtin.copy:
     src: "{{ item.src }}"
