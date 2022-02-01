@@ -1436,10 +1436,13 @@ def run_job(traces_client, args):
     if not args.skip_trace_download:
         cache_all_traces_to_local_minio(minio_client, args.bucket, traces_to_cache)
 
-    # Create the root folder for the run
-    job_folder_path = generate_job_results_folder_name()
-    shutil.rmtree(job_folder_path, ignore_errors=True)
-    ensure_dir(job_folder_path)
+    # Create the root folder for the run, unless asked to re-use one folder
+    if args.job_folder is None:
+        job_folder_path = generate_job_results_folder_name()
+        shutil.rmtree(job_folder_path, ignore_errors=True)
+        ensure_dir(job_folder_path)
+    else:
+        job_folder_path = args.job_folder
 
     # Debugging aid to know which job ID created this job folder.
     open(os.path.join(job_folder_path, f'{job_id()}.job'), 'w').close()
@@ -1542,6 +1545,8 @@ def main():
                             help="Do not try to replay the traces, just generate the job folder")
     run_parser.add_argument('--secure', default=False,
                             help='Whether to use TLS to connect to the Minio endpoint. Default is False.')
+    run_parser.add_argument('--job-folder',
+                            help='Path to the directory to be used as a job folder, instead of auto-generating one.')
     run_parser.set_defaults(func=run_job)
 
     report_parser = subparsers.add_parser('report', help='Report an already-created run')
