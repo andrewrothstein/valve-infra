@@ -1487,6 +1487,8 @@ def report_results(traces_client, args):
     dependencies = {}
     if args.mesa:
         dependencies["Mesa"] = GitRepo("Mesa", args.mesa)
+    if args.dxvk:
+        dependencies["DXVK"] = GitRepo("DXVK", args.dxvk)
 
     report = Report(client=traces_client, run_name=args.run_name,
                     dependencies=dependencies, result_folder=args.results)
@@ -1508,6 +1510,7 @@ def main():
                         default=os.environ.get("VALVETRACES_USERNAME", None))
     parser.add_argument("-r", '--run-name', dest='run_name', required=True)
     parser.add_argument('--mesa', help='Path to the mesa repo')
+    parser.add_argument('--dxvk', help='Path to the dxvk repo')
 
     subparsers = parser.add_subparsers()
 
