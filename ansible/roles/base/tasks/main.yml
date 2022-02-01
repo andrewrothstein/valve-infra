@@ -30,7 +30,6 @@
     mode: 0744
 
 - name: Update pacman cache
-  become: true
   pacman:
     update_cache: true
     upgrade: false
@@ -48,14 +47,8 @@
       - tmux
       - tmuxp
 
-# REVIEW: Why is the needed? Umask is 0750 which seems fine as a default
-- name: Ensure root directory permissions
+- name: Enable timesyncd
   become: true
-  ansible.builtin.file:
-    mode: 0700
-    path: /root
-    state: directory
-
-
-- include_tasks: time.yml
-- include_tasks: aur.yml
+  ansible.builtin.systemd:
+    name: systemd-timesyncd
+    enabled: true
