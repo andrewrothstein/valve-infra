@@ -1,0 +1,13 @@
+---
+- name: Install container configuration files
+  ansible.builtin.copy:
+    src: "{{ item.src }}"
+    dest: "{{ item.destdir }}/{{ item.src }}"
+    owner: root
+    group: root
+    mode: 0644
+  loop:
+    - { src: 87-podman.conflist, destdir: /etc/cni/net.d }
+    - { src: containers.conf, destdir: /etc/containers }
+    - { src: registries.conf, destdir: /etc/containers }
+    - { src: storage.conf, destdir: /etc/containers }
