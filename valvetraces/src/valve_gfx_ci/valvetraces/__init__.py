@@ -1177,7 +1177,8 @@ Debug information:
     def is_postmerge(self):
         is_merge_request = "CI_MERGE_REQUEST_ID" in os.environ
         is_known_project = os.environ.get("CI_PROJECT_PATH") in ["tanty/mesa-valve-ci",
-                                                                 "mesa/mesa"]  # TODO: Add more projects here as we grow
+                                                                 "mesa/mesa",
+                                                                 "mupuf/dxvk-ci"]  # TODO: Add more projects here as we grow
         is_official_branch = re.match(r"(staging/)?\d{2}\.\d|main",
                                       os.environ.get("CI_COMMIT_BRANCH", "")) is not None
 
