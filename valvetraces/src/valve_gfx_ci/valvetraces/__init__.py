@@ -1514,7 +1514,7 @@ def main():
                             help='URL to the Minio service')
     run_parser.add_argument('-u', '--user',
                             default=os.environ.get('VALVETRACES_MINIO_USER', 'valvetraces'),
-                            help='User to access Minio with, default is "traces".')
+                            help='User to access Minio with, default is "valvetraces".')
     # REVIEW: Is there a way to have this pick its value from an
     # environment variable *and* be a required argument, that is,
     # absence of the environment variable won't require special casing
@@ -1526,7 +1526,7 @@ def main():
                             help='The name of the bucket to cache matching traces into. Defaults to "valvetraces"')
     run_parser.add_argument('--traces-db', default=os.environ.get('VALVETRACES_TRACES_DB', '/traces'),
                             help='The path to directory containing all available traces. Defaults to /traces')
-    run_parser.add_argument('--executor-client', default=os.environ.get('VALVETRACES_EXECUTOR_CLIENT', 'client.py'),
+    run_parser.add_argument('--executor-client', default=os.environ.get('VALVETRACES_EXECUTOR_CLIENT', 'executorctl'),
                             help='The path to the executor client command')
     run_parser.add_argument('--executor-job-path', default=os.environ.get('VALVETRACES_EXECUTOR_JOB', 'b2c.yml.jinja2'),
                             help='The path to the job definition for the executor to run')
