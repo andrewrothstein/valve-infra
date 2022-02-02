@@ -8,6 +8,13 @@ stages:
   - lint
   - containers
   - python
+  - tests
+  - deploy
+
+variables:
+  GIT_SUBMODULE_STRATEGY: recursive
+  FDO_UPSTREAM_REPO: mupuf/valve-infra
+  PYTHON_VERSION: '3.10'
 
 include:
   - project: 'freedesktop/ci-templates'
@@ -20,9 +27,6 @@ default:
   tags:
     - CI-gateway
 
-variables:
-  GIT_SUBMODULE_STRATEGY: recursive
-  FDO_UPSTREAM_REPO: mupuf/valve-infra
 
 .ansible-container-vars:
   variables:
@@ -179,7 +183,7 @@ salad:
 
 # Python packages
 .python_package base:
-  image: python:3.9
+  image: $CI_REGISTRY_IMAGE/python-container:latest
   stage: python
   rules:
     - changes:
@@ -187,7 +191,7 @@ salad:
       - .gitlab-ci.yml
   script:
     - cd $CI_JOB_NAME
-    - pip install build pycodestyle
+    # Shouldn't we just use the setup.py to launch this, rather than calling specific tools?
     - pycodestyle --max-line-length=120 .
     - pip install -r requirements.txt
     - python -m unittest *.py
@@ -196,41 +200,78 @@ ipxe-boot-server:
   extends:
     - .python_package base
 
-.pip_package base:
-  image: python:3.9
-  stage: python
+.set-python-image:
+  variables:
+    TAG: !reference [python-container, variables, FDO_DISTRIBUTION_TAG]
+  image: $CI_REGISTRY_IMAGE/python-container:$TAG
+
+.python-test:
+  extends:
+    - .set-python-image
+  stage: tests
   rules:
     - changes:
-      - $CI_JOB_NAME/setup.cfg
-      # - .gitlab-ci.yml  # NOTE: We can only release a new version when the version changed
+      - .gitlab-ci/python-container*
+      - ${PACKAGE_DIR}/**/*
+      - .gitlab-ci.yml
   script:
-    - pip install build tox
-    - tox -c $CI_JOB_NAME/setup.cfg
-    - python3 -m build $CI_JOB_NAME
-    - |
-      if [[ "$CI_COMMIT_BRANCH" == "master" && -n "$TWINE_PASSWORD" ]]; then \
-          pip install twine; \
-          twine upload -u "__token__" $CI_JOB_NAME/dist/*; \
-      fi
+    - tox -c ${PACKAGE_DIR}/setup.cfg
+    - python3 -m build ${PACKAGE_DIR}
+  artifacts:
+    paths:
+      - ${CI_JOB_NAME}/dist/
 
-executor/client:
+.python-deploy:
   extends:
-    - .pip_package base
+    - .set-python-image
+  stage: deploy
+  rules:
+    - if: $TWINE_PASSWORD == ""
+      when: never
+    - if: $CI_COMMIT_REF_NAME == $CI_DEFAULT_BRANCH
+      when: on_success
+  script:
+    - twine upload -u "__token__" ${PACKAGE_DIR}/dist/*
+  # This will fail if the package already exists, not pleasant to
+  # check ahead of time for that, so allow the job to fail
+  allow_failure: true
+
+test executor/client:
+  extends:
+    - .python-test
+  variables:
+    PACKAGE_DIR: 'executor/client'
+
+test executor/server:
+  extends:
+    - .python-test
+  variables:
+    PACKAGE_DIR: 'executor/server'
+
+deploy executor/client:
+  extends:
+    - .python-deploy
   variables:
     TWINE_PASSWORD: $PYPI_EXECUTOR_CLIENT_TOKEN
+    PACKAGE_DIR: 'executor/client'
+  dependencies:
+    - test executor/client
 
-executor/server:
+deploy executor/server:
   extends:
-    - .pip_package base
+    - .python-deploy
   variables:
     TWINE_PASSWORD: $PYPI_EXECUTOR_SERVER_TOKEN
-  # NOTE: The code has been tested in the executor container already
+    PACKAGE_DIR: 'executor/server'
+  dependencies:
+    - test executor/server
 
-gfxinfo:
+deploy gfxinfo:
   extends:
-    - .pip_package base
+    - .python-deploy
   variables:
     TWINE_PASSWORD: $PYPI_GFXINFO_TOKEN
+    PACKAGE_DIR: gfxinfo
   before_script:
     - pushd gfxinfo/src/valve_gfx_ci/gfxinfo
     # Impossible to re-use cache_database() as it would force us to install all the deps of gfxinfo just to access these URLs...
@@ -238,9 +279,9 @@ gfxinfo:
     - wget "https://gitlab.freedesktop.org/mesa/drm/-/raw/master/data/amdgpu.ids"
     - popd
 
-valvetraces:
+deploy valvetraces:
   extends:
-    - .pip_package base
+    - .python-deploy
   variables:
     TWINE_PASSWORD: $PYPI_VALVETRACES_TOKEN
-
+    PACKAGE_DIR: valvetraces
