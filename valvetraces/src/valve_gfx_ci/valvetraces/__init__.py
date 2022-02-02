@@ -460,20 +460,16 @@ class Client:
         r = self._post("/api/v1/trace_compatibilities", params=params)
         return 'id' in r
 
-    def list_traces(self, filter_machine_tags):
-        tags = [re.compile(t) for t in filter_machine_tags]
-
+    def list_traces(self):
         traces = list()
         for trace_blob in self._get("/api/v1/traces"):
             trace = Trace.from_api(trace_blob)
-
-            if trace.matches_tags(tags):
-                traces.append(trace)
+            traces.append(trace)
 
         return traces
 
     def get_trace(self, trace_name):
-        for trace in self.list_traces([]):
+        for trace in self.list_traces():
             if trace.filename == trace_name:
                 return trace
 
@@ -1166,7 +1162,7 @@ Debug information:
 
         self.trace_execs = list()
 
-        traces = {str(t.id): t for t in self.client.list_traces([])}
+        traces = {str(t.id): t for t in self.client.list_traces()}
         for entry in os.scandir(path=result_folder):
             if entry.is_dir():
                 trace = traces.get(entry.name.split('-')[0])
@@ -1428,7 +1424,7 @@ def run_job(traces_client, args):
         secure=args.secure)
 
     # Get the list of traces we want to run
-    traces_to_cache = traces_client.list_traces([])
+    traces_to_cache = traces_client.list_traces()
 
     # Limit the list of traces to fit in the storage limits of the machine
     if args.max_trace_db_size_gb is not None:
