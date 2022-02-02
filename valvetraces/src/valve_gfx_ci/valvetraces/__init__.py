@@ -444,10 +444,14 @@ class Client:
         r = self._post("/api/v1/trace_compatibilities", params=params)
         return 'id' in r
 
-    def list_traces(self):
+    def list_traces(self, gfx_apis=None):
         traces = list()
         for trace_blob in self._get("/api/v1/traces"):
             trace = Trace.from_api(trace_blob)
+
+            if gfx_apis is not None and trace.graphics_api not in gfx_apis:
+                continue
+
             traces.append(trace)
 
         return traces
@@ -1297,7 +1301,7 @@ def run_job(traces_client, args):
         secure=args.secure)
 
     # Get the list of traces we want to run
-    traces_to_cache = traces_client.list_traces()
+    traces_to_cache = traces_client.list_traces(gfx_apis=args.gfx_apis)
 
     # Limit the list of traces to fit in the storage limits of the machine
     if args.max_trace_db_size_gb is not None:
@@ -1373,6 +1377,32 @@ def report_results(traces_client, args):
 
 
 def main():
+    gfx_apis = {
+        "gl": "OpenGL",
+        "vk": "Vulkan",
+        "dx9": "DX9",
+        "dx10": "DX10",
+        "dx11": "DX11",
+        "dx12": "DX12"
+    }
+
+    def gfx_apis_to_list(apis_list: str) -> set[str]:
+        if apis_list is None:
+            return None
+
+        apis = set()
+        for arg in [a.strip() for a in apis_list.split(",")]:
+            if arg == "all":
+                return None
+            elif name := gfx_apis.get(arg):
+                apis.add(name)
+            else:
+                lst = '[all,' + ",".join(gfx_apis.keys()) + ']'
+                msg = f"The GFX API '{arg}' is unknown. Valid options are: {lst}."
+                raise argparse.ArgumentTypeError(msg)
+
+        return apis
+
     parser = argparse.ArgumentParser(prog='Valve trace runner')
     parser.add_argument("-s", '--valvetraces-url', dest='valvetraces_url',
                         default=os.environ.get("VALVETRACES_SERVER", 'https://linux-perf.steamos.cloud'))
@@ -1420,6 +1450,9 @@ def main():
                             help='Whether to use TLS to connect to the Minio endpoint. Default is False.')
     run_parser.add_argument('--job-folder',
                             help='Path to the directory to be used as a job folder, instead of auto-generating one.')
+    run_parser.add_argument('--gfx-apis', type=gfx_apis_to_list,
+                            help=('Restrict trace execution to graphics APIs found in this comma-separated list. '
+                                  'Possible options: [all,' + ",".join(gfx_apis.keys()) + ']. Default: all.'))
     run_parser.set_defaults(func=run_job)
 
     report_parser = subparsers.add_parser('report', help='Report an already-created run')
