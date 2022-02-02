@@ -398,22 +398,6 @@ class Client:
 
         return r.json()
 
-    def list_apps(self):
-        apps = list()
-        for game in self._get("/api/v1/games"):
-            apps.append(App.from_api(game))
-
-        return apps
-
-    def create_app(self, name, steamappid=None):
-        for app in self.list_apps():
-            if app.name == name and app.steamappid == steamappid:
-                raise ValueError(f"The app named '{name}' already exists: {app}")
-
-        r = self._post("/api/v1/games", {"game": {"name": name, "appid": steamappid}})
-
-        return App.from_api(r)
-
     def gpu_get_by_pciid(self, pciid):
         for gpu_dict in self._get("/api/v1/gpus"):
             gpu = GPU.from_api(gpu_dict)
@@ -468,13 +452,6 @@ class Client:
 
         return traces
 
-    def get_trace(self, trace_name):
-        for trace in self.list_traces():
-            if trace.filename == trace_name:
-                return trace
-
-        raise ValueError(f"Could not find a trace named '{trace_name}' in the service")
-
     def project_get_or_create(self, name, repo_url=None, project_url=None, base_url_for_commits=None):
         # Avoid race conditions in project creation by first trying to create it,
         # then if it fails, trying to find it in the list of projects.
@@ -513,60 +490,6 @@ class Client:
 
         raise ValueError("Failed to create or find the wanted object")
 
-    def download_trace(self, trace_name, output_folder):
-        trace = self.get_trace(trace_name)
-
-        trace_path = os.path.join(output_folder, trace_name)
-        with open(trace_path, 'wb') as f:
-            with requests.get(trace.url, stream=True) as r:
-                r.raise_for_status()
-                content_length = int(r.headers.get('content-length', 0))
-                print('Downloading {} of size {}'.format(
-                    trace_name,
-                    naturalsize(content_length) if content_length > 0 else 'Unknown'))
-                total_downloaded = 0
-                previous_pc_downloaded = 0
-                chunk_size = 1024 * 1024
-                # Reading all the available data without limiting the
-                # chunk size is problematic when using SSL
-                # connections. Limit the chunk size:
-                # https://bugs.python.org/issue42853
-                for chunk in r.iter_content(chunk_size=chunk_size):
-                    f.write(chunk)
-                    if content_length == 0:
-                        # This shouldn't happen, since the Mango
-                        # server returns Content-Length, no progress
-                        # info if we don't get a length back from the
-                        # server
-                        continue
-                    total_downloaded += len(chunk)
-                    pc_downloaded = int(100.0 * total_downloaded/content_length)
-                    # Log roughly every 2% downloaded, or end of stream.
-                    if pc_downloaded - previous_pc_downloaded >= 2 or len(chunk) < chunk_size:
-                        sys.stdout.write('\rDownloaded {}/{} {:0.2f}%'.format(naturalsize(total_downloaded),
-                                                                              naturalsize(content_length),
-                                                                              pc_downloaded))
-                        sys.stdout.flush()
-                        previous_pc_downloaded = pc_downloaded
-                sys.stdout.write('\n')
-                sys.stdout.flush()
-        return trace_path
-
-    def _find_app(self, app_id):
-        app_id = str(app_id)
-
-        suitable_apps = []
-        for app in self.list_apps():
-            if app.matches(app_id):
-                suitable_apps.append(app)
-
-        if len(suitable_apps) == 1:
-            return suitable_apps[0]
-        elif len(suitable_apps) == 0:
-            raise ValueError(f"Could not find an app named '{app_id}'")
-        else:
-            raise ValueError(f"Found more than one application matching the app_id '{app_id}': {suitable_apps}")
-
     def _data_checksum(self, filepath):
         hash_md5 = hashlib.md5()
         with open(filepath, "rb") as f:
@@ -594,56 +517,6 @@ class Client:
             blob.upload(f)
 
             return blob
-
-    def _upload_trace_blob(self, filepath, name):
-        # Generate the MD5 hash for the bucket
-        data_checksum = self._data_checksum(filepath)
-        # Check if file already exists on server
-        r = self._post("/api/v1/checksum", {"checksum": data_checksum})
-        if "accepted" not in r:
-            return Blob(r, new=False)
-
-        return self._upload_blob(filepath, name, data_checksum)
-
-    def upload_trace(self, app_id, filepath, frame_ids, machine_tags):
-        if not machine_tags:
-            confirmation_message = ('I confirm the trace is uploaded from '
-                                    'the same computer that produced the trace')
-            machine_tags = list(self.machine_tags)
-        else:
-            confirmation_message = ('I confirm the machine tags provided are '
-                                    'the ones produced at the same computer '
-                                    'that produced the trace to be uploaded')
-
-        app = self._find_app(app_id)
-        trace_name = os.path.basename(filepath)
-
-        print(f"""\nWARNING: You are about to upload a trace, please check that the following values are valid:
-
-    Application/Game: {str(app)}
-    Trace name: {trace_name}
-    IDs of frames to capture: {frame_ids}
-    Machine tags: {machine_tags}
-""")
-        if input(f'{confirmation_message} (y/N)'.format()).lower() != 'y':
-            return
-
-        # Upload the blob
-        blob = self._upload_trace_blob(filepath, trace_name)
-        if blob.record_type != BlobType.TRACE:
-            raise ValueError(f'Expected a {BlobType.TRACE} in the blob, '
-                             f'gotten {blob.record_type}')
-        if not blob.new:
-            print('Trace already exists in the server. Skipping upload.')
-            return Trace.from_api(blob.record)
-
-        # Create the trace from the blob
-        r = self._post("/api/v1/traces/",
-                       params={"trace": {"upload": blob.signed_id, "game_id": app.id,
-                                         "metadata": {"machine_tags": machine_tags},
-                                         "frames_to_capture": frame_ids}})
-
-        return Trace.from_api(r)
 
     def _upload_frame_blob(self, filepath, name):
         image_md5 = hashlib.md5(Image.open(filepath).convert(mode="RGBA").tobytes())
