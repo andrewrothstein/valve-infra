@@ -1048,14 +1048,22 @@ Debug information:
 
     @property
     def is_postmerge(self):
+        project = os.environ.get("CI_PROJECT_PATH")
+        branch = os.environ.get("CI_COMMIT_BRANCH", "")
         is_merge_request = "CI_MERGE_REQUEST_ID" in os.environ
-        is_known_project = os.environ.get("CI_PROJECT_PATH") in ["tanty/mesa-valve-ci",
-                                                                 "mesa/mesa",
-                                                                 "mupuf/dxvk-ci"]  # TODO: Add more projects here as we grow
-        is_official_branch = re.match(r"(staging/)?\d{2}\.\d|main",
-                                      os.environ.get("CI_COMMIT_BRANCH", "")) is not None
 
-        return not is_merge_request and is_known_project and is_official_branch
+        if is_merge_request:
+            return False
+
+        # Mesa
+        if project in ["tanty/mesa-valve-ci", "mesa/mesa"]:
+            return re.match(r"(staging/)?\d{2}\.\d|main", branch) is not None
+
+        # DXVK
+        elif os.environ.get("CI_PROJECT_PATH") in ["mupuf/dxvk-ci"]:
+            return branch == "master"
+
+        return False
 
     @cached_property
     def gfxinfo(self):
