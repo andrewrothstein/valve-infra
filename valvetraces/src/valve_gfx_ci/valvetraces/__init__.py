@@ -543,13 +543,12 @@ class Client:
 
         return self._upload_blob(filepath, name, data_checksum)
 
-    def job_get_or_create(self, name, metadata=None, timeline_metadata=None, is_released_code=False):
+    def job_get_or_create(self, name, timeline_metadata=None, is_released_code=False):
         # The object will be created if it does not exist already,
         # otherwise, it will return the job that has the same name
         params = {
             "job": {
                 "name": name,
-                "metadata": metadata,
                 "timeline_metadata": timeline_metadata,
                 "is_released_code": is_released_code
             }
