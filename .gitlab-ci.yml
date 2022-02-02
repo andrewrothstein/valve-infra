@@ -135,6 +135,23 @@ machine_registration:
     - podman build -t $IMAGE_NAME -f machine_registration/Dockerfile .
     - if [[ "$CI_COMMIT_BRANCH" == "master" ]]; then podman push $IMAGE_NAME; fi
 
+python-container:
+  stage: prep
+  extends:
+    - .fdo.container-build@debian
+  before_script:
+    # Getting this on the farm runner gateways,
+    #   User-selected graph driver \"vfs\" overwritten by graph driver \"overlay\" from database - delete libpod local files to resolve"
+    - rm -rf /var/lib/containers/storage/libpod/*
+  variables:
+    # We need a build toolchain because easysnmp in unmaintained, and
+    # hence has no binary wheel for us to leverage.
+    FDO_DISTRIBUTION_PACKAGES: "python3 python3-pip build-essential libsnmp-dev"
+    FDO_DISTRIBUTION_VERSION: 'bullseye'
+    FDO_REPO_SUFFIX: 'python-container'
+    FDO_DISTRIBUTION_TAG: '2022-02-04.4'
+    FDO_DISTRIBUTION_EXEC: 'pip install build tox twine pycodestyle'
+
 gitlab-trigger:
   extends:
     - .container base
