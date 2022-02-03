@@ -15,7 +15,7 @@ REGISTRY ?= registry.freedesktop.org
 CONTAINER ?= mupuf/valve-infra/valve-infra:latest
 PRIV_MAC=$(shell printf "DE:AD:BE:EF:%02X:%02X\n" $$((RANDOM%256)) $$((RANDOM%256)))
 PUBLIC_MAC=$(shell printf "DE:AD:BE:EF:%02X:%02X\n" $$((RANDOM%256)) $$((RANDOM%256)))
-B2C_VERSION=v0.9.3
+B2C_VERSION=v0.9.4
 
 tmp/boot2container-$(B2C_VERSION)-linux_amd64.cpio.xz:
 	[ -d tmp/ ] || mkdir tmp
