@@ -81,7 +81,7 @@ class PowerState(enum.IntEnum):
 class DUT:
     def __init__(self, mac, disk):
         self.disk = disk
-        log_name = datetime.now().strftime(f'dut-log-{mac.replace(":", "")}-%H%M%S-%d%m%Y.log')
+        log_name = datetime.now().strftime(f'{VPDU_DIR}/dut-log-{mac.replace(":", "")}-%H%M%S-%d%m%Y.log')
         cmd = [
             'qemu-system-x86_64',
             '-machine', 'pc-q35-6.0,accel=kvm',
