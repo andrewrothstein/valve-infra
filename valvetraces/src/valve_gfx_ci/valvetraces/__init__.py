@@ -598,7 +598,7 @@ class Job(SanitizedFieldsMixin):
     is_released_code: bool = None
 
     def report_trace_execution(self, trace, gpu_pciid, frame_blobs, metadata=None, status=None, logs_blob_id=None,
-                               execution_time=None):
+                               execution_time=None, gpu_driver=None):
         # Create the trace execution
         params = {
             "trace_exec": {
@@ -612,6 +612,9 @@ class Job(SanitizedFieldsMixin):
             "frame_blobs": frame_blobs,
             "pciid": gpu_pciid
         }
+        if gpu_driver:
+            params["driver"] = dataclasses.asdict(gpu_driver)
+
         r = self.client._post("/api/v1/trace_execs", params=params)
 
         # Work around a rail oddity that if a field would be empty, it is not added
@@ -708,6 +711,91 @@ Constructed using the query parameters {self.trace_exec.query_params}, and the f
 
 
 @dataclass
+class GpuDriver(SanitizedFieldsMixin):
+    name: str
+    version: str
+    branch: str
+    commit: str = None
+
+    @classmethod
+    def from_glxinfo(cls, path):
+        # Examples of outputs per driver
+        #
+        # --- Zink ---
+        # Vendor: Collabora Ltd (0x1002)
+        # Device: zink (AMD RADV RENOIR) (0x1636)
+        # Version: 21.3.5
+        # OpenGL vendor string: Collabora Ltd
+        # OpenGL renderer string: zink (Unknown AMD GPU)
+        # OpenGL core profile version string: 4.6 (Core Profile) Mesa 21.3.5
+
+        # --- RadeonSI + Mesa GIT ---
+        # Vendor: AMD (0x1002)
+        # Device: AMD RENOIR (LLVM 13.0.0, DRM 3.44, 5.16.5-zen1-1-zen) (0x1636)
+        # Version: 22.1.0
+        # OpenGL vendor string: AMD
+        # OpenGL renderer string: AMD RENOIR (LLVM 13.0.0, DRM 3.44, 5.16.5-zen1-1-zen)
+        # OpenGL core profile version string: 4.6 (Core Profile) Mesa 22.1.0-devel (git-5d8c659678)
+
+        # --- RadeonSI ---
+        # Vendor: AMD (0x1002)
+        # Device: AMD RENOIR (DRM 3.44.0, 5.16.5-zen1-1-zen, LLVM 13.0.0) (0x1636)
+        # Version: 21.3.5
+        # OpenGL vendor string: AMD
+        # OpenGL renderer string: AMD RENOIR (DRM 3.44.0, 5.16.5-zen1-1-zen, LLVM 13.0.0)
+        # OpenGL core profile version string: 4.6 (Core Profile) Mesa 21.3.5
+
+        # --- AMDGPU-Pro ---
+        # OpenGL vendor string: Advanced Micro Devices, Inc.
+        # OpenGL renderer string: AMD Radeon Graphics
+        # OpenGL core profile version string: 4.6.14739 Core Profile Context
+
+        vendor = None
+        driver = None
+        branch = None
+        version = None
+        git_version = None
+        try:
+            with open(path) as f:
+                for line in f:
+                    if m := re.match(r"^OpenGL vendor string: (.*)$", line):
+                        vendor = m.group(1)
+                        if vendor == "AMD":
+                            driver = "radeonsi"
+                        elif vendor == "Advanced Micro Devices, Inc.":
+                            driver = "amdgpu"
+
+                    elif m := re.match(r"^OpenGL renderer string: (.*)$", line):
+                        renderer = m.group(1)
+                        if renderer == "zink":
+                            driver = "zink"
+                        elif driver is None:
+                            driver = f"unknown ({vendor} / {renderer})"
+
+                    # Mesa core profile version string
+                    elif m := re.match((r"^OpenGL core profile version string: \d\.\d \(Core Profile\) Mesa "
+                                        r"(\d+\.\d+\.\d+)(-devel \(git-([a-z0-9]+)\))?$"), line):
+                        version = m.group(1)
+                        git_version = m.group(3)
+
+                        version_fields = version.split(".")
+                        if len(version_fields) == 3:
+                            branch = f"{version_fields[0]}.{version_fields[1]}.y"
+                        # NOTE: Unfortunately, we cannot distinguish between "main" and release branches...
+                        #       So let's pretend we are always in the release branches.
+
+                    elif m := re.match(r"^OpenGL core profile version string: \d\.\d\.(\d+) Core Profile Context$",
+                                       line):
+                        version = m.group(1)
+
+                if driver and version:
+                    return GpuDriver(name=driver, version=version, branch=branch, commit=git_version)
+        except Exception:
+            traceback.print_exc()
+            return GpuDriver(name="Unknown GL driver", version="UNK", branch="main")
+
+
+@dataclass
 class TraceExec(SanitizedFieldsMixin):
     client: Client
 
@@ -788,17 +876,49 @@ def str_to_safe_filename(s):
 
 class GfxInfo:
     def __init__(self, fields):
+        self.fields = fields
+
         self.machine_tags = fields.get('tags', {})
 
         self.vram_size_gib = fields.get("vk:vram_size_gib", 0)
         self.gtt_size_gib = fields.get("vk:gtt_size_gib", 0)
 
         self.driver_name = fields.get("vk:driver:name", "N/A")
-        self.driver_version = fields.get('mesa:version', 'N/A')
-        self.driver_git_version = fields.get('mesa:git:version', 'N/A')
+        self.driver_info = fields.get("vk:driver:info", "N/A")
+        self.mesa_version = fields.get('mesa:version', 'N/A')
+        self.mesa_git_version = fields.get('mesa:git:version', 'N/A')
 
         self.device_name = fields.get('vk:device:name', 'N/A')
         self.device_type = fields.get('vk:device:type', 'N/A')
+
+    @classmethod
+    def radv_branch_from_version(cls, version):
+        branch = None
+
+        version_fields = version.split(".")
+        if len(version_fields) == 3:
+            if version_fields[1] == "99":
+                branch = "main"
+            else:
+                branch = f"v{version_fields[0]}.{version_fields[1]}.y"
+        else:
+            print(f"WARNING: The version '{version}' format is unknown",
+                  file=sys.stderr)
+
+        return branch
+
+    @property
+    def vk_driver(self):
+        branch = None
+        if 'mesa:version' in self.fields:
+            version = self.mesa_version
+            commit = self.mesa_git_version
+            branch = self.radv_branch_from_version(version)
+        else:
+            version = self.fields.get("vk:driver:info", "Unknown version")
+            commit = None
+
+        return GpuDriver(name=self.driver_name, version=version, commit=commit, branch=branch)
 
     @property
     def gpu_codename(self):
@@ -822,8 +942,9 @@ class GfxInfo:
             "machine_tags": self.machine_tags,
             "driver": {
                 "name": self.driver_name,
-                "version": self.driver_version,
-                "git_version": self.driver_git_version,
+                "info": self.driver_info,
+                "mesa_version": self.mesa_version,
+                "mesa_git_version": self.mesa_git_version,
             },
             "device": {
                 "name": self.device_name,
@@ -998,6 +1119,86 @@ Debug information:
         def is_success(self):
             return self.had_successful_execution or not self.expected_to_work
 
+        @cached_property
+        def dxvk_reported_gpu_driver(self):
+            if self.logs_path is None:
+                return None
+
+            # Mesa
+            # info:  Device properties:
+            # info:    Device name:     : AMD RADV RENOIR
+            # info:    Driver version   : 21.3.5
+
+            # AMDGPU-Pro and amdvlk
+            # info:  Device properties:
+            # info:    Device name:     : Unknown AMD GPU
+            # info:    Driver version   : 2.0.213
+
+            name = None
+            version = None
+            branch = None
+            with open(self.logs_path) as f:
+                for line in f:
+                    if m := re.match(r"^.*Device name[\:\s]+(.+)$", line):
+                        device_name = m.group(1)
+                        if device_name.startswith("AMD RADV"):
+                            name = "radv"
+                        elif device_name.endswith("AMD GPU"):
+                            name = "amdvlk/gpu-pro"
+
+                    if m := re.match(r"^.*Driver version[\:\s]+([\d\.]+)$", line):
+                        version = m.group(1)
+                        if name == "radv":
+                            branch = GfxInfo.radv_branch_from_version(version)
+                        else:
+                            branch = "main"
+
+            return GpuDriver(name=name, version=version, branch=branch, commit=None)
+
+        @cached_property
+        def libgl_driver(self):
+            if self.logs_path is None:
+                return
+
+            with open(self.logs_path) as f:
+                for line in f:
+                    # libGL: MESA-LOADER: dlopen(/usr/lib/dri/zink_dri.so)
+                    if m := re.match(r"^libGL: MESA-LOADER: dlopen\(/usr/lib/dri/(\w+)_dri.so\)$", line):
+                        return m.group(1)
+
+            return None
+
+        @cached_property
+        def gpu_driver(self):
+            glxinfo_drv = self.report.glxinfo_drv
+
+            # Check if we see DXVK/Mesa's GL in the logs or not
+            if self.libgl_driver:
+                # We know that OpenGL was used, get more info from glxinfo
+                if self.libgl_driver == glxinfo_drv.name:
+                    return glxinfo_drv
+                else:
+                    return GpuDriver(name=self.libgl_driver, version="UNK")
+            elif self.dxvk_reported_gpu_driver:
+                # We know that DXVK was used, and what is the driver name/version. Get the rest from DXVK
+                gfxinfo_drv = self.report.gfxinfo.vk_driver
+
+                # Check that the driver name and version match between DXVK and gfxinfo
+                if (self.dxvk_reported_gpu_driver.name == gfxinfo_drv.name
+                    and self.dxvk_reported_gpu_driver.version == gfxinfo_drv.version):  # noqa
+                    # The two match, so let's use the gfxinfo one, since it has more information
+                    return gfxinfo_drv
+                else:
+                    # The two don't match, let's be safe and use what dxvk reports
+                    return self.dxvk_reported_gpu_driver
+            else:
+                # We do not know what driver was used, so let's guess based on the trace's graphics API,
+                # then use the data from g[lf]xinfo
+                if self.trace.graphics_api == "OpenGL":
+                    return glxinfo_drv
+                else:
+                    return self.report.gfxinfo.vk_driver
+
         def upload(self, job, frame_blobs, logs_blob_id=None):
             self.job = job
 
@@ -1008,7 +1209,8 @@ Debug information:
                                                             frame_blobs=frame_blobs,
                                                             status=self.retcode,
                                                             logs_blob_id=logs_blob_id,
-                                                            execution_time=self.runtime.total_seconds())
+                                                            execution_time=self.runtime.total_seconds(),
+                                                            gpu_driver=self.gpu_driver)
 
             # Report back whether execution went successfully or not
             for project_name, repo in self.report.dependencies.items():
@@ -1071,6 +1273,13 @@ Debug information:
                 return GfxInfo(json.loads(f.read()))
         except Exception:
             return GfxInfo({})
+
+    @cached_property
+    def glxinfo_drv(self):
+        try:
+            return GpuDriver.from_glxinfo(f"{self.result_folder}/glxinfo")
+        except Exception:
+            return None
 
     @cached_property
     def gpu(self):
