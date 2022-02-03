@@ -192,6 +192,8 @@ provision_infra() {
     # Set the farm name
     echo FARM_NAME=${FARM_NAME} | ssh $ssh_options root@localhost tee /mnt/permanent/config.env
 
+    # FIXME: Unregistering doesn't work. This also trashes any runners
+    # you may have setup on previous boot. Redo it!
     # Unregister all the current runners
     ssh $ssh_options root@localhost systemctl stop executor
     ssh $ssh_options root@localhost "sed -i 's/expose_runners: true/expose_runners: false/' /mnt/permanent/mars_db.yaml"
