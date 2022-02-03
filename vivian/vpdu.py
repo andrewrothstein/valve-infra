@@ -12,6 +12,7 @@ SALAD_TCP_CONSOLE_PORT = os.getenv("SALAD_TCPCONSOLE_PORT", 8100)
 NUM_PORTS = 16
 DUT_DISK_SIZE = '32G'
 VPDU_DIR = './tmp_vpdu'
+os.makedirs(VPDU_DIR, exist_ok=True)
 OUTLETS = []
 
 
@@ -207,7 +208,6 @@ if __name__ == "__main__":
 
     socketserver.TCPServer.allow_reuse_address = True
     try:
-        os.makedirs(VPDU_DIR, exist_ok=True)
         log("OK. Waiting for connections...")
         with socketserver.TCPServer((args.host, args.port), PDUTCPHandler) as server:
             server.allow_reuse_address = True
