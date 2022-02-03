@@ -24,6 +24,8 @@ def main():
                 gfxinfo["vk:api:version"] = info.api_version
             if info.driver_name is not None:
                 gfxinfo["vk:driver:name"] = info.driver_name
+            if info.driver_info is not None:
+                gfxinfo["vk:driver:info"] = info.driver_info
         json.dump(gfxinfo, sys.stdout)
         sys.stdout.write("\n")
         sys.exit(0)
