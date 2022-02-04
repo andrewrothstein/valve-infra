@@ -65,6 +65,7 @@ def test_dnsmasq_no_binary(popen_mock, dnsmasq_waiter, tmp_path):
 
 @patch.object(server.boots.Dnsmasq, '_wait_for_dnsmasq_to_fork')
 @patch("subprocess.Popen")
+@patch.object(shutil, 'which', lambda _: True)
 def test_dnsmasq_launch(popen_mock, dnsmasq_waiter, tmp_path):
     paths = {
         'BOOTS_ROOT': tmp_path,
@@ -96,6 +97,7 @@ def test_dnsmasq_launch(popen_mock, dnsmasq_waiter, tmp_path):
 @patch.object(server.boots.Dnsmasq, 'reload')
 @patch.object(server.boots.Dnsmasq, '_wait_for_dnsmasq_to_fork')
 @patch("subprocess.Popen")
+@patch.object(shutil, 'which', lambda _: True)
 def test_dnsmasq_add_static_address(popen_mock, dnsmasq_waiter,
                                     dnsmasq_reloader, tmp_path):
     paths = {
