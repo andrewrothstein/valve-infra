@@ -6,7 +6,6 @@
 stages:
   - prep
   - containers
-  - python
   - tests
   - deploy
 
@@ -287,10 +286,12 @@ salad:
     - if [[ "$CI_COMMIT_BRANCH" == "master" ]]; then podman push $IMAGE_NAME; fi
 
 
-# Python packages
-.python_package base:
+# FIXME: ipxe-boot-server should be moved to a proper Python package,
+# so it can follow the pattern of the other Python services regarding
+# linting, testing and building.
+ipxe-boot-server:
   image: $CI_REGISTRY_IMAGE/python-container:latest
-  stage: python
+  stage: tests
   rules:
     - changes:
       - $CI_JOB_NAME/**/*
@@ -301,10 +302,6 @@ salad:
     - pycodestyle --max-line-length=120 .
     - pip install -r requirements.txt
     - python -m unittest *.py
-
-ipxe-boot-server:
-  extends:
-    - .python_package base
 
 .set-python-image:
   variables:
