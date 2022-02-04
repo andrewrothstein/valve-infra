@@ -465,7 +465,7 @@ class Client:
             "project_url": project_url,
             "base_url_for_commits": base_url_for_commits
         }
-        r = self._post("/api/v1//projects", params=params)
+        r = self._post("/api/v1/projects", params=params)
         if 'id' in r:
             return Project.from_api(r)
 
@@ -543,13 +543,20 @@ class Client:
 
         return self._upload_blob(filepath, name, data_checksum)
 
-    def job_get_or_create(self, name, job_timeline=None, is_released_code=False):
+    def job_get_or_create(self, name, job_timeline=None, is_released_code=False,
+                          timeline_version=None):
+        # NOTE: timeline_version should be a string that represents the current commit
+        # of the project being tested. Once appended to the associated JobTimeline's
+        # base_url_for_commits, it should create a valid URL pointing to the project
+        # under test's state.
+
         # The object will be created if it does not exist already,
         # otherwise, it will return the job that has the same name
         params = {
             "job": {
                 "name": name,
                 "is_released_code": is_released_code,
+                "commit_version": timeline_version,
             },
             "job_timeline": job_timeline,
         }
@@ -1334,7 +1341,8 @@ Debug information:
         print(f" - Creating the job {self.run_name}")
         job = self.client.job_get_or_create(self.run_name,
                                             job_timeline=dataclasses.asdict(self.job_timeline),
-                                            is_released_code=self.is_postmerge)
+                                            is_released_code=self.is_postmerge,
+                                            timeline_version=os.environ.get("CI_COMMIT_SHORT_SHA"))
 
         # Check what has already been uploaded, so we can ignore it :)
         print(" - Fetching the list of already-uploaded trace executions")
