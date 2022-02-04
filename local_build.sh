@@ -18,7 +18,11 @@ case $container in
 	;;&
     machine_registration|all)
 	echo ">>> Building machine_registration...."
-	podman build -t registry.freedesktop.org/mupuf/valve-infra/machine_registration -f machine_registration/Dockerfile .
+	if [ -z "$IMAGE_NAME" ]; then
+	    echo "Set an IMAGE_NAME for the built container"
+	    exit 1
+	fi
+	buildah unshare -- sh .gitlab-ci/machine-registration-container-build.sh
 	;;&
     valve-infra|all)
 	echo ">>> Building valve-infra...."

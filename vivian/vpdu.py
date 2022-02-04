@@ -85,7 +85,7 @@ class DUT:
         cmd = [
             'qemu-system-x86_64',
             '-machine', 'pc-q35-6.0,accel=kvm',
-            '-m', '1024',
+            '-m', '2048',
             '-smp', '2,sockets=2,cores=1,threads=1',
             '-hda', disk,
             '-vga', 'virtio',
