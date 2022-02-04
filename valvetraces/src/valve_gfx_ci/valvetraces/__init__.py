@@ -543,15 +543,15 @@ class Client:
 
         return self._upload_blob(filepath, name, data_checksum)
 
-    def job_get_or_create(self, name, timeline_metadata=None, is_released_code=False):
+    def job_get_or_create(self, name, job_timeline=None, is_released_code=False):
         # The object will be created if it does not exist already,
         # otherwise, it will return the job that has the same name
         params = {
             "job": {
                 "name": name,
-                "timeline_metadata": timeline_metadata,
-                "is_released_code": is_released_code
-            }
+                "is_released_code": is_released_code,
+            },
+            "job_timeline": job_timeline,
         }
         job = self._post("/api/v1/jobs", params=params)
         return Job.from_api(job, client=self)
@@ -586,6 +586,14 @@ class DedupedFrameOutput(SanitizedFieldsMixin):
 # Forward declaration for the dataclass. The real deal is lower
 class TraceExec:
     pass
+
+
+@dataclass
+class JobTimeline(SanitizedFieldsMixin):
+    project: str
+    branch: str
+    project_url: str
+    base_url_for_commits: str
 
 
 @dataclass
@@ -1289,6 +1297,16 @@ Debug information:
     def trace_compatibility_reports(self):
         return self.client.trace_list_compatibly_reports(self.gfxinfo.gpu_pciid)
 
+    @cached_property
+    def job_timeline(self):
+        project_url = {os.environ.get('CI_PROJECT_URL')}
+        branch = os.environ.get('CI_COMMIT_BRANCH')
+
+        return JobTimeline(project=os.environ.get('CI_PROJECT_PATH_SLUG'),
+                           branch=branch,
+                           project_url=f"{project_url}/-/tree/{branch}",
+                           base_url_for_commits=f"{project_url}/-/commit/")
+
     @classmethod
     def upload_frame(cls, client, frame_path):
         file_name = os.path.basename(frame_path)
@@ -1315,7 +1333,7 @@ Debug information:
         # Create the job in the website
         print(f" - Creating the job {self.run_name}")
         job = self.client.job_get_or_create(self.run_name,
-                                            timeline_metadata={"project": os.environ.get('CI_PROJECT_PATH_SLUG')},
+                                            job_timeline=dataclasses.asdict(self.job_timeline),
                                             is_released_code=self.is_postmerge)
 
         # Check what has already been uploaded, so we can ignore it :)
