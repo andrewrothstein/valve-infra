@@ -6,9 +6,9 @@ VIVIAN := ./vivian/vivian
 PYTHON := $(shell command -v python3)
 HOST ?= localhost
 ifeq ($(HOST), localhost)
-	PORT ?= 60022
+	SSH_PORT ?= 60022
 else
-	PORT ?= 22
+	SSH_PORT ?= 22
 endif
 V ?= 0
 REGISTRY ?= registry.freedesktop.org
@@ -74,7 +74,7 @@ vivian-dut:
 # Connect to a locally running virtual gateway.
 .PHONY: vivian-connect
 vivian-connect:
-	ssh root@$(HOST) -p $(PORT) -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null
+	ssh root@$(HOST) -p $(SSH_PORT) -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null
 
 .PHONY: vivian-provision
 vivian-provision:
@@ -84,7 +84,7 @@ vivian-provision:
 
 .PHONY: vpdu
 vpdu:
-	$(PYTHON) ./vivian/vpdu.py --port $(PORT)
+	$(PYTHON) ./vivian/vpdu.py --port $(VPDU_PORT)
 
 .PHONY: clean
 clean:
