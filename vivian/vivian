@@ -19,6 +19,7 @@ __executor_port=8000
 __salad_port=8100
 __minio_port=9000
 __ssh_port=60022
+__ssh_id=
 __vpdu_port=9191
 
 __disk_img=
