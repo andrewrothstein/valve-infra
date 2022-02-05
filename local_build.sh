@@ -4,10 +4,6 @@ container=${1:-all}
 tag=${2:-latest}
 
 case $container in
-    executor|all)
-	echo ">>> Building executor...."
-	podman build -t "registry.freedesktop.org/mupuf/valve-infra/executor:$tag" -f executor/Dockerfile executor
-	;;&
     gitlab-trigger|all)
 	echo ">>> Building gitlab-trigger...."
 	podman build -t registry.freedesktop.org/mupuf/valve-infra/gitlab-trigger -f containers/gitlab-trigger/Dockerfile .

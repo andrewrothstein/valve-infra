@@ -205,21 +205,6 @@ valve-infra-container:
     - if: $CI_COMMIT_REF_NAME == $CI_DEFAULT_BRANCH
       when: on_success
 
-executor:
-  extends:
-    - .container base
-  rules:
-    - changes:
-      - executor/**/*
-      - Makefile
-      - .gitlab-ci.yml
-  script:
-    - podman build -t $IMAGE_NAME -f executor/Dockerfile executor
-    - |
-       podman run --rm \
-           --entrypoint=sh $IMAGE_NAME \
-           -c 'pip install tox && tox -c server/setup.cfg'
-
 machine-registration:
   # Minimal image for running podman and friends
   image: registry.freedesktop.org/freedesktop/ci-templates/x86_64/container-build-base:2021-06-21.2

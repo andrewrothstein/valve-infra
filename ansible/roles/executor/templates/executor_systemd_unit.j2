@@ -1,0 +1,17 @@
+[Unit]
+Description=executor server
+PartOf=infra.service
+
+[Service]
+TimeoutStartSec=0
+EnvironmentFile=/etc/base_config.env
+EnvironmentFile=-/mnt/permanent/config.env
+ExecStartPre=-mkdir -pv /mnt/tmp/boots /mnt/tmp/gitlab-runner
+ExecStartPre=-touch /mnt/tmp/gitlab-runner/config.toml
+ExecStartPre=-touch /mnt/permanent/mars_db.yaml
+ExecStart=executor
+Restart=on-failure
+RestartSec=4s
+
+[Install]
+WantedBy=infra.service

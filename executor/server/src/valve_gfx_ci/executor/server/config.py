@@ -21,7 +21,7 @@ configurables = {
     'SERGENT_HARTMAN_QUALIFYING_BOOT_COUNT': '100',
     'SERGENT_HARTMAN_REGISTRATION_RETRIAL_DELAY': '120',
     'GITLAB_URL': 'https://gitlab.freedesktop.org',
-    'GITLAB_CONF_FILE': '/etc/gitlab-runner/config.toml',
+    'GITLAB_CONF_FILE': '/mnt/tmp/gitlab-runner/config.toml',
     'GITLAB_CONF_TEMPLATE_FILE': template('gitlab_runner_config.toml.j2'),
     'FARM_NAME': None,
     'MARS_DB_FILE': '/app/config/mars.yaml',

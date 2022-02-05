@@ -1,33 +1,25 @@
 ---
-- name: executor container service
-  ansible.builtin.include_role:
-    name: "systemd_podman"
-  vars:
-    container_name: "executor"
-    container_service_target: infra.target
-    container_privileged: true
-    container_image: registry.freedesktop.org/mupuf/valve-infra/executor
-    container_volumes:
-      - "{{ perm_mount }}/mars_db.yaml:/etc/mars_db.yaml"
-      - "{{ tmp_mount }}/gitlab-runner:/etc/gitlab-runner"
-      - "{{ tmp_mount }}/boots:/boots"
-    container_host_network: true
-    container_env_files:
-      - "{{ base_config_env_file }}"
-    optional_container_env_files:
-      - "{{ config_env_file }}"
-    container_depends:
-      - salad.service
-      - minio.service
-      - mars.service
-      - fdo-proxy-registry.service
-      - local-registry.service
-    service_pre_conditions:
-      - "mkdir -pv {{ tmp_mount }}/boots {{ tmp_mount }}/gitlab-runner"
-      - "touch {{ tmp_mount }}/gitlab-runner/config.toml"
-      - "touch {{ perm_mount }}/mars_db.yaml"
-    part_of:
-      - "infra.service"
+# Not very happy with the local file reference here, it breaks running
+# the playbook against a remote system (since the source code is not
+# bundled into the production container), which sort of breaks the
+# purpose of using Ansible in the first place.
+- name: Install the executor server package
+  ansible.builtin.pip:
+    name: file:///app/valve-infra/executor/server
+
+- name: Install executor systemd unit file
+  ansible.builtin.template:
+    src: executor_systemd_unit.j2
+    dest: /etc/systemd/system/executor.service
+    owner: root
+    group: root
+    mode: 0644
+
+- name: Enable executor service
+  become: true
+  ansible.builtin.systemd:
+    name: 'executor'
+    enabled: true
 
 - name: configuring env
   become: true
@@ -43,9 +35,9 @@
       SERGENT_HARTMAN_BOOT_COUNT={{ sergent_hartman_boot_count }}
       SERGENT_HARTMAN_QUALIFYING_BOOT_COUNT={{ sergent_hartman_qualifying_boot_count }}
       SERGENT_HARTMAN_REGISTRATION_RETRIAL_DELAY={{ sergent_hartman_registration_retrial_delay }}
-      GITLAB_CONF_FILE=/etc/gitlab-runner/config.toml
+      GITLAB_CONF_FILE=/mnt/tmp/gitlab-runner/config.toml
       BOOTS_URL=http://{{ private_interface_ip }}:8087
       BOOTS_DEFAULT_KERNEL=http://{{ private_interface_ip }}:{{ minio_port }}/boot/default_kernel
       BOOTS_DEFAULT_INITRD=http://{{ private_interface_ip }}:{{ minio_port }}/boot/default_boot2container.cpio.xz
       BOOTS_DEFAULT_CMDLINE=b2c.container="-ti --tls-verify=false docker://{{ private_interface_ip }}:{{ fdo_proxy_registry_port }}/mupuf/valve-infra/machine_registration:latest register" b2c.ntp_peer="{{ private_interface_ip }}" b2c.cache_device=none loglevel=6
-      MARS_DB_FILE=/etc/mars_db.yaml
+      MARS_DB_FILE=/mnt/permanent/mars_db.yaml
