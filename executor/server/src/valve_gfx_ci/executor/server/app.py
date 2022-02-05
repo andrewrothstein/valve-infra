@@ -312,6 +312,7 @@ def run():  # pragma: nocover
         raise ValueError("Please the FARM_NAME environment variable")
 
     # Start the network boot service
+    # FIXME: Tidy this stuff up! Just give a boots root and descend from there.
     boots = BootService(config_paths={
         'BOOTS_ROOT': config.BOOTS_ROOT,
         'TFTP_DIR': config.BOOTS_TFTP_ROOT,
