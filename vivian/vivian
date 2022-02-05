@@ -243,7 +243,7 @@ cleanup() {
     echo "Performing cleanup"
     # Gracefully powerdown the gateway, I've noticed the disk can
     # become corrupted without being gentle.
-    if [ -f "$__gateway_monitor_socket" ]; then
+    if [ -S "$__gateway_monitor_socket" ]; then
         echo "system_powerdown" | socat - unix-connect:"$__gateway_monitor_socket"
     fi
     echo "WARNING! No way to shut down the VM gracefully, be careful with disk corruption!"
