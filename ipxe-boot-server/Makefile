@@ -131,7 +131,7 @@ endif
 	make -C $(IPXE_DIR)/src clean
 	make -C $(IPXE_DIR)/src -j`nproc` $(IPXE_TARGET) EMBED=$(TMP_DIR)/ipxescript PRIVKEY=$(TMP_DIR)/client.key CERT=$(TMP_DIR)/client.crt || exit 1
 
-	$(IPXE_DIR)/src/util/genfsimg -o $(OUTPUT_ISO) $(IPXE_DIR)/src/bin-x86_64-efi/ipxe.efi $(IPXE_DIR)/src/bin/ipxe.lkrn
+	$(IPXE_DIR)/src/util/genfsimg -o $(OUTPUT_ISO) $(IPXE_DIR)/src/bin-x86_64-efi/ipxe.efi $(IPXE_DIR)/src/bin/ipxe.lkrn || exit 1
 
 	@echo "Generated the bootable image '$(OUTPUT_ISO)' (fingerprint $$CLIENT_FINGERPRINT)"
 	sha256sum $(OUTPUT_ISO) > $(OUTPUT_ISO).sha256sum
