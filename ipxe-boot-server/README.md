@@ -133,6 +133,8 @@ To generate bootable ISOs for your gateways, you will need:
  - mtools
  - xorrisofs
  - syslinux
+ - syslinux-efi
+ - syslinux-utils
  - mkisolinux
 
 and then execute the following commands:
