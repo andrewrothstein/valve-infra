@@ -31,14 +31,6 @@
       VALVETRACES_MINIO_PASSWORD={{ valvetraces_minio_password }}
       MINIO_ROOT_PASSWORD={{ lookup('community.general.random_string', length=12, special=false) }}
 
-# needed by minio_configure
-- name: Installing minio-client
-  become: true
-  pacman:
-    state: present
-    name:
-      - minio-client
-
 - name: Installing minio_configure script
   become: true
   ansible.builtin.template:
