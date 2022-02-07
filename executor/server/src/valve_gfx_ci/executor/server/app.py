@@ -309,7 +309,7 @@ def post_job():
 def run():  # pragma: nocover
     # Make sure the farm name has been set
     if config.FARM_NAME is None:
-        raise ValueError("Please the FARM_NAME environment variable")
+        raise ValueError("Please set the FARM_NAME environment variable")
 
     # Start the network boot service
     # FIXME: Tidy this stuff up! Just give a boots root and descend from there.
