@@ -770,44 +770,42 @@ class GpuDriver(SanitizedFieldsMixin):
         branch = None
         version = None
         git_version = None
-        try:
-            with open(path) as f:
-                for line in f:
-                    if m := re.match(r"^OpenGL vendor string: (.*)$", line):
-                        vendor = m.group(1)
-                        if vendor == "AMD":
-                            driver = "radeonsi"
-                        elif vendor == "Advanced Micro Devices, Inc.":
-                            driver = "amdgpu"
+        with open(path) as f:
+            for line in f:
+                if m := re.match(r"^OpenGL vendor string: (.*)$", line):
+                    vendor = m.group(1)
+                    if vendor == "AMD":
+                        driver = "radeonsi"
+                    elif vendor == "Advanced Micro Devices, Inc.":
+                        driver = "amdgpu"
 
-                    elif m := re.match(r"^OpenGL renderer string: (.*)$", line):
-                        renderer = m.group(1)
-                        if renderer == "zink":
-                            driver = "zink"
-                        elif driver is None:
-                            driver = f"unknown ({vendor} / {renderer})"
+                elif m := re.match(r"^OpenGL renderer string: (.*)$", line):
+                    renderer = m.group(1)
+                    if renderer == "zink":
+                        driver = "zink"
+                    elif driver is None:
+                        driver = f"unknown ({vendor} / {renderer})"
 
-                    # Mesa core profile version string
-                    elif m := re.match((r"^OpenGL core profile version string: \d\.\d \(Core Profile\) Mesa "
-                                        r"(\d+\.\d+\.\d+)(-devel \(git-([a-z0-9]+)\))?$"), line):
-                        version = m.group(1)
-                        git_version = m.group(3)
+                # Mesa core profile version string
+                elif m := re.match((r"^OpenGL core profile version string: \d\.\d \(Core Profile\) Mesa "
+                                    r"(\d+\.\d+\.\d+)(-devel \(git-([a-z0-9]+)\))?$"), line):
+                    version = m.group(1)
+                    git_version = m.group(3)
 
-                        version_fields = version.split(".")
-                        if len(version_fields) == 3:
-                            branch = f"{version_fields[0]}.{version_fields[1]}.y"
-                        # NOTE: Unfortunately, we cannot distinguish between "main" and release branches...
-                        #       So let's pretend we are always in the release branches.
+                    version_fields = version.split(".")
+                    if len(version_fields) == 3:
+                        branch = f"{version_fields[0]}.{version_fields[1]}.y"
+                    # NOTE: Unfortunately, we cannot distinguish between "main" and release branches...
+                    #       So let's pretend we are always in the release branches.
 
-                    elif m := re.match(r"^OpenGL core profile version string: \d\.\d\.(\d+) Core Profile Context$",
-                                       line):
-                        version = m.group(1)
+                elif m := re.match(r"^OpenGL core profile version string: \d\.\d\.(\d+) Core Profile Context$",
+                                   line):
+                    version = m.group(1)
 
-                if driver and version:
-                    return GpuDriver(name=driver, version=version, branch=branch, commit=git_version)
-        except Exception:
-            traceback.print_exc()
-            return GpuDriver(name="Unknown GL driver", version="UNK", branch="main")
+            if driver and version:
+                return GpuDriver(name=driver, version=version, branch=branch, commit=git_version)
+
+        return None
 
 
 @dataclass
@@ -1282,18 +1280,36 @@ Debug information:
         return False
 
     @cached_property
+    def errors(self):
+        errors = []
+
+        if self.gfxinfo is None:
+            errors.append("No valid 'gfxinfo.json' file found or some required fields are missing")
+
+        if self.glxinfo_drv is None:
+            errors.append("No valid 'glxinfo' file found or couldn't parse some fields")
+
+        return errors
+
+    @property
+    def is_valid(self):
+        return len(self.errors) == 0
+
+    @cached_property
     def gfxinfo(self):
         try:
             with open(f"{self.result_folder}/gfxinfo.json") as f:
                 return GfxInfo(json.loads(f.read()))
         except Exception:
-            return GfxInfo({})
+            traceback.print_exc()
+            return None
 
     @cached_property
     def glxinfo_drv(self):
         try:
             return GpuDriver.from_glxinfo(f"{self.result_folder}/glxinfo")
         except Exception:
+            traceback.print_exc()
             return None
 
     @cached_property
@@ -1632,13 +1648,23 @@ def report_results(traces_client, args):
     report = Report(client=traces_client, run_name=args.run_name,
                     dependencies=dependencies, result_folder=args.results)
 
-    job_type = "post-merge" if report.is_postmerge else "pre-merge"
-    print(f"Generating a {job_type} report")
+    if not report.is_valid:
+        msg = "\nFATAL ERROR: The report is invalid due to the following errors:\n"
+        for error in report.errors:
+            msg += f" - {error}\n"
 
-    report.upload()
-    report.generate_junit_result()
+        print(msg, file=sys.stderr)
+        print("Aborting...")
 
-    return 0 if report.is_success else 1
+        return 1
+    else:
+        job_type = "post-merge" if report.is_postmerge else "pre-merge"
+        print(f"Generating a {job_type} report")
+
+        report.upload()
+        report.generate_junit_result()
+
+        return 0 if report.is_success else 1
 
 
 def main():
