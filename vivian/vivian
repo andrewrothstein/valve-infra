@@ -186,11 +186,11 @@ provision_infra() {
         local scp_options="$scp_options -i $__ssh_id"
     fi
 
-    ## MaRS DB configuration
-    wait_for_endpoint "$__executor_port" "api/v1/machine"
-
     # Set the farm name
     echo FARM_NAME=${FARM_NAME} | ssh $ssh_options root@localhost tee /mnt/permanent/config.env
+
+    ## Executor configuration
+    wait_for_endpoint "$__executor_port" "api/v1/machine"
 
     # FIXME: Unregistering doesn't work. This also trashes any runners
     # you may have setup on previous boot. Redo it!
