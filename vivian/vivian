@@ -196,6 +196,11 @@ wait_for_endpoint() {
 provision_infra() {
     wait_for_ssh
 
+    # Container runtime weirdness? The tmp volume mount sometimes gets
+    # the permission of 0700, which means reads from the nobody user
+    # (dnsmasq) to the TFTP dir fail. Very strange!
+    ssh $__ssh_options root@localhost chmod -v 755 /mnt/tmp
+
     # Set the farm name
     echo FARM_NAME=${FARM_NAME} | ssh $__ssh_options root@localhost tee /mnt/permanent/config.env
 
