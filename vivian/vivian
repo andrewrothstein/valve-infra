@@ -4,7 +4,7 @@
 # Script to start a virtual testing harness for Valve's graphics
 # infrastructure.
 
-set -eux
+set -eu
 
 SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 
@@ -137,8 +137,8 @@ while test -n "$1"; do
 done
 
 __gateway_nic_opts="-nic user,ipv6=off,mac=$__gateway_public_mac_addr,hostfwd=tcp::$__ssh_port-:22,hostfwd=tcp::$__executor_port-:80,hostfwd=tcp::$__docker_port-:2375,hostfwd=tcp::$__salad_port-:$__salad_port,hostfwd=tcp::$__minio_port-:9000,model=virtio-net-pci -nic bridge,br=$__host_bridge_name,mac=$__gateway_private_mac_addr,model=virtio-net-pci"
-__ssh_options="-p $__ssh_port -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
-__scp_options="-P $__ssh_port -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
+__ssh_options="-p $__ssh_port -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=quiet"
+__scp_options="-P $__ssh_port -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=quiet"
 if [ ! -z "$__ssh_id" ]; then
     __ssh_options="$__ssh_options -i $__ssh_id"
     __scp_options="$__scp_options -i $__ssh_id"
@@ -155,7 +155,6 @@ start_gateway() {
 	__qemu_kernel_opts=""
     fi
 
-    echo "Starting gateway..."
     qemu-system-x86_64 \
 	-daemonize \
 	-hda "$__disk_img" \
@@ -167,7 +166,7 @@ start_gateway() {
 	-m 4G \
 	-enable-kvm -smp 4
 
-    echo "Started gateway"
+    echo "Started gateway VM"
 }
 
 wait_for_ssh() {
@@ -176,7 +175,7 @@ wait_for_ssh() {
     __ssh_options="$__ssh_options -o BatchMode=yes -o ConnectionAttempts=1"
     while ! ssh $__ssh_options root@localhost true; do
 	sleep 0.2
-    done
+    done >/dev/null 2>&1
     echo "SSH is up..."
     set "-$prev_shell_config"
 }
@@ -316,9 +315,8 @@ case "$cmd" in
 	create_host_bridge
 	start_gateway
 	provision_infra || true
-	for i in seq 1 30 ; do
-	    ssh root@localhost -p "$__ssh_port" -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null journalctl -f ; sleep 1
-	done
+
+	ssh $__ssh_options -t root@localhost env LC_ALL=en_US.utf8 tmuxp load .tmuxp/dashboard.yml
 	;;
     test-installer)
 	create_host_bridge
