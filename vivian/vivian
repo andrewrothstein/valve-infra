@@ -179,8 +179,8 @@ wait_for_endpoint() {
 }
 
 provision_infra() {
-    local ssh_options="-p "$__ssh_port" -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
-    local scp_options="-P "$__ssh_port" -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
+    local ssh_options="-p $__ssh_port -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
+    local scp_options="-P $__ssh_port -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
     if [ ! -z "$__ssh_id" ]; then
         local ssh_options="$ssh_options -i $__ssh_id"
         local scp_options="$scp_options -i $__ssh_id"
