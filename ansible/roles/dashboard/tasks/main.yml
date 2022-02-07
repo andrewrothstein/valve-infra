@@ -30,6 +30,9 @@
   ansible.builtin.file:
     path: /usr/local/lib/dashboard
     state: directory
+    owner: root
+    group: root
+    mode: 0755
 
 - name: Installing dashboard scripts
   become: true
