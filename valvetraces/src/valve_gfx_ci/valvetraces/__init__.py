@@ -1574,6 +1574,29 @@ def run_job(traces_client, args):
         with open(f"{trace_job_path}/exec.sh", 'w') as f:
             f.write(trace.exec_script(trace_file_path, trace_job_path))
 
+    # Create our own entrypoint
+    valve_entrypoint_path = f"{job_folder_path}/valvetraces-run.sh"
+    with open(valve_entrypoint_path, 'w') as f:
+        f.write(f"""#!/bin/sh
+
+# Sanity checks
+wine --version
+vulkaninfo > vulkaninfo 2>&1
+glxinfo > glxinfo 2>&1
+gfxinfo > gfxinfo.json
+
+# Run all the traces
+i=0
+for trace in **/exec.sh; do
+    i=$((i+1))
+    echo -e "\n[$i/{len(traces_to_cache)}] Executing $trace"
+    (cd "`dirname "$trace"`"; sh ./exec.sh)
+done
+
+echo "The execution is finished. Exiting!"
+""")
+    os.chmod(valve_entrypoint_path, 0o755)
+
     if not args.generate_job_folder_only:
         if not args.local_run:
             # It is assumed here the job definition has been generated and place in this file.
