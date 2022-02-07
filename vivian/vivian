@@ -137,8 +137,12 @@ while test -n "$1"; do
 done
 
 __gateway_nic_opts="-nic user,ipv6=off,mac=$__gateway_public_mac_addr,hostfwd=tcp::$__ssh_port-:22,hostfwd=tcp::$__executor_port-:80,hostfwd=tcp::$__docker_port-:2375,hostfwd=tcp::$__salad_port-:$__salad_port,hostfwd=tcp::$__minio_port-:9000,model=virtio-net-pci -nic bridge,br=$__host_bridge_name,mac=$__gateway_private_mac_addr,model=virtio-net-pci"
-
-
+__ssh_options="-p $__ssh_port -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
+__scp_options="-P $__ssh_port -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
+if [ ! -z "$__ssh_id" ]; then
+    __ssh_options="$__ssh_options -i $__ssh_id"
+    __scp_options="$__scp_options -i $__ssh_id"
+fi
 
 start_gateway() {
     # TODO export a 9P share into /root/valve-infra to support
@@ -179,15 +183,8 @@ wait_for_endpoint() {
 }
 
 provision_infra() {
-    local ssh_options="-p $__ssh_port -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
-    local scp_options="-P $__ssh_port -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
-    if [ ! -z "$__ssh_id" ]; then
-        local ssh_options="$ssh_options -i $__ssh_id"
-        local scp_options="$scp_options -i $__ssh_id"
-    fi
-
     # Set the farm name
-    echo FARM_NAME=${FARM_NAME} | ssh $ssh_options root@localhost tee /mnt/permanent/config.env
+    echo FARM_NAME=${FARM_NAME} | ssh $__ssh_options root@localhost tee /mnt/permanent/config.env
 
     ## Executor configuration
     wait_for_endpoint "$__executor_port" "api/v1/machine"
@@ -195,9 +192,9 @@ provision_infra() {
     # FIXME: Unregistering doesn't work. This also trashes any runners
     # you may have setup on previous boot. Redo it!
     # Unregister all the current runners
-    ssh $ssh_options root@localhost systemctl stop executor
-    ssh $ssh_options root@localhost "sed -i 's/expose_runners: true/expose_runners: false/' /mnt/permanent/mars_db.yaml"
-    ssh $ssh_options root@localhost systemctl start executor
+    ssh $__ssh_options root@localhost systemctl stop executor
+    ssh $__ssh_options root@localhost "sed -i 's/expose_runners: true/expose_runners: false/' /mnt/permanent/mars_db.yaml"
+    ssh $__ssh_options root@localhost systemctl start executor
 
     # Reset the mars config file
     cat << EOF > vivian/__mars_db.yaml
@@ -217,9 +214,9 @@ gitlab:
       token: <invalid>
       exposed: true
 EOF
-    ssh $ssh_options root@localhost systemctl stop executor
-    scp  $scp_options vivian/__mars_db.yaml root@localhost:/mnt/permanent/mars_db.yaml
-    ssh $ssh_options root@localhost systemctl start executor
+    ssh $__ssh_options root@localhost systemctl stop executor
+    scp $__scp_options vivian/__mars_db.yaml root@localhost:/mnt/permanent/mars_db.yaml
+    ssh $__ssh_options root@localhost systemctl start executor
     rm vivian/__mars_db.yaml
 }
 
