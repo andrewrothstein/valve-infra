@@ -183,7 +183,7 @@ provision_infra() {
     local scp_options="-P "$__ssh_port" -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
     if [ ! -z "$__ssh_id" ]; then
         local ssh_options="$ssh_options -i $__ssh_id"
-        local scp_options="$ssh_options -i $__ssh_id"
+        local scp_options="$scp_options -i $__ssh_id"
     fi
 
     ## MaRS DB configuration
