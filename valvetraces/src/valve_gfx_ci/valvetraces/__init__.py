@@ -338,7 +338,9 @@ class Client:
 
     def login(self):
         if self._login_cookie is None:
-            password = os.environ.get("VALVETRACESPASSWORD", None)
+            password = os.environ.get("VALVETRACES_PASSWORD", None)
+            if password is None:
+                password = os.environ.get("VALVETRACESPASSWORD", None)
             if self.username is None or password is None:
                 print("ERROR: credentials not specified for valve traces client")
                 sys.exit(1)
