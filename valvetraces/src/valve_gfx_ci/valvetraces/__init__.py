@@ -1712,7 +1712,7 @@ def main():
                             default=os.environ.get("VALVETRACES_MINIO_URL", "http://localhost:9000"),
                             help='URL to the Minio service')
     run_parser.add_argument('-u', '--user',
-                            default=os.environ.get('VALVETRACES_MINIO_USER', 'valvetraces'),
+                            default=os.environ.get('VALVETRACES_BUCKET_USER', 'valvetraces'),
                             help='User to access Minio with, default is "valvetraces".')
     # REVIEW: Is there a way to have this pick its value from an
     # environment variable *and* be a required argument, that is,
