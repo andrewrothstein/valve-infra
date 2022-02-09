@@ -59,6 +59,12 @@ def timeit(method):
     return timed
 
 
+def get_env_var_or_fail(variable):
+    value = os.environ.get(variable)
+    if value is None:
+        raise ValueError(f"The environment variable `{variable}` is missing")
+
+
 class SanitizedFieldsMixin:
     @classmethod
     def from_api(cls, fields, **kwargs):
@@ -844,6 +850,7 @@ def job_id():
     if 'CI_JOB_ID' in os.environ:
         # Be very careful not to pass a plain number as the job ID, everything explodes!
         return f'job-{os.environ["CI_JOB_ID"]}'
+    print("WARNING: The environment variable `CI_JOB_ID` is missing, defaulting to `untitled`")
     return 'untitled'
 
 
@@ -1324,11 +1331,11 @@ Debug information:
 
     @cached_property
     def job_timeline(self):
-        project_url = {os.environ.get('CI_PROJECT_URL')}
-        branch = os.environ.get('CI_COMMIT_BRANCH')
+        project = get_env_var_or_fail('CI_PROJECT_PATH_SLUG')
+        branch = get_env_var_or_fail('CI_COMMIT_BRANCH')
+        project_url = get_env_var_or_fail('CI_PROJECT_URL')
 
-        return JobTimeline(project=os.environ.get('CI_PROJECT_PATH_SLUG'),
-                           branch=branch,
+        return JobTimeline(project=project, branch=branch,
                            project_url=f"{project_url}/-/tree/{branch}",
                            base_url_for_commits=f"{project_url}/-/commit/")
 
@@ -1360,7 +1367,7 @@ Debug information:
         job = self.client.job_get_or_create(self.run_name,
                                             job_timeline=dataclasses.asdict(self.job_timeline),
                                             is_released_code=self.is_postmerge,
-                                            timeline_version=os.environ.get("CI_COMMIT_SHORT_SHA"))
+                                            timeline_version=get_env_var_or_fail("CI_COMMIT_SHORT_SHA"))
 
         # Check what has already been uploaded, so we can ignore it :)
         print(" - Fetching the list of already-uploaded trace executions")
@@ -1546,6 +1553,7 @@ def generate_job_results_folder_name():
         ci_job_name_safe = str_to_safe_filename(os.environ["CI_JOB_NAME"])
         return f'{ci_job_name_safe}-results'
     else:
+        print("WARNING: The environment variable `CI_JOB_NAME` is unset")
         return 'results'
 
 
