@@ -5,7 +5,6 @@
 # and the project is rather complex to hack, so very much a WIP!
 stages:
   - prep
-  - lint
   - containers
   - python
   - tests
@@ -26,43 +25,6 @@ include:
 default:
   tags:
     - CI-gateway
-
-.ansible-container-vars:
-  variables:
-    FDO_DISTRIBUTION_TAG: 'valve-infra-arch-ansible-2021-12-23'
-
-build-arch-ansible-container:
-  stage: prep
-  extends:
-    - .fdo.container-build@arch
-    - .ansible-container-vars
-  rules:
-    - changes:
-      - .gitlab-ci.yml
-  variables:
-    FDO_DISTRIBUTION_PACKAGES: "ansible ansible-lint yamllint"
-    FDO_DISTRIBUTION_TAG: 'valve-infra-arch-ansible-2021-12-23'
-  before_script:
-    - rm /var/lib/containers/storage/* -rf
-
-ansible:
-  stage: lint
-  extends:
-    - .fdo.distribution-image@arch
-    - .ansible-container-vars
-  rules:
-    - changes:
-      - ansible/**/*
-      - .gitlab-ci.yml
-  script:
-    # ansible complains if the dir is world-writeable:
-    - chmod -R o-w ansible
-    - cd ansible
-    # dependency for role(s) that build packages from AUR
-    - ansible-galaxy collection install kewlfft.aur
-    - ansible-lint --version
-    - ansible-lint -f plain
-    - ansible-playbook --syntax-check gateway.yml
 
 # Containers
 .container base:
@@ -177,6 +139,45 @@ valve-infra-base-container:
     podman push $IMAGE_NAME
   rules:
     - when: on_success
+
+ansible provisioning test:
+  # Minimal image for running podman and friends
+  # Would be nice depend on the image like this,
+  #   image: $CI_REGISTRY_IMAGE/valve-infra-base-container:latest
+  # but that bind-mounts /etc/resolv.conf, which breaks our networking setup.
+  image: registry.freedesktop.org/freedesktop/ci-templates/x86_64/container-build-base:2021-06-21.2
+  variables:
+    BASE_CONTAINER_TAG: !reference [valve-infra-base-container, variables, FDO_DISTRIBUTION_TAG]
+    BASE_IMAGE: $CI_REGISTRY_IMAGE/valve-infra-base-container:$BASE_CONTAINER_TAG
+  stage: tests
+  script: |
+    set -eux
+
+    buildah_run="buildah run --isolation chroot"
+    buildah_commit="buildah commit --format docker"
+
+    buildcntr=$(buildah from -v `pwd`:/app/valve-infra --dns=none --isolation=chroot $BASE_IMAGE)
+    buildmnt=$(buildah mount $buildcntr)
+
+    buildah config --workingdir /app/valve-infra/ansible $buildcntr
+
+    $buildah_run $buildcntr sh -c 'env LC_ALL=C pacman -Qi' | awk '/^Name/{name=$3} /^Installed Size/{print $4$5, name}' | sort -h
+    $buildah_run $buildcntr du -h -d 3 /usr /etc /app | sort -h
+    $buildah_run $buildcntr du -h /usr/lib/python3.10/site-packages | sort -h
+
+    # The Gitlab runner cache deliberately chmod 777's all
+    # directories. This upsets ansible and there's nothing we can
+    # really do about it in our repo. See
+    # https://gitlab.com/gitlab-org/gitlab-runner/-/issues/4187
+    $buildah_run $buildcntr chmod -R o-w /app/valve-infra/ansible
+    $buildah_run $buildcntr ansible-lint --version
+    $buildah_run $buildcntr ansible-lint -f plain
+    $buildah_run $buildcntr ansible-playbook --syntax-check gateway.yml
+    $buildah_run $buildcntr ansible-playbook ./gateway.yml -l localhost
+  rules:
+    - changes:
+      # We might want to trigger on executor and salad...
+      - ansible/**/*
 
 .valve-infra-rules:
   rules:
