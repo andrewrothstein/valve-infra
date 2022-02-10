@@ -290,8 +290,8 @@ ipxe-boot-server:
     - cd $CI_JOB_NAME
     # Shouldn't we just use the setup.py to launch this, rather than calling specific tools?
     - pycodestyle --max-line-length=120 .
-    - pip install -r requirements.txt
-    - python -m unittest *.py
+    - pip3 install -r requirements.txt
+    - python3 -m unittest *.py
 
 .python-test:
   extends:
