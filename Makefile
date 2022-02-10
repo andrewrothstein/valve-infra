@@ -31,13 +31,14 @@ tmp/ipxe-disk.img tmp/disk.img:
 
 .PHONY: valve-infra-container
 valve-infra-container:
-ifeq ($(V),1)
-	$(eval EXTRA_ANSIBLE_FLAGS += -vvv)
+ifndef IMAGE_NAME
+	$(error "IMAGE_NAME is a required parameter (e.g. localhost:8088/mupuf/valve-infra/valve-infra-container:latest)")
 endif
-ifdef IGNORE_CACHE
-	$(eval EXTRA_PODMAN_BUILD_ARGS += --build-arg NOCACHE=$(shell date +%s))
-endif
-	podman build --dns=none -v $(shell pwd):/app/valve-infra --build-arg EXTRA_ANSIBLE_FLAGS="$(ANSIBLE_EXTRA_FLAGS)" --build-arg EXTRA_ANSIBLE_VARS="$(EXTRA_ANSIBLE_VARS)" $(EXTRA_PODMAN_BUILD_ARGS) --tag $(REGISTRY)/$(CONTAINER) -f containers/valve-infra/Dockerfile
+	env \
+	   IMAGE_NAME=$(IMAGE_NAME)
+	   BASE_IMAGE=registry.freedesktop.org/mupuf/valve-infra/valve-infra-base-container:latest \
+	   ANSIBLE_EXTRA_ARGS='--extra-vars service_mgr_override=inside_container' \
+	   buildah unshare -- sh .gitlab-ci/valve-infra-container-build.sh
 
 # Run the valve-infra multi-service container inside a VM for local testing.
 .PHONY: vivian
