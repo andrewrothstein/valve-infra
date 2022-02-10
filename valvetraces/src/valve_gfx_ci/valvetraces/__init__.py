@@ -104,6 +104,9 @@ class GitRepo:
     def find_first_accessible_commits_from_head(self, commit_oids):
         top_commits = set()
 
+        # TODO: Unshallow the git repo, if needed... Too bad libgit2 doesn't
+        # support it just yet :s
+
         # If HEAD of the project is in the list of oids, then no
         # other commit is accessible. Return HEAD directly
         if self.head in commit_oids:
