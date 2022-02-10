@@ -246,6 +246,11 @@ python-container:
     FDO_DISTRIBUTION_TAG: '2022-02-04.4'
     FDO_DISTRIBUTION_EXEC: 'pip install build tox twine pycodestyle'
 
+.set-python-image:
+  variables:
+    TAG: !reference [python-container, variables, FDO_DISTRIBUTION_TAG]
+  image: $CI_REGISTRY_IMAGE/python-container:$TAG
+
 gitlab-trigger:
   extends:
     - .container base
@@ -270,12 +275,12 @@ salad:
     - podman build -t $IMAGE_NAME salad/
     - if [[ "$CI_COMMIT_BRANCH" == "master" ]]; then podman push $IMAGE_NAME; fi
 
-
 # FIXME: ipxe-boot-server should be moved to a proper Python package,
 # so it can follow the pattern of the other Python services regarding
 # linting, testing and building.
 ipxe-boot-server:
-  image: $CI_REGISTRY_IMAGE/python-container:latest
+  extends:
+    - .set-python-image
   stage: tests
   rules:
     - changes:
@@ -287,11 +292,6 @@ ipxe-boot-server:
     - pycodestyle --max-line-length=120 .
     - pip install -r requirements.txt
     - python -m unittest *.py
-
-.set-python-image:
-  variables:
-    TAG: !reference [python-container, variables, FDO_DISTRIBUTION_TAG]
-  image: $CI_REGISTRY_IMAGE/python-container:$TAG
 
 .python-test:
   extends:
