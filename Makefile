@@ -41,7 +41,7 @@ ifndef IMAGE_NAME
 endif
 	env \
 	   IMAGE_NAME=$(IMAGE_NAME)
-	   BASE_IMAGE=registry.freedesktop.org/mupuf/valve-infra/valve-infra-base-container:latest \
+	   BASE_IMAGE=registry.freedesktop.org/mupuf/valve-infra/valve-infra-base-container:2022-02-10.1 \
 	   ANSIBLE_EXTRA_ARGS='--extra-vars service_mgr_override=inside_container' \
 	   buildah unshare -- sh .gitlab-ci/valve-infra-container-build.sh
 
