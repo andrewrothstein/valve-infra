@@ -831,6 +831,8 @@ class TraceExec(SanitizedFieldsMixin):
     execution_time: float = 0.0
     status: str = "MISSING"
 
+    driver: GpuDriver = None
+
     # Debug information
     query_params: dict = None
     query_result: dict = None
@@ -1374,12 +1376,18 @@ Debug information:
 
         # Check what has already been uploaded, so we can ignore it :)
         print(" - Fetching the list of already-uploaded trace executions")
-        existing_trace_execs = {te.trace.id: te for te in self.client.trace_exec_list(gpu_pciid=self.gfxinfo.gpu_pciid,
-                                                                                      job_id=job.id)}
-        print(f" - Found {len(existing_trace_execs)} already-uploaded trace executions")
+        existing_trace_execs = defaultdict(list)
+        for te in self.client.trace_exec_list(gpu_pciid=self.gfxinfo.gpu_pciid, job_id=job.id):
+            existing_trace_execs[te.trace.id].append(te)
+
+        already_uploaded_count = 0
         for trace_exec in self.trace_execs:
-            if report := existing_trace_execs.get(trace_exec.trace.id):
-                trace_exec.set_upload_report(report)
+            for report in existing_trace_execs[trace_exec.trace.id]:
+                if trace_exec.gpu_driver == report.driver:
+                    trace_exec.set_upload_report(report)
+                    already_uploaded_count += 1
+                    continue
+        print(f" - Found {already_uploaded_count} already-uploaded trace executions")
 
         # Perform the upload in multiple processes
         with Pool(processes=max(os.cpu_count(), 10)) as pool:
