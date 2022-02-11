@@ -106,6 +106,9 @@ while test -n "$1"; do
         --initial-fleet-size=*)
             __initial_fleet_size=="${1#--initial-fleet-size=}"
             ;;
+        --vpdu-port=*)
+            __vpdu_port="${1#--vpdu-port=}"
+            ;;
 	--boot-mode=*)
             mode="${1#--boot-mode=}"
 	    if [ "$mode" = "uefi" ]; then
