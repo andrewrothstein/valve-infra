@@ -10,6 +10,10 @@ ifeq ($(HOST), localhost)
 else
 	SSH_PORT ?= 22
 endif
+ifdef SSH_ID_KEY
+	VIVIAN_SSH_KEY_OPT="--ssh-id $(SSH_ID_KEY)"
+	SSH_KEY_OPT="-i $(SSH_ID_KEY)"
+endif
 V ?= 0
 REGISTRY ?= registry.freedesktop.org
 CONTAINER ?= mupuf/valve-infra/valve-infra:latest
@@ -69,12 +73,12 @@ endif
 # Simulate a DUT booting on the gateway's private network.
 .PHONY: vivian-dut
 vivian-dut:
-	$(VIVIAN) $(VIVIAN_OPTS) --kernel-img=tmp/linux-b2c-$(B2C_VERSION) --ramdisk=tmp/boot2container-$(B2C_VERSION)-linux_amd64.cpio.xz --gateway-disk-img=tmp/disk.img --kernel-img=tmp/linux-b2c-$(B2C_VERSION) --ramdisk=tmp/boot2container-$(B2C_VERSION)-linux_amd64.cpio.xz --kernel-append='b2c.volume="tmp" b2c.volume="perm" b2c.container="--dns=none -v tmp:/mnt/tmp -v perm:/mnt/permanent --tls-verify=false --entrypoint=/bin/init docker://$(REGISTRY)/$(CONTAINER)" b2c.ntp_peer=auto b2c.pipefail b2c.cache_device=auto net.ifnames=0 quiet'  start
+	$(VIVIAN) $(VIVIAN_OPTS) $(VIVIAN_SSH_KEY_OPT) --kernel-img=tmp/linux-b2c-$(B2C_VERSION) --ramdisk=tmp/boot2container-$(B2C_VERSION)-linux_amd64.cpio.xz --gateway-disk-img=tmp/disk.img --kernel-img=tmp/linux-b2c-$(B2C_VERSION) --ramdisk=tmp/boot2container-$(B2C_VERSION)-linux_amd64.cpio.xz --kernel-append='b2c.volume="tmp" b2c.volume="perm" b2c.container="--dns=none -v tmp:/mnt/tmp -v perm:/mnt/permanent --tls-verify=false --entrypoint=/bin/init docker://$(REGISTRY)/$(CONTAINER)" b2c.ntp_peer=auto b2c.pipefail b2c.cache_device=auto net.ifnames=0 quiet'  start
 
 # Connect to a locally running virtual gateway.
 .PHONY: vivian-connect
 vivian-connect:
-	ssh root@$(HOST) -p $(SSH_PORT) -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null
+	ssh root@$(HOST) $(SSH_KEY_OPT) -p $(SSH_PORT) -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null
 
 .PHONY: vivian-provision
 vivian-provision:
