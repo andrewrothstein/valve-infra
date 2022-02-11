@@ -209,15 +209,9 @@ provision_infra() {
     ## Executor configuration
     wait_for_endpoint "$__executor_port" "api/v1/machine"
 
-    # FIXME: Unregistering doesn't work. This also trashes any runners
-    # you may have setup on previous boot. Redo it!
-    # Unregister all the current runners
-    ssh $__ssh_options root@localhost systemctl stop executor
-    ssh $__ssh_options root@localhost "sed -i 's/expose_runners: true/expose_runners: false/' /mnt/permanent/mars_db.yaml"
-    ssh $__ssh_options root@localhost systemctl start executor
-
-    # Reset the mars config file
-    cat << EOF > vivian/__mars_db.yaml
+    # Initial provisioning of the MaRS DB
+    if ! ssh $__ssh_options root@localhost "test -s /mnt/permanent/mars_db.yaml"; then
+        cat << EOF > vivian/__mars_db.yaml
 pdus:
   VPDU:
     driver: vpdu
@@ -234,10 +228,8 @@ gitlab:
       token: <invalid>
       exposed: true
 EOF
-    ssh $__ssh_options root@localhost systemctl stop executor
-    scp $__scp_options vivian/__mars_db.yaml root@localhost:/mnt/permanent/mars_db.yaml
-    ssh $__ssh_options root@localhost systemctl start executor
-    rm vivian/__mars_db.yaml
+        scp $__scp_options vivian/__mars_db.yaml root@localhost:/mnt/permanent/mars_db.yaml
+    fi
 }
 
 create_host_bridge() {
