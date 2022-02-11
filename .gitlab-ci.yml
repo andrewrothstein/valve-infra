@@ -243,7 +243,7 @@ python-container:
     FDO_DISTRIBUTION_PACKAGES: "python3 python3-pip build-essential libsnmp-dev wget"
     FDO_DISTRIBUTION_VERSION: 'bullseye'
     FDO_REPO_SUFFIX: 'python-container'
-    FDO_DISTRIBUTION_TAG: '2022-02-04.4'
+    FDO_DISTRIBUTION_TAG: '2022-02-11'
     FDO_DISTRIBUTION_EXEC: 'pip install build tox twine pycodestyle'
 
 .set-python-image:
