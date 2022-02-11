@@ -104,7 +104,7 @@ while test -n "$1"; do
             __ssh_id="${1#--ssh-id=}"
             ;;
         --initial-fleet-size=*)
-            __initial_fleet_size=="${1#--initial-fleet-size=}"
+            __initial_fleet_size="${1#--initial-fleet-size=}"
             ;;
         --vpdu-port=*)
             __vpdu_port="${1#--vpdu-port=}"
