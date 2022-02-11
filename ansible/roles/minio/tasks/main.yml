@@ -30,6 +30,8 @@
       MINIO_ROOT_USER=minioadmin
       VALVETRACES_MINIO_PASSWORD={{ valvetraces_minio_password }}
       MINIO_ROOT_PASSWORD={{ lookup('community.general.random_string', length=12, special=false) }}
+  # config changes are applied to minio by this service
+  notify: "Restart minio_configure"
 
 - name: Installing minio_configure script
   become: true
