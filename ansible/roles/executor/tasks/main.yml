@@ -1,11 +1,7 @@
 ---
-# Not very happy with the local file reference here, it breaks running
-# the playbook against a remote system (since the source code is not
-# bundled into the production container), which sort of breaks the
-# purpose of using Ansible in the first place.
 - name: Install the executor server package
   ansible.builtin.pip:
-    name: file:///app/valve-infra/executor/server
+    name: "{{ executor_package_location }}"
 
 - name: Install executor systemd unit file
   ansible.builtin.template:
