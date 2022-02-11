@@ -1,11 +1,11 @@
 from threading import Thread
-from logger import logger
+from .logger import logger
 
-from console import (
+from .console import (
     SerialConsoleStream,
     TCPConsoleStream
 )
-from tcpserver import SerialConsoleTCPServer
+from .tcpserver import SerialConsoleTCPServer
 
 import os
 import serial.tools.list_ports

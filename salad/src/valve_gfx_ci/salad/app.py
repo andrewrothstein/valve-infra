@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
-from tcpserver import SerialConsoleTCPServer
-from salad import salad
+from .tcpserver import SerialConsoleTCPServer
+from .salad import salad
 
 import flask
 import os
@@ -36,7 +36,11 @@ def machine_id(machine_id):
     return CustomJSONEncoder().encode(machine)
 
 
-if __name__ == '__main__':  # pragma: nocover
+def run():
     salad.start()
     app.run(host='0.0.0.0', port=os.getenv("SALAD_PORT", 8005))
     salad.stop()
+
+
+if __name__ == '__main__':  # pragma: nocover
+    run()
