@@ -240,7 +240,7 @@ python-container:
   variables:
     # We need a build toolchain because easysnmp in unmaintained, and
     # hence has no binary wheel for us to leverage.
-    FDO_DISTRIBUTION_PACKAGES: "python3 python3-pip build-essential libsnmp-dev"
+    FDO_DISTRIBUTION_PACKAGES: "python3 python3-pip build-essential libsnmp-dev wget"
     FDO_DISTRIBUTION_VERSION: 'bullseye'
     FDO_REPO_SUFFIX: 'python-container'
     FDO_DISTRIBUTION_TAG: '2022-02-04.4'
