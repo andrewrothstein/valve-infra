@@ -1273,7 +1273,7 @@ Debug information:
                     self.trace_execs.append(self.TraceExec(self, trace, entry.path))
 
     @property
-    def is_postmerge(self):
+    def is_postmerge_job(self):
         project = os.environ.get("CI_PROJECT_PATH")
         branch = os.environ.get("CI_COMMIT_BRANCH", "")
         is_merge_request = "CI_MERGE_REQUEST_ID" in os.environ
@@ -1369,7 +1369,7 @@ Debug information:
         print(f" - Creating the job {self.run_name}")
         job = self.client.job_get_or_create(self.run_name,
                                             job_timeline=dataclasses.asdict(self.job_timeline),
-                                            is_released_code=self.is_postmerge,
+                                            is_released_code=self.is_postmerge_job,
                                             timeline_version=get_env_var_or_fail("CI_COMMIT_SHORT_SHA"))
 
         # Check what has already been uploaded, so we can ignore it :)
@@ -1671,7 +1671,7 @@ def report_results(traces_client, args):
 
         return 1
     else:
-        job_type = "post-merge" if report.is_postmerge else "pre-merge"
+        job_type = "post-merge" if report.is_postmerge_job else "pre-merge"
         print(f"Generating a {job_type} report")
 
         report.upload()
