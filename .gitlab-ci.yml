@@ -266,17 +266,6 @@ gitlab-trigger:
     - podman build -t $IMAGE_NAME -f containers/gitlab-trigger/Dockerfile .
     - if [[ "$CI_COMMIT_BRANCH" == "master" ]]; then podman push $IMAGE_NAME; fi
 
-salad:
-  extends:
-    - .container base
-  rules:
-    - changes:
-      - salad/**/*
-      - .gitlab-ci.yml
-  script:
-    - podman build -t $IMAGE_NAME salad/
-    - if [[ "$CI_COMMIT_BRANCH" == "master" ]]; then podman push $IMAGE_NAME; fi
-
 # FIXME: ipxe-boot-server should be moved to a proper Python package,
 # so it can follow the pattern of the other Python services regarding
 # linting, testing and building.
@@ -356,6 +345,12 @@ test valvetraces:
   variables:
     PACKAGE_DIR: 'valvetraces'
 
+test salad:
+  extends:
+    - .python-test
+  variables:
+    PACKAGE_DIR: 'salad'
+
 deploy executor/client:
   extends:
     - .python-deploy
@@ -391,3 +386,12 @@ deploy valvetraces:
     PACKAGE_DIR: valvetraces
   dependencies:
     - test valvetraces
+
+deploy salad:
+  extends:
+    - .python-deploy
+  variables:
+    TWINE_PASSWORD: $PYPI_SALAD_TOKEN
+    PACKAGE_DIR: salad
+  dependencies:
+    - test salad
