@@ -1,0 +1,14 @@
+[Unit]
+Description=salad server
+PartOf=infra.service
+
+[Service]
+TimeoutStartSec=0
+EnvironmentFile=/etc/base_config.env
+EnvironmentFile=-/mnt/permanent/config.env
+ExecStart=salad
+Restart=on-failure
+RestartSec=4s
+
+[Install]
+WantedBy=infra.service

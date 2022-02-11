@@ -1,27 +1,21 @@
 ---
-- name: Ensure salad bind mount exists
-  become: true
-  ansible.builtin.file:
-    mode: 0744
-    path: /etc/salad_socks
-    state: directory
+- name: Install the salad server package
+  ansible.builtin.pip:
+    name: "{{ salad_package_location }}"
 
-- name: salad container service
-  ansible.builtin.include_role:
-    name: "systemd_podman"
-  vars:
-    container_name: "salad"
-    container_service_target: infra.target
-    container_privileged: true
-    container_image: registry.freedesktop.org/mupuf/valve-infra/salad
-    container_volumes:
-      - "/etc/salad_socks:/run/salad_socks"
-    container_host_network: true
-    container_env_files:
-      - "{{ base_config_env_file }}"
-      - "{{ config_env_file }}"
-    part_of:
-      - "infra.service"
+- name: Install salad systemd unit file
+  ansible.builtin.template:
+    src: salad_systemd_unit.j2
+    dest: /etc/systemd/system/salad.service
+    owner: root
+    group: root
+    mode: 0644
+
+- name: Enable salad service
+  become: true
+  ansible.builtin.systemd:
+    name: 'salad'
+    enabled: true
 
 - name: configuring salad env
   become: true

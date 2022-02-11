@@ -9,6 +9,7 @@
     private_interface_ip: "10.42.0.1"
 
     executor_package_location: "file:///app/valve-infra/executor/server"
+    salad_package_location: "file:///app/valve-infra/salad"
 
     dnsmasq_port: 53
     mars_port: 8000
