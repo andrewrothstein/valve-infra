@@ -307,7 +307,7 @@ ipxe-boot-server:
     - python3 -m build ${PACKAGE_DIR}
   artifacts:
     paths:
-      - ${CI_JOB_NAME}/dist/
+      - ${PACKAGE_DIR}/dist/
 
 .python-deploy:
   extends:
