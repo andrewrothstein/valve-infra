@@ -250,6 +250,8 @@ python-container:
   variables:
     TAG: !reference [python-container, variables, FDO_DISTRIBUTION_TAG]
   image: $CI_REGISTRY_IMAGE/python-container:$TAG
+  dependencies:
+    - python-container
 
 gitlab-trigger:
   extends:
