@@ -152,7 +152,7 @@ valve-infra-base-container:
   rules:
     - when: on_success
 
-ansible provisioning test:
+test ansible:
   # Minimal image for running podman and friends
   # Would be nice depend on the image like this,
   #   image: $CI_REGISTRY_IMAGE/valve-infra-base-container:latest
