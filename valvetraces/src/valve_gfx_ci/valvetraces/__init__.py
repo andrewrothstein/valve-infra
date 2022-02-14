@@ -937,6 +937,8 @@ class GfxInfo:
     @property
     def vk_driver(self):
         branch = None
+        driver_name = self.driver_name
+
         if 'mesa:version' in self.fields:
             version = self.mesa_version
             commit = self.mesa_git_version
@@ -945,7 +947,13 @@ class GfxInfo:
             version = self.fields.get("vk:driver:info", "Unknown version")
             commit = None
 
-        return GpuDriver(name=self.driver_name, version=version, commit=commit, branch=branch)
+        # Make the driver name a little shorter
+        if driver_name == "AMD open-source driver":
+            driver_name = "amdvlk"
+        elif driver_name == "AMD proprietary driver":
+            driver_name = "amdgpu-pro"
+
+        return GpuDriver(name=driver_name, version=version, commit=commit, branch=branch)
 
     @property
     def gpu_codename(self):
