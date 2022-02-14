@@ -5,8 +5,8 @@
 # and the project is rather complex to hack, so very much a WIP!
 stages:
   - prep
-  - containers
   - tests
+  - containers
   - deploy
 
 variables:
