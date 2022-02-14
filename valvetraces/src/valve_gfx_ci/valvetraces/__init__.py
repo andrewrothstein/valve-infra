@@ -907,16 +907,16 @@ class GfxInfo:
 
         self.machine_tags = fields.get('tags', {})
 
-        self.vram_size_gib = fields.get("vk:vram_size_gib", 0)
-        self.gtt_size_gib = fields.get("vk:gtt_size_gib", 0)
+        self.vram_size_gib = fields.get("vk:vram_size_gib")
+        self.gtt_size_gib = fields.get("vk:gtt_size_gib")
 
-        self.driver_name = fields.get("vk:driver:name", "N/A")
-        self.driver_info = fields.get("vk:driver:info", "N/A")
-        self.mesa_version = fields.get('mesa:version', 'N/A')
-        self.mesa_git_version = fields.get('mesa:git:version', 'N/A')
+        self.driver_name = fields.get("vk:driver:name")
+        self.driver_info = fields.get("vk:driver:info")
+        self.mesa_version = fields.get('mesa:version')
+        self.mesa_git_version = fields.get('mesa:git:version')
 
-        self.device_name = fields.get('vk:device:name', 'N/A')
-        self.device_type = fields.get('vk:device:type', 'N/A')
+        self.device_name = fields.get('vk:device:name')
+        self.device_type = fields.get('vk:device:type')
 
     @classmethod
     def radv_branch_from_version(cls, version):
@@ -944,7 +944,7 @@ class GfxInfo:
             commit = self.mesa_git_version
             branch = self.radv_branch_from_version(version)
         else:
-            version = self.fields.get("vk:driver:info", "Unknown version")
+            version = self.fields.get("vk:driver:info")
             commit = None
 
         # Make the driver name a little shorter
