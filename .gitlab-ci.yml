@@ -289,7 +289,7 @@ mesa-downstream-trigger-container:
     FDO_BASE_IMAGE: 'quay.io/buildah/stable'
     FDO_DISTRIBUTION_PACKAGES: 'bash inotify-tools git python3-pip python3-jinja2 skopeo wget findutils'
     FDO_REPO_SUFFIX: 'mesa-downstream-trigger'
-    FDO_DISTRIBUTION_TAG: '2022-02-15.2'
+    FDO_DISTRIBUTION_TAG: '2022-02-15.3'
     FDO_DISTRIBUTION_VERSION: 'latest'
     FDO_DISTRIBUTION_EXEC: .gitlab-ci/${CI_JOB_NAME}.sh
   rules:
