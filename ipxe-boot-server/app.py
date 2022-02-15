@@ -107,7 +107,7 @@ def gen_conf(template_name: str, p: ClientProfile, bucket: BbzBucket, secrets_ur
     }
 
     with open(os.path.join(p.files_prefix, template_name)) as f:
-        return Template(f.read()).substitute(params)
+        return Template(f.read()).safe_substitute(params)
 
 
 @app.before_request
