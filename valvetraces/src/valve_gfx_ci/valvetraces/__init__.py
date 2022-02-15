@@ -743,6 +743,30 @@ class GpuDriver(SanitizedFieldsMixin):
     branch: str
     commit: str = None
 
+    def merge(self, other):
+        def _merge_field(other, field):
+            a = getattr(self, field)
+            b = getattr(other, field)
+
+            if a == b:
+                return a
+            elif a is None and b is not None:
+                return b
+            elif b is None and a is not None:
+                return a
+            elif a is not None and b is not None:
+                print(f"WARNING: Merging the GPU driver field '{field}' impossible ('{a}' vs '{b}'). Using {a}.")
+                return a
+            else:
+                return None
+
+        name = self._merge_field(other, "name")
+        version = self._merge_field(other, "version")
+        branch = self._merge_field(other, "branch")
+        commit = self._merge_field(other, "commit")
+
+        return GpuDriver(name=name, version=version, branch=branch, commit=commit)
+
     @classmethod
     def from_glxinfo(cls, path):
         # Examples of outputs per driver
@@ -1216,16 +1240,7 @@ Debug information:
                     return GpuDriver(name=self.libgl_driver, version="UNK")
             elif self.dxvk_reported_gpu_driver:
                 # We know that DXVK was used, and what is the driver name/version. Get the rest from DXVK
-                gfxinfo_drv = self.report.gfxinfo.vk_driver
-
-                # Check that the driver name and version match between DXVK and gfxinfo
-                if (self.dxvk_reported_gpu_driver.name == gfxinfo_drv.name
-                    and self.dxvk_reported_gpu_driver.version == gfxinfo_drv.version):  # noqa
-                    # The two match, so let's use the gfxinfo one, since it has more information
-                    return gfxinfo_drv
-                else:
-                    # The two don't match, let's be safe and use what dxvk reports
-                    return self.dxvk_reported_gpu_driver
+                return self.report.gfxinfo.vk_driver.merge(self.dxvk_reported_gpu_driver)
             else:
                 # We do not know what driver was used, so let's guess based on the trace's graphics API,
                 # then use the data from g[lf]xinfo
