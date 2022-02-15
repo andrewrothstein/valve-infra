@@ -303,7 +303,7 @@ valve-infra-container:
   variables:
     BASE_CONTAINER_TAG: !reference [valve-infra-base-container, variables, FDO_DISTRIBUTION_TAG]
     BASE_IMAGE: $CI_REGISTRY_IMAGE/valve-infra-base-container:$BASE_CONTAINER_TAG
-    FDO_DISTRIBUTION_TAG: 2022-02-10.1
+    FDO_DISTRIBUTION_TAG: 2022-02-15.1
     IMAGE_NAME: $CI_REGISTRY_IMAGE/$CI_JOB_NAME:$FDO_DISTRIBUTION_TAG
   before_script:
     # Getting this on the farm runner gateways,
