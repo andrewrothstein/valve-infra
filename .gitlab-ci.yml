@@ -20,6 +20,7 @@ include:
     file:
       - '/templates/arch.yml'
       - '/templates/debian.yml'
+      - '/templates/fedora.yml'
 
 default:
   tags:
@@ -279,16 +280,17 @@ mesa-trigger-container:
 
 mesa-downstream-trigger-container:
   stage: containers
-  extends: .fdo.container-build@debian
+  extends: .fdo.container-build@fedora
   before_script:
     # Getting this on the farm runner gateways,
     #   User-selected graph driver \"vfs\" overwritten by graph driver \"overlay\" from database - delete libpod local files to resolve"
     - rm -rf /var/lib/containers/storage/libpod/*
   variables:
+    FDO_BASE_IMAGE: 'quay.io/buildah/stable'
     FDO_DISTRIBUTION_PACKAGES: 'bash inotify-tools git python3-pip python3-jinja2 skopeo wget findutils'
     FDO_REPO_SUFFIX: 'mesa-downstream-trigger'
-    FDO_DISTRIBUTION_TAG: '2022-02-14.1'
-    FDO_DISTRIBUTION_VERSION: 'testing'
+    FDO_DISTRIBUTION_TAG: '2022-02-15.2'
+    FDO_DISTRIBUTION_VERSION: 'latest'
     FDO_DISTRIBUTION_EXEC: .gitlab-ci/${CI_JOB_NAME}.sh
   rules:
     - changes:
