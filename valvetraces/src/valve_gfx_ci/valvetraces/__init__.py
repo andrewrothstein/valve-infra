@@ -760,10 +760,10 @@ class GpuDriver(SanitizedFieldsMixin):
             else:
                 return None
 
-        name = self._merge_field(other, "name")
-        version = self._merge_field(other, "version")
-        branch = self._merge_field(other, "branch")
-        commit = self._merge_field(other, "commit")
+        name = _merge_field(other, "name")
+        version = _merge_field(other, "version")
+        branch = _merge_field(other, "branch")
+        commit = _merge_field(other, "commit")
 
         return GpuDriver(name=name, version=version, branch=branch, commit=commit)
 
