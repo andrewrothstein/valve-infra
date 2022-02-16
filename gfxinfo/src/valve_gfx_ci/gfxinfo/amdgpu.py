@@ -15,9 +15,9 @@ class AMDGPU:
 
     # Fields initialized using the flags string
     flags: dataclasses.InitVar[str] = None
-    is_APU: bool = None
-    is_Mobility: bool = None
-    has_experimental_support: bool = None
+    is_APU: bool = False
+    is_Mobility: bool = False
+    has_experimental_support: bool = False
 
     def __post_init__(self, flags):
         for flag in [f.strip() for f in flags.split('|')]:
