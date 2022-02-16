@@ -46,8 +46,8 @@ class IntelGpuDeviceDB:
         # NOTHING TO DO
         pass
 
-    def from_pciid(self, vendor_id, product_id, revision):
-        if vendor_id != 0x8086:
+    def from_pciid(self, pciid):
+        if pciid.vendor_id != 0x8086:
             return None
 
         SUPPORTED_GPUS = {
@@ -56,5 +56,5 @@ class IntelGpuDeviceDB:
                 'family': 'COFFEELAKE'
             },
         }
-        if md := SUPPORTED_GPUS.get(product_id):
-            return IntelGPU(vendor_id=vendor_id, product_id=product_id, revision=revision, **md)
+        if md := SUPPORTED_GPUS.get(pciid.product_id):
+            return IntelGPU(vendor_id=pciid.vendor_id, product_id=pciid.product_id, revision=pciid.revision, **md)

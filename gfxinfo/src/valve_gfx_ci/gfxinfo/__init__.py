@@ -1,3 +1,5 @@
+from dataclasses import dataclass
+
 from .amdgpu import AmdGpuDeviceDB
 from .intel import IntelGpuDeviceDB
 from .virt import VirtIOGpuDeviceDB
@@ -7,10 +9,33 @@ from .gfxinfo_vulkan import VulkanInfo
 SUPPORTED_GPU_DBS = [AmdGpuDeviceDB(), IntelGpuDeviceDB(), VirtIOGpuDeviceDB()]
 
 
+@dataclass
+class PCIDevice:
+    vendor_id: int
+    product_id: int
+    revision: int
+
+    @classmethod
+    def from_str(cls, pciid):
+        fields = pciid.split(":")
+        if len(fields) not in [2, 3]:
+            raise ValueError("The pciid '{pciid}' is invalid. Format: xxxx:xxxx[:xx]")
+
+        revision = 0 if len(fields) == 2 else int(fields[2], 16)
+        return cls(vendor_id=int(fields[0], 16),
+                   product_id=int(fields[1], 16),
+                   revision=revision)
+
+
 def pci_devices():
+    def pciid(pci_id, rev):
+        return PCIDevice(vendor_id=int(pci_id[:4], 16),
+                         product_id=int(pci_id[4:], 16),
+                         revision=int(rev, 16))
+
     devices = open('/proc/bus/pci/devices').readlines()
     ids = [line.split('\t')[1:3] for line in devices]
-    return [(int(id[:4], 16), int(id[4:], 16), int(rev, 16)) for id, rev in ids]
+    return [pciid(pci_id, rev) for pci_id, rev in ids]
 
 
 def find_gpu():
@@ -19,7 +44,7 @@ def find_gpu():
 
     for pci_device in devices:
         for gpu_db in SUPPORTED_GPU_DBS:
-            if gpu := gpu_db.from_pciid(*pci_device):
+            if gpu := gpu_db.from_pciid(pci_device):
                 return gpu
 
     # We could not find the GPU in our databases, update them
@@ -29,7 +54,7 @@ def find_gpu():
     # Retry, now that we have updated our DBs
     for pci_device in devices:
         for gpu_db in SUPPORTED_GPU_DBS:
-            if gpu := gpu_db.from_pciid(*pci_device):
+            if gpu := gpu_db.from_pciid(pci_device):
                 return gpu
 
 

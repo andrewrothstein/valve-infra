@@ -386,13 +386,13 @@ class AmdGpuDeviceDB:
 
         return None
 
-    def from_pciid(self, vendor_id, product_id, revision):
-        if amdgpu_dev := self.amdgpu_drv_devs.get(AmdGpuDrvDev.generate_key(vendor_id, product_id)):
-            amdgpu_ids = self.amdgpu_ids_devs.get(AmdGpuId.generate_key(product_id, revision))
+    def from_pciid(self, pciid):
+        if amdgpu_dev := self.amdgpu_drv_devs.get(AmdGpuDrvDev.generate_key(pciid.vendor_id, pciid.product_id)):
+            amdgpu_ids = self.amdgpu_ids_devs.get(AmdGpuId.generate_key(pciid.product_id, pciid.revision))
             marketing_name = amdgpu_ids.marketing_name if amdgpu_ids else None
 
-            gpu = AMDGPU(vendor_id=vendor_id, product_id=product_id,
-                         revision=revision, marketing_name=marketing_name,
+            gpu = AMDGPU(vendor_id=pciid.vendor_id, product_id=pciid.product_id,
+                         revision=pciid.revision, marketing_name=marketing_name,
                          flags=amdgpu_dev.flags)
 
             if gpu.marketing_name is None and gpu.is_APU:

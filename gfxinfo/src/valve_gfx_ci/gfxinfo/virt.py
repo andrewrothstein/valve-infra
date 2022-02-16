@@ -41,8 +41,8 @@ class VirtIOGpuDeviceDB:
         # NOTHING TO DO
         pass
 
-    def from_pciid(self, vendor_id, product_id, revision):
-        if vendor_id != 0x1af4 and product_id != 0x1050:
+    def from_pciid(self, pciid):
+        if pciid.vendor_id != 0x1af4 and pciid.product_id != 0x1050:
             return None
         else:
-            return VirtGPU(vendor_id=vendor_id, product_id=product_id, revision=revision,)
+            return VirtGPU(vendor_id=pciid.vendor_id, product_id=pciid.product_id, revision=pciid.revision,)
