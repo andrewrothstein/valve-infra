@@ -42,7 +42,7 @@ def main():
         if gpu := find_gpu():
             output_gpu_info(gpu)
         else:
-            json.dump({"error": "No suitable GPU found"})
+            json.dump({"error": "No suitable GPU found"}, sys.stdout)
             sys.exit(1)
     else:
         pciid = PCIDevice.from_str(args.pciid)
