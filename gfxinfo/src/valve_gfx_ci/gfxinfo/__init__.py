@@ -63,4 +63,16 @@ def cache_db():
         gpu_db.cache_db()
 
 
+def find_gpu_from_pciid(pciid):
+    for gpu_db in SUPPORTED_GPU_DBS:
+        if gpu := gpu_db.from_pciid(pciid):
+            return gpu
+
+    # We could not find the GPU, retry with updated DBs
+    for gpu_db in SUPPORTED_GPU_DBS:
+        gpu_db.update()
+        if gpu := gpu_db.from_pciid(pciid):
+            return gpu
+
+
 __all__ = ['pci_devices', 'find_gpu', 'cache_db', 'VulkanInfo']
