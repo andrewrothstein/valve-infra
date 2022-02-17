@@ -5,8 +5,42 @@ except ImportError:
 from enum import Enum
 from cffi import FFI
 
+import sys
 import re
-import vulkan as vk
+
+try:
+    import vulkan as vk
+
+    class VulkanHeap:
+        DEVICE_LOCAL_BIT = vk.VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT
+        VISIBLE_BIT = vk.VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT
+        COHERENT_BIT = vk.VK_MEMORY_PROPERTY_HOST_COHERENT_BIT
+        HOST_CACHED_BIT = vk.VK_MEMORY_PROPERTY_HOST_CACHED_BIT
+        LAZILY_ALLOCATED_BIT = vk.VK_MEMORY_PROPERTY_LAZILY_ALLOCATED_BIT
+
+        def __init__(self, size, flags):
+            self.size = size
+            self.flags = flags
+            self.types = 0
+
+        def add_type(self, flags):
+            self.types |= flags
+
+        def has_type(self, flags):
+            return self.types & flags
+
+        @property
+        def GiB_size(self):
+            return self.size / (1024*1024*1024)
+
+    class VulkanDeviceType(Enum):
+        OTHER = vk.VK_PHYSICAL_DEVICE_TYPE_OTHER
+        INTEGRATED = vk.VK_PHYSICAL_DEVICE_TYPE_INTEGRATED_GPU
+        DISCRETE = vk.VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU
+        VIRTUAL = vk.VK_PHYSICAL_DEVICE_TYPE_VIRTUAL_GPU
+        CPU = vk.VK_PHYSICAL_DEVICE_TYPE_CPU
+except Exception:
+    pass
 
 
 class VulkanExtension:
@@ -19,37 +53,6 @@ class VulkanExtension:
 
     def __repr__(self):
         return f"{self.__class__}({self.__dict__})"
-
-
-class VulkanHeap:
-    DEVICE_LOCAL_BIT = vk.VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT
-    VISIBLE_BIT = vk.VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT
-    COHERENT_BIT = vk.VK_MEMORY_PROPERTY_HOST_COHERENT_BIT
-    HOST_CACHED_BIT = vk.VK_MEMORY_PROPERTY_HOST_CACHED_BIT
-    LAZILY_ALLOCATED_BIT = vk.VK_MEMORY_PROPERTY_LAZILY_ALLOCATED_BIT
-
-    def __init__(self, size, flags):
-        self.size = size
-        self.flags = flags
-        self.types = 0
-
-    def add_type(self, flags):
-        self.types |= flags
-
-    def has_type(self, flags):
-        return self.types & flags
-
-    @property
-    def GiB_size(self):
-        return self.size / (1024*1024*1024)
-
-
-class VulkanDeviceType(Enum):
-    OTHER = vk.VK_PHYSICAL_DEVICE_TYPE_OTHER
-    INTEGRATED = vk.VK_PHYSICAL_DEVICE_TYPE_INTEGRATED_GPU
-    DISCRETE = vk.VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU
-    VIRTUAL = vk.VK_PHYSICAL_DEVICE_TYPE_VIRTUAL_GPU
-    CPU = vk.VK_PHYSICAL_DEVICE_TYPE_CPU
 
 
 def get_vk_instance(app_info, enabled_extensions=None):
@@ -69,6 +72,10 @@ def get_vk_instance(app_info, enabled_extensions=None):
 class VulkanInfo:
     @classmethod
     def construct(cls, device_index=0):
+        if "vulkan" not in sys.modules:
+            print("WARNING: Could not import the vulkan package")
+            return
+
         app_info = vk.VkApplicationInfo(
             sType=vk.VK_STRUCTURE_TYPE_APPLICATION_INFO,
             pApplicationName='gfxinfo',
