@@ -32,12 +32,7 @@ class MachineInfo:
 
     @cached_property
     def machine_tags(self):
-        tags = self.gpu.tags
-
-        if info := VulkanInfo.construct():
-            tags.add(f"vk:VRAM:{info.VRAM_heap.GiB_size}_GiB")
-
-        return tags
+        return self.gpu.tags
 
     @property
     def default_gateway_nif_addrs(self):
