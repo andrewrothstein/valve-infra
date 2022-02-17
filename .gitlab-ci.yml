@@ -263,7 +263,11 @@ test salad:
   variables:
     PACKAGE_DIR: 'salad'
 
-#### PUBLIC CONTAINERS ####
+#### PUBLIC CONTAINERS: ####
+
+#
+# WARNING: Do not change the name of the jobs, as it will also change the name
+# of the container...
 
 mesa-trigger-container:
   stage: containers
@@ -328,7 +332,7 @@ valve-infra-container:
     - changes:
       - .gitlab-ci.yml
 
-machine-registration:
+machine_registration:
   # Minimal image for running podman and friends
   image: registry.freedesktop.org/freedesktop/ci-templates/x86_64/container-build-base:2021-06-21.2
   stage: containers
