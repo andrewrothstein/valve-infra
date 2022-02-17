@@ -26,7 +26,7 @@ echo '#!/bin/sh' > $buildmnt/usr/sbin/policy-rc.d
 echo 'exit 101' >> $buildmnt/usr/sbin/policy-rc.d
 chmod +x $buildmnt/usr/sbin/policy-rc.d
 
-$buildah_run $buildcntr sh -c 'apt update -qyy && apt dist-upgrade -qyy && apt install -qyy python3 python3-pip python3-dev libvulkan-dev mesa-vulkan-drivers gcc'
+$buildah_run $buildcntr sh -c 'apt update -qyy && apt dist-upgrade -qyy && apt install -qyy python3 python3-pip python3-dev gcc'
 $buildah_run $buildcntr pip3 install --no-cache-dir -r machine_registration/requirements.txt
 $buildah_run $buildcntr pip3 install --no-cache-dir ./gfxinfo
 # For production, cache the known PCI devices for into the container

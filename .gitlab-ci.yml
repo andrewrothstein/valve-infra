@@ -333,7 +333,7 @@ machine-registration:
   image: registry.freedesktop.org/freedesktop/ci-templates/x86_64/container-build-base:2021-06-21.2
   stage: containers
   variables:
-    FDO_DISTRIBUTION_TAG: 2022-02-16.1
+    FDO_DISTRIBUTION_TAG: 2022-02-17.2
     IMAGE_NAME: $CI_REGISTRY_IMAGE/$CI_JOB_NAME:$FDO_DISTRIBUTION_TAG
     IMAGE_NAME_LATEST: $CI_REGISTRY_IMAGE/$CI_JOB_NAME:latest
   before_script:
