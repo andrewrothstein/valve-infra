@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+import os
 
 from .amdgpu import AmdGpuDeviceDB
 from .intel import IntelGpuDeviceDB
@@ -28,14 +29,22 @@ class PCIDevice:
 
 
 def pci_devices():
-    def pciid(pci_id, rev):
-        return PCIDevice(vendor_id=int(pci_id[:4], 16),
-                         product_id=int(pci_id[4:], 16),
-                         revision=int(rev, 16))
+    def readfile(root, filename):
+        with open(os.path.join(root, filename)) as f:
+            return f.read().strip()
 
-    devices = open('/proc/bus/pci/devices').readlines()
-    ids = [line.split('\t')[1:3] for line in devices]
-    return [pciid(pci_id, rev) for pci_id, rev in ids]
+    pciids = []
+    for root, dirs, files in os.walk('/sys/devices/'):
+        if root == "/sys/devices/":
+            dirs[0:] = [d for d in dirs if d.startswith("pci")]
+
+        if set(["vendor", 'device', 'revision']).issubset(files):
+            pci_dev = PCIDevice(vendor_id=int(readfile(root, "vendor"), 16),
+                                product_id=int(readfile(root, "device"), 16),
+                                revision=int(readfile(root, "revision"), 16))
+            pciids.append(pci_dev)
+
+    return pciids
 
 
 def find_gpu():
