@@ -1649,6 +1649,7 @@ wine --version
 vulkaninfo > vulkaninfo 2>&1
 glxinfo > glxinfo 2>&1
 gfxinfo > gfxinfo.json
+lspci -nn > lspci
 
 # Run all the traces
 i=0
