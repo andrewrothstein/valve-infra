@@ -755,8 +755,13 @@ class GpuDriver(SanitizedFieldsMixin):
             elif b is None and a is not None:
                 return a
             elif a is not None and b is not None:
-                print(f"WARNING: Merging the GPU driver field '{field}' impossible ('{a}' vs '{b}'). Using {a}.")
-                return a
+                if len(a) > 0 and len(b) == 0:
+                    return a
+                elif len(a) == 0 and len(b) > 0:
+                    return b
+                else:
+                    print(f"WARNING: Merging the GPU driver field '{field}' impossible ('{a}' vs '{b}'). Using {a}.")
+                    return a
             else:
                 return None
 
