@@ -12,8 +12,8 @@ else
 	SSH_PORT ?= 22
 endif
 ifdef SSH_ID_KEY
-	VIVIAN_SSH_KEY_OPT="--ssh-id $(SSH_ID_KEY)"
-	SSH_KEY_OPT="-i $(SSH_ID_KEY)"
+	VIVIAN_SSH_KEY_OPT=--ssh-id $(SSH_ID_KEY)
+	SSH_KEY_OPT=-i $(SSH_ID_KEY)
 endif
 V ?= 0
 REGISTRY ?= registry.freedesktop.org
