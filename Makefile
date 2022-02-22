@@ -45,6 +45,15 @@ endif
 	   ANSIBLE_EXTRA_ARGS='--extra-vars service_mgr_override=inside_container' \
 	   buildah unshare -- sh .gitlab-ci/valve-infra-container-build.sh
 
+.PHONY: machine-registration-container
+machine-registration-container:
+ifndef IMAGE_NAME
+	$(error "IMAGE_NAME is a required parameter (e.g. localhost:8088/mupuf/valve-infra/machine_registration:latest)")
+endif
+	env \
+	   IMAGE_NAME=$(IMAGE_NAME)
+	   buildah unshare -- sh .gitlab-ci/machine-registration-container-build.sh
+
 # Run the valve-infra multi-service container inside a VM for local testing.
 .PHONY: vivian
 vivian: tmp/boot2container-$(B2C_VERSION)-linux_amd64.cpio.xz tmp/linux-b2c-$(B2C_VERSION) tmp/disk.img
