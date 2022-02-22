@@ -17,7 +17,7 @@ ifdef SSH_ID_KEY
 endif
 V ?= 0
 REGISTRY ?= registry.freedesktop.org
-CONTAINER ?= mupuf/valve-infra/valve-infra:latest
+CONTAINER ?= mupuf/valve-infra/valve-infra-container:latest
 PRIV_MAC=$(shell printf "DE:AD:BE:EF:%02X:%02X\n" $$((RANDOM%256)) $$((RANDOM%256)))
 PUBLIC_MAC=$(shell printf "DE:AD:BE:EF:%02X:%02X\n" $$((RANDOM%256)) $$((RANDOM%256)))
 B2C_VERSION=v0.9.4
@@ -41,7 +41,7 @@ ifndef IMAGE_NAME
 endif
 	env \
 	   IMAGE_NAME=$(IMAGE_NAME)
-	   BASE_IMAGE=registry.freedesktop.org/mupuf/valve-infra/valve-infra-base-container:2022-02-10.1 \
+	   BASE_IMAGE=registry.freedesktop.org/mupuf/valve-infra/valve-infra-base-container:latest \
 	   ANSIBLE_EXTRA_ARGS='--extra-vars service_mgr_override=inside_container' \
 	   buildah unshare -- sh .gitlab-ci/valve-infra-container-build.sh
 
