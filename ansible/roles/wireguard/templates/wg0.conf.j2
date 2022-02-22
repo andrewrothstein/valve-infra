@@ -1,0 +1,10 @@
+[Interface]
+Address = 10.42.100.1/24
+SaveConfig = true
+ListenPort = {{ wg0_port }}
+PostUp = wg set %i private-key "{{ wg0_private_key }}"
+
+# Martin Roukala / mupuf: martin.roukala@mupuf.org
+[Peer]
+PublicKey = MUPufwJX8h4O5ajg3DMwq+QxDb3rc1gVn+gfjjvP6hk=
+AllowedIPs = 10.42.100.2/32

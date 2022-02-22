@@ -1,0 +1,6 @@
+---
+- name: Restart Wireguard
+  ansible.builtin.systemd:
+    name: 'wg-quick@wg0.service'
+    state: restarted
+  when: pid_1_name == "systemd"

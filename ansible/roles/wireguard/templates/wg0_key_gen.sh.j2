@@ -1,0 +1,4 @@
+#!/bin/sh
+
+mkdir -p "{{ wireguard_secrets_dir }}" || /bin/true
+wg genkey | (umask 0077 && tee "{{ wg0_private_key }}") | wg pubkey > "{{ wg0_public_key }}"

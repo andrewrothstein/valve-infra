@@ -228,3 +228,64 @@ Additionally, you may add secrets to the environment file in `./config/private.e
 
 * `GITLAB_REGISTRATION_TOKEN`: Token for registering new GitLab runners.
 * `GITLAB_ACCESS_TOKEN`: Token needed to communicate with the configured GitLab instance.
+
+## Running interactive session on test machines from your development machine
+
+Assuming you already managed to deploy the infrastructure, and Gitlab can use
+the runners, you may now want to reproduce issues happening there by getting
+interactive access on the test machine that exhibits the issue.
+
+To do so, your development machine will first need to connect to the wireguard
+VPN installed on the gateway.
+
+### Generate a public/private key for your development machine
+
+The first step is for you to generate a key for your machine:
+
+    $ wg genkey | (umask 0077 && tee wg-valve-ci.key) | wg pubkey > wg-valve-ci.pub
+
+If you are a Valve CI user, you may then
+[fill a request](https://gitlab.freedesktop.org/mupuf/valve-infra/-/issues/new?issue[title]=Wireguard%20peering%20request&issuable_template=Wireguard%20peer&issue[confidential]=true)
+for the Valve CI admins to add it to the gateways. Otherwise, check the next sections.
+
+### Add the peer on the gateway side
+
+It is now time to create a merge request that adds the information about the peer in
+`ansible/roles/wireguard/templates/wg0.conf.j2`, following this template:
+
+    # \<Full name\> / \<Nickname\>: \<Email address\>
+    [Peer]
+    PublicKey = \<public key\>
+    AllowedIPs = \<next available IP address\>/32
+
+Once landed, make sure the changes have been deployed on all the relevant CI
+farms, then we need to provide the following information back in the issue:
+
+ * provide the IP address assigned to the client
+ * provide the public key / endpoint to all the farms
+
+### Set up the connection on the client side
+
+Now that that the IP has been allocated on the server side, we may create the
+wg-quick configuration files that will allow developers to access the CI
+network.
+
+For every farm that you want to access, you will need to create a configuration
+file in `/etc/wireguard/$farm_name.conf` following this template:
+
+    [Interface]
+    Address = \<the ip given to your machine by an admin\>
+    PrivateKey = \<content of wg-valve-ci.key\>
+
+    [Peer]
+    PublicKey = \<the public wireguard key of the farm, as given by an admin\>
+    AllowedIPs = 10.42.0.0/16
+    Endpoint = \<the IP address / DNS of the farm\>:51820
+
+Once the files have been populated, you may connect to a farm by typing:
+
+    $ wg-quick up $farm_name
+
+Check out the output of `sudo wg`, then try pinging `10.42.0.1`. If all went
+well, you can now use `executorctl` to run your jobs on any of the test
+machines \o/.
