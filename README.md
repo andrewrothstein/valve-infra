@@ -45,13 +45,11 @@ The container image is provisioned using Ansible recipes (see the
 
 To build the container,
 
-	make REGISTRY=localhost:8088 CONTAINER=mupuf/valve-infra/valve-infra-$(whoami):latest FARM_NAME=tchar-farm valve-infra-container
+	make IMAGE_NAME=localhost:8088/mupuf/valve-infra/valve-infra-$(whoami):latest valve-infra-container
 
 Build options
 
   - `V=1` - Turn on more verbose logging messages in the build process
-  - `FARM_NAME` - The name of the running farm is required. Call it
-    something unique to your setup.
   - `EXTRA_ANSIBLE_FLAGS="-vvv ..."` - Pass any custom flags to
     `ansible-playbook`. Helpful for re-running only tagged roles in
     the ansible build, for example.
@@ -61,13 +59,9 @@ Build options
     Makefile argument. TODO: We may be better served using Ansible to
     build the container directly, rather than using Podman to build
     from a Dockerfile, which indirectly uses ansible.
-  - `EXTRA_PODMAN_BUILD_ARGS="..."` - Any extra flags needed for the
-    Podman build step.
-  - `IGNORE_CACHE=1` - Always rerun the Ansible build steps.
-  - `REGISTRY=registry.freedesktop.org` - The container registry to
-    tag the image with.
-  - `CONTAINER=some/other/name` - The container name to
-    tag the image with.
+  - `IMAGE_NAME=localhost:8088/mupuf/valve-infra/valve-infra-$(whoami):latest` -
+    The container name to tag the image with. *WARNING:* The image
+    will automatically be pushed to the registry that got tagged!
 
 Once completed, a container image will be generated, for example,
 
@@ -101,7 +95,9 @@ Push the container for validation,
 
 Now, run a virtual gateway machine, which will boot directly into this container,
 
-	make REGISTRY=10.0.2.2:8088 CONTAINER=mupuf/valve-infra/valve-infra-$(whoami):latest vivian
+	make REGISTRY=10.0.2.2:8088 CONTAINER=mupuf/valve-infra/valve-infra-$(whoami):latest FARM_NAME=$(whoami)-test GITLAB_REGISTRATION_TOKEN=... GITLAB_URL=https://gitlab.freedesktop.org vivian
+
+*TODO: make GITLAB_REGISTRATION_TOKEN/GITLAB_URL optional*
 
 Note: options to vivian can be passed by setting `VIVIAN_OPTS`, for example:
 
