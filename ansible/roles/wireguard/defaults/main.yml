@@ -1,6 +1,0 @@
----
-wireguard_secrets_dir: "/mnt/permanent/wireguard"
-wg0_private_key: "{{ wireguard_secrets_dir }}/wg0.key"
-wg0_public_key: "{{ wireguard_secrets_dir }}/wg0.pub"
-wg0_key_gen: '/usr/local/bin/wg0_key_gen.sh'
-wg0_port: 51820

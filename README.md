@@ -251,7 +251,7 @@ for the Valve CI admins to add it to the gateways. Otherwise, check the next sec
 ### Add the peer on the gateway side
 
 It is now time to create a merge request that adds the information about the peer in
-`ansible/roles/wireguard/templates/wg0.conf.j2`, following this template:
+`ansible/roles/network_setup/templates/wg0.conf.j2`, following this template:
 
     # \<Full name\> / \<Nickname\>: \<Email address\>
     [Peer]

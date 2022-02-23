@@ -1,4 +1,11 @@
 ---
+- name: Installing Wireguard
+  become: true
+  pacman:
+    state: present
+    name:
+      - wireguard-tools
+
 - name: Installing network_setup script
   become: true
   ansible.builtin.template:
@@ -6,6 +13,16 @@
     dest: /usr/bin/network_setup
     backup: true
     mode: 0755
+
+- name: Create the /etc/wireguard directory
+  ansible.builtin.file: path=/etc/wireguard/ state=directory mode=0755
+
+- name: Set up the wg0 configuration file
+  become: true
+  ansible.builtin.template:
+    src: 'wg0.conf.j2'
+    dest: '/etc/wireguard/wg0.conf'
+    mode: 0644
 
 - name: Installing network_setup service
   become: true

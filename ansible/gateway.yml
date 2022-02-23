@@ -56,7 +56,6 @@
       - gitlab-runner
       - local-registry
       - fdo-proxy-registry
-      - wg-quick@wg0
 
     # Default boot files for DUTs.
     b2c_release: v0.9.4
@@ -125,4 +124,3 @@
     - {role: local_registry,      tags: local_registry}
     - {role: executor,            tags: executor}
     - {role: infra,               tags: infra}
-    - {role: wireguard,           tags: wireguard}
