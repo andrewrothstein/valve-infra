@@ -42,7 +42,7 @@ def run_job(args):
 def main():
     parser = argparse.ArgumentParser(prog='Executor client')
     parser.add_argument("-e", '--executor', dest='executor_url',
-                        default="http://localhost",
+                        default="http://10.42.0.1/",
                         help='URL to the executor service')
 
     subparsers = parser.add_subparsers()
