@@ -337,7 +337,8 @@ class Job:
                         return JobStatus.INCOMPLETE
 
                     logger.info("forwarding CTRL+C to job, type CTRL+A followed by CTRL+C to quit the client")
-                    job_socket.send(chr(3).encode())
+                    msg = JobIOMessage.create(chr(3).encode())
+                    msg.send(job_socket)
         finally:
             if sys.stdin.isatty():
                 termios.tcsetattr(sys.stdin, termios.TCSADRAIN, old_tty_attrs)
