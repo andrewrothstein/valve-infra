@@ -167,6 +167,7 @@ class ConsoleState:
         session_reboot = fields.Nested(PatternSchema(), missing=None)
         job_success = fields.Nested(PatternSchema(), missing=None)
         job_warn = fields.Nested(PatternSchema(), missing=None)
+        machine_unfit_for_service = fields.Nested(PatternSchema(), missing=None)
 
         @post_load
         def make(self, data, **kwargs):
@@ -174,7 +175,8 @@ class ConsoleState:
                 "session_end": "^\\[[\\d \\.]{12}\\] reboot: Power Down$",
                 "session_reboot": None,
                 "job_success": None,
-                "job_warn": None
+                "job_warn": None,
+                "machine_unfit_for_service": None,
             }
 
             for name, pattern in data.items():
@@ -184,11 +186,12 @@ class ConsoleState:
 
             return ConsoleState(**patterns)
 
-    def __init__(self, session_end, session_reboot, job_success, job_warn):
+    def __init__(self, session_end, session_reboot, job_success, job_warn, machine_unfit_for_service):
         self.session_end = session_end
         self.session_reboot = session_reboot
         self.job_success = job_success
         self.job_warn = job_warn
+        self.machine_unfit_for_service = machine_unfit_for_service
 
         self._regexs = {
             "session_end": re.compile(session_end.encode()),
@@ -202,6 +205,9 @@ class ConsoleState:
 
         if job_warn is not None:
             self._regexs["job_warn"] = re.compile(job_warn.encode())
+
+        if machine_unfit_for_service is not None:
+            self._regexs["machine_unfit_for_service"] = re.compile(machine_unfit_for_service.encode())
 
         self._matched = set()
 
@@ -221,11 +227,15 @@ class ConsoleState:
 
     @property
     def session_has_ended(self):
-        return "session_end" in self._matched
+        return "session_end" in self._matched or "unfit_for_service" in self._matched
 
     @property
     def needs_reboot(self):
         return "session_reboot" in self._matched
+
+    @property
+    def machine_is_unfit_for_service(self):
+        return "machine_unfit_for_service" in self._matched
 
     @property
     def job_status(self):
@@ -406,10 +416,11 @@ class Job:
         first_console_activity: {self.timeouts.first_console_activity}
 
     console patterns:
-        session_end:    {self.console_patterns.session_end}
-        session_reboot: {self.console_patterns.session_reboot}
-        job_success:    {self.console_patterns.job_success}
-        job_warn:       {self.console_patterns.job_warn}
+        session_end:               {self.console_patterns.session_end}
+        session_reboot:            {self.console_patterns.session_reboot}
+        job_success:               {self.console_patterns.job_success}
+        job_warn:                  {self.console_patterns.job_warn}
+        machine_unfit_for_service: {self.console_patterns.machine_unfit_for_service}
 
     start deployment:
         kernel_url:     {self.deployment_start.kernel_url}

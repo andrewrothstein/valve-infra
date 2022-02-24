@@ -187,11 +187,13 @@ def test_Timeouts__from_job():
 
 def test_ConsoleState__missing_session_end():
     with pytest.raises(AttributeError):
-        ConsoleState(session_end=None, session_reboot=None, job_success=None, job_warn=None)
+        ConsoleState(session_end=None, session_reboot=None, job_success=None, job_warn=None,
+                     machine_unfit_for_service=None)
 
 
 def test_ConsoleState__simple_lifecycle():
-    state = ConsoleState(session_end="session_end", session_reboot=None, job_success=None, job_warn=None)
+    state = ConsoleState(session_end="session_end", session_reboot=None, job_success=None, job_warn=None,
+                         machine_unfit_for_service=None)
 
     assert state.job_status == "INCOMPLETE"
     assert not state.session_has_ended
@@ -210,21 +212,25 @@ def test_ConsoleState__simple_lifecycle():
 
 def test_ConsoleState__lifecycle_with_extended_support():
     state = ConsoleState(session_end="session_end", session_reboot="session_reboot",
-                         job_success="job_success", job_warn="job_warn")
+                         job_success="job_success", job_warn="job_warn",
+                         machine_unfit_for_service="machine_unfit_for_service")
 
     assert state.job_status == "INCOMPLETE"
     assert not state.session_has_ended
     assert not state.needs_reboot
+    assert not state.machine_is_unfit_for_service
 
     state.process_line(b"oh oh oh")
     assert state.job_status == "INCOMPLETE"
     assert not state.session_has_ended
     assert not state.needs_reboot
+    assert not state.machine_is_unfit_for_service
 
     state.process_line(b"blabla session_reboot blabla")
     assert state.job_status == "INCOMPLETE"
     assert not state.session_has_ended
     assert state.needs_reboot
+    assert not state.machine_is_unfit_for_service
 
     state.reset_per_boot_state()
     assert not state.session_has_ended
@@ -234,16 +240,25 @@ def test_ConsoleState__lifecycle_with_extended_support():
     assert state.job_status == "FAIL"
     assert state.session_has_ended
     assert not state.needs_reboot
+    assert not state.machine_is_unfit_for_service
 
     state.process_line(b"blabla job_success blaba\n")
     assert state.job_status == "PASS"
     assert state.session_has_ended
     assert not state.needs_reboot
+    assert not state.machine_is_unfit_for_service
 
     state.process_line(b"blabla job_warn blaba\n")
     assert state.job_status == "WARN"
     assert state.session_has_ended
     assert not state.needs_reboot
+    assert not state.machine_is_unfit_for_service
+
+    state.process_line(b"blabla machine_unfit_for_service blaba\n")
+    assert state.job_status == "WARN"
+    assert state.session_has_ended
+    assert not state.needs_reboot
+    assert state.machine_is_unfit_for_service
 
 
 def test_ConsoleState_from_job__default():
@@ -253,6 +268,7 @@ def test_ConsoleState_from_job__default():
     assert console_state.session_reboot is None
     assert console_state.job_success is None
     assert console_state.job_warn is None
+    assert console_state.machine_unfit_for_service is None
 
 
 def test_ConsoleState_from_job__full():
@@ -265,6 +281,8 @@ def test_ConsoleState_from_job__full():
             "regex": "job_success"
         }, "job_warn": {
             "regex": "job_warn"
+        }, "machine_unfit_for_service": {
+            "regex": "unfit_for_service"
         }
     })
 
@@ -272,6 +290,7 @@ def test_ConsoleState_from_job__full():
     assert console_state.session_reboot == "session_reboot"
     assert console_state.job_success == "job_success"
     assert console_state.job_warn == "job_warn"
+    assert console_state.machine_unfit_for_service == "unfit_for_service"
 
 
 # _multiline_string

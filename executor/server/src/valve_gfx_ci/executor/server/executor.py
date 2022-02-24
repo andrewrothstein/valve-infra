@@ -81,6 +81,10 @@ class JobConsole(Thread):
     def salad_url(self):
         return f"{config.SALAD_URL}/api/v1/machine/{self.machine_id}"
 
+    @property
+    def machine_unfit_for_service(self):
+        return self.console_patterns.machine_unfit_for_service
+
     def connect_to_salad(self):
         parsed_url = urlsplit(config.SALAD_URL)
 
@@ -746,6 +750,11 @@ class Executor(Thread):
 
             # We either reached the end of the job, or the client got disconnected
             if self.job_console.state == JobConsoleState.DUT_DONE:
+                # Mark the machine as unfit for service
+                if self.job_console.machine_unfit_for_service:
+                    self.log("The machine has been marked as unfit for service\n")
+                    self.machine.ready_for_service = False
+
                 # Tearing down the job
                 self.log("The job has finished executing, starting tearing down\n")
                 timeouts.infra_teardown.start()
