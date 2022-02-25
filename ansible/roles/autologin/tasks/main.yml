@@ -9,19 +9,32 @@
     - { regexp: '^#NAutoVTs=.*', line: 'NAutoVTs=2' }
     - { regexp: '^#KillUserProcesses=no', line: 'KillUserProcesses=yes' }
 
-- name: Creating /etc/systemd/system/getty@tty1.service.d
+- name: Creating /etc/systemd/system/console-getty.service.d
   become: true
   ansible.builtin.file:
-    path: /etc/systemd/system/getty@tty1.service.d
+    path: /etc/systemd/system/console-getty.service.d
     state: directory
     owner: root
     mode: 0755
 
-- name: Installing getty@tty1 override.conf
+- name: Installing console-getty.service override.conf
   become: true
   ansible.builtin.copy:
     src: override.conf
-    dest: /etc/systemd/system/getty@tty1.service.d/override.conf
+    dest: /etc/systemd/system/console-getty.service.d/override.conf
     owner: root
     group: root
     mode: '0644'
+
+# Mask getty@tty1 / autovt@tty1, as otherwise we start stepping on b2c's initscript
+- name: Mask getty@tty1
+  become: true
+  ansible.builtin.systemd:
+    name: getty@tty1
+    masked: true
+
+- name: Mask autovt@tty1
+  become: true
+  ansible.builtin.systemd:
+    name: autovt@tty1
+    masked: true
