@@ -52,3 +52,9 @@
   ansible.builtin.systemd:
     name: systemd-timesyncd
     enabled: true
+
+- name: disable the first-boot service
+  become: true
+  ansible.builtin.systemd:
+    name: systemd-firstboot.service
+    masked: true
