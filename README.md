@@ -253,10 +253,10 @@ for the Valve CI admins to add it to the gateways. Otherwise, check the next sec
 It is now time to create a merge request that adds the information about the peer in
 `ansible/roles/network_setup/templates/wg0.conf.j2`, following this template:
 
-    # \<Full name\> / \<Nickname\>: \<Email address\>
+    # <Full name> / <Nickname>: <Email address>
     [Peer]
-    PublicKey = \<public key\>
-    AllowedIPs = \<next available IP address\>/32
+    PublicKey = <public key>
+    AllowedIPs = <next available IP address>/32
 
 Once landed, make sure the changes have been deployed on all the relevant CI
 farms, then we need to provide the following information back in the issue:
@@ -274,13 +274,13 @@ For every farm that you want to access, you will need to create a configuration
 file in `/etc/wireguard/$farm_name.conf` following this template:
 
     [Interface]
-    Address = \<the ip given to your machine by an admin\>
-    PrivateKey = \<content of wg-valve-ci.key\>
+    Address = <the ip given to your machine by an admin>
+    PrivateKey = <content of wg-valve-ci.key>
 
     [Peer]
-    PublicKey = \<the public wireguard key of the farm, as given by an admin\>
+    PublicKey = <the public wireguard key of the farm, as given by an admin>
     AllowedIPs = 10.42.0.0/16
-    Endpoint = \<the IP address / DNS of the farm\>:51820
+    Endpoint = <the IP address / DNS of the farm>:51820
 
 Once the files have been populated, you may connect to a farm by typing:
 
