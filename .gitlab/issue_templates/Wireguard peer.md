@@ -4,9 +4,9 @@ I am requesting access to the CI network, so that I may trigger interactive jobs
 
 ## Requester details
 
- * Full name: \<fill in here\>
- * Contact email and IRC nick: \<fill in here\>
- * Public key: \<fill in here\>
+ * Full name: <fill in here>
+ * Contact email and IRC nick: <fill in here>
+ * Public key: <fill in here>
 
 **WARNING**: **TRIPLE CHECK THAT YOU ARE NOT SENDING YOUR PRIVATE KEY**
 
