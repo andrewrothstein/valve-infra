@@ -63,6 +63,7 @@ def get_env_var_or_fail(variable):
     value = os.environ.get(variable)
     if value is None:
         raise ValueError(f"The environment variable `{variable}` is missing")
+    return value
 
 
 class SanitizedFieldsMixin:
