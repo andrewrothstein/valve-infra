@@ -116,15 +116,21 @@ class Timeouts:
         boot_cycle = fields.Nested(Timeout.Schema(context={"name": "boot_cycle"}))
         console_activity = fields.Nested(Timeout.Schema(context={"name": "console_activity"}))
         first_console_activity = fields.Nested(Timeout.Schema(context={"name": "first_console_activity"}))
+        watchdogs = fields.Dict(keys=fields.Str(), values=fields.Nested(Timeout.Schema()))
 
         @post_load
         def make(self, data, **kwargs):
             timeouts = dict(self.context.get('default_timeouts'))
             for t_type, t_data in data.items():
                 timeouts[t_type] = t_data
-            return Timeouts(timeouts)
 
-    def __init__(self, timeouts):
+            watchdogs = data.get("watchdogs", {})
+            for name, wd in watchdogs.items():
+                watchdogs[name].name = name
+
+            return Timeouts(timeouts, watchdogs=data.get("watchdogs"))
+
+    def __init__(self, timeouts, watchdogs=None):
         for t_type in Timeouts.Type:
             timeout = timeouts.get(t_type.value)
             if timeout is None:
@@ -136,9 +142,16 @@ class Timeouts:
 
             setattr(self, t_type.value, timeout)
 
+        if watchdogs is None:
+            watchdogs = {}
+        self.watchdogs = watchdogs
+
     def __iter__(self):
         for t_type in Timeouts.Type:
             yield getattr(self, t_type.value)
+
+        for wd in self.watchdogs.values():
+            yield wd
 
     @property
     def expired_list(self):

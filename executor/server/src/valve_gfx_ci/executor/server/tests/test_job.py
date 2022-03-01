@@ -152,18 +152,29 @@ def test_Timeouts__default():
 
     assert timeouts.expired_list == []
     assert not timeouts.has_expired
+    assert timeouts.watchdogs == {}
 
 
 def test_Timeouts__expired():
     overall = Timeout("name", timedelta(days=1), retries=0)
     boot_cycle = Timeout("name", timedelta(seconds=0), retries=0)
+    wd1 = Timeout("name", timedelta(seconds=0), retries=0)
 
     overall.start()
     boot_cycle.start()
 
-    timeouts = Timeouts({Timeouts.Type.OVERALL.value: overall, Timeouts.Type.BOOT_CYCLE.value: boot_cycle})
+    timeouts = Timeouts({Timeouts.Type.OVERALL.value: overall, Timeouts.Type.BOOT_CYCLE.value: boot_cycle},
+                        watchdogs={"wd1": wd1})
     assert timeouts.has_expired
     assert timeouts.expired_list == [boot_cycle]
+
+    boot_cycle.stop()
+    assert not timeouts.has_expired
+    assert timeouts.expired_list == []
+
+    wd1.start()
+    assert timeouts.has_expired
+    assert timeouts.expired_list == [wd1]
 
 
 def test_Timeouts__from_job():
@@ -173,6 +184,11 @@ def test_Timeouts__from_job():
         },
         "console_activity": {
             "seconds": 13
+        },
+        "watchdogs": {
+            "custom1": {
+                "seconds": 42
+            }
         }
     }
 
@@ -180,6 +196,7 @@ def test_Timeouts__from_job():
 
     assert timeouts.first_console_activity.timeout == timedelta(seconds=45)
     assert timeouts.console_activity.timeout == timedelta(seconds=13)
+    assert timeouts.watchdogs.get("custom1").timeout == timedelta(seconds=42)
 
 
 # ConsoleState
