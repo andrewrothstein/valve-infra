@@ -1305,8 +1305,8 @@ Debug information:
 
     @property
     def is_postmerge_job(self):
-        project = os.environ.get("CI_PROJECT_PATH")
-        branch = os.environ.get("CI_COMMIT_BRANCH", "")
+        project = get_env_var_or_fail("CI_PROJECT_PATH")
+        branch = get_env_var_or_fail("CI_COMMIT_BRANCH")
         is_merge_request = "CI_MERGE_REQUEST_ID" in os.environ
 
         if is_merge_request:
@@ -1317,7 +1317,7 @@ Debug information:
             return re.match(r"(staging/)?\d{2}\.\d|main", branch) is not None
 
         # DXVK
-        elif os.environ.get("CI_PROJECT_PATH") in ["mupuf/dxvk-ci"]:
+        elif project in ["mupuf/dxvk-ci"]:
             return branch == "master"
 
         return False
