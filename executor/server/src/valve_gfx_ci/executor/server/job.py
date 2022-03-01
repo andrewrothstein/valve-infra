@@ -198,6 +198,55 @@ class Pattern:
         return schema.load(data)
 
 
+class Watchdog(Schema):
+    class Schema(Schema):
+        start = fields.Nested(Pattern.Schema())
+        reset = fields.Nested(Pattern.Schema())
+        stop = fields.Nested(Pattern.Schema())
+
+        @post_load
+        def make(self, data, **kwargs):
+            for field in ["start", "reset", "stop"]:
+                if field not in data or data.get(field) is None:
+                    raise ValueError("The fields start, reset, and stop need to be specified for watchdogs")
+
+            return Watchdog(**data)
+
+    def __init__(self, start, reset, stop):
+        self.start = start
+        self.reset = reset
+        self.stop = stop
+
+        self.timeout = None
+
+    def set_timeout(self, timeout):
+        self.timeout = timeout
+
+    def process_line(self, line):
+        # Do not parse lines if no timeout is associated
+        if self.timeout is None:
+            return {}
+
+        if not self.timeout.is_started:
+            if self.start.regex.search(line):
+                self.timeout.start()
+                return {"start"}
+        else:
+            if self.reset.regex.search(line):
+                self.timeout.reset()
+                return {"reset"}
+            elif self.stop.regex.search(line):
+                self.timeout.stop()
+                return {"stop"}
+
+        return {}
+
+    @classmethod
+    def from_job(cls, data):
+        schema = cls.Schema()
+        return schema.load(data)
+
+
 class ConsoleState:
     class Schema(Schema):
         session_end = fields.Nested(Pattern.Schema(), missing=None)
@@ -205,10 +254,11 @@ class ConsoleState:
         job_success = fields.Nested(Pattern.Schema(), missing=None)
         job_warn = fields.Nested(Pattern.Schema(), missing=None)
         machine_unfit_for_service = fields.Nested(Pattern.Schema(), missing=None)
+        watchdogs = fields.Dict(keys=fields.Str(), values=fields.Nested(Watchdog.Schema()), missing=None)
 
         @post_load
         def make(self, data, **kwargs):
-            patterns = {
+            default_patterns = {
                 "session_end": Pattern("^\\[[\\d \\.]{12}\\] reboot: Power Down$"),
                 "session_reboot": None,
                 "job_success": None,
@@ -216,45 +266,52 @@ class ConsoleState:
                 "machine_unfit_for_service": None,
             }
 
-            for name, pattern in data.items():
-                if pattern is not None:
-                    patterns[name] = pattern
+            # Use the default patterns, if not set
+            for name in default_patterns:
+                if data.get(name) is None:
+                    data[name] = default_patterns[name]
 
-            return ConsoleState(**patterns)
+            return ConsoleState(**data)
 
-    def __init__(self, session_end, session_reboot, job_success, job_warn, machine_unfit_for_service):
+    def __init__(self, session_end, session_reboot, job_success, job_warn, machine_unfit_for_service,
+                 watchdogs=None):
         self.session_end = session_end
         self.session_reboot = session_reboot
         self.job_success = job_success
         self.job_warn = job_warn
         self.machine_unfit_for_service = machine_unfit_for_service
+        self.watchdogs = {} if watchdogs is None else watchdogs
 
-        self._regexs = {
+        self._patterns = {
             "session_end": session_end.regex,
         }
 
         if session_reboot is not None:
-            self._regexs["session_reboot"] = session_reboot.regex
+            self._patterns["session_reboot"] = session_reboot.regex
 
         if job_success is not None:
-            self._regexs["job_success"] = job_success.regex
+            self._patterns["job_success"] = job_success.regex
 
         if job_warn is not None:
-            self._regexs["job_warn"] = job_warn.regex
+            self._patterns["job_warn"] = job_warn.regex
 
         if machine_unfit_for_service is not None:
-            self._regexs["machine_unfit_for_service"] = machine_unfit_for_service.regex
+            self._patterns["machine_unfit_for_service"] = machine_unfit_for_service.regex
 
         self._matched = set()
 
     def process_line(self, line):
+        # Try matching all the patterns
         matched = set()
-        for name, regex in self._regexs.items():
+        for name, regex in self._patterns.items():
             if regex.search(line):
                 matched.add(name)
-
-        # Extend the list of matched regex
         self._matched.update(matched)
+
+        # Try matching the watchdogs
+        for name, wd in self.watchdogs.items():
+            _matched = wd.process_line(line)
+            matched.update({f"{name}.{m}" for m in _matched})
 
         return matched
 
@@ -278,7 +335,7 @@ class ConsoleState:
         if "session_end" not in self._matched:
             return "INCOMPLETE"
 
-        if "job_success" in self._regexs:
+        if "job_success" in self._patterns:
             if "job_success" in self._matched:
                 if "job_warn" in self._matched:
                     return "WARN"
@@ -380,7 +437,13 @@ class Job:
 
             data['bucket'] = self.context.get('bucket')
 
-            return Job(**data)
+            job = Job(**data)
+
+            # Associate all the timeouts to their respective watchdogs
+            for name, wd in job.console_patterns.watchdogs.items():
+                wd.set_timeout(job.timeouts.watchdogs.get(name))
+
+            return job
 
     def __init__(self, version, deadline, target, timeouts, console_patterns, deployment_start,
                  deployment_continue, bucket=None):
@@ -438,6 +501,23 @@ class Job:
             return Job.render_with_resources(template_str, machine, bucket)
 
     def __str__(self):
+        if len(self.timeouts.watchdogs) == 0:
+            timeout_watchdogs = "None"
+        else:
+            timeout_watchdogs = ""
+            for name, wd in self.timeouts.watchdogs.items():
+                timeout_watchdogs += f"\n            {name}: {wd}"
+
+        if len(self.console_patterns.watchdogs) == 0:
+            patterns_watchdogs = "None"
+        else:
+            patterns_watchdogs = ""
+            for name, wd in self.console_patterns.watchdogs.items():
+                patterns_watchdogs += f"\n            {name}:"
+                patterns_watchdogs += f"\n                start: {wd.start}"
+                patterns_watchdogs += f"\n                reset: {wd.start}"
+                patterns_watchdogs += f"\n                stop:  {wd.start}"
+
         return f"""<Job:
     version: {self.version}
 
@@ -450,6 +530,7 @@ class Job:
         boot_cycle:             {self.timeouts.boot_cycle}
         console_activity:       {self.timeouts.console_activity}
         first_console_activity: {self.timeouts.first_console_activity}
+        watchdogs:              {timeout_watchdogs}
 
     console patterns:
         session_end:               {self.console_patterns.session_end}
@@ -457,6 +538,7 @@ class Job:
         job_success:               {self.console_patterns.job_success}
         job_warn:                  {self.console_patterns.job_warn}
         machine_unfit_for_service: {self.console_patterns.machine_unfit_for_service}
+        watchdogs:              {patterns_watchdogs}
 
     start deployment:
         kernel_url:     {self.deployment_start.kernel_url}

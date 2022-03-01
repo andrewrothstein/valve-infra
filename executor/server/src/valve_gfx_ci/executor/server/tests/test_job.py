@@ -5,7 +5,7 @@ import re
 
 import pytest
 
-from server.job import Target, Timeout, Timeouts, ConsoleState, _multiline_string, Deployment, Job, Pattern
+from server.job import Target, Timeout, Timeouts, ConsoleState, _multiline_string, Deployment, Job, Pattern, Watchdog
 
 # Target
 
@@ -204,6 +204,7 @@ def test_Timeouts__from_job():
     assert timeouts.first_console_activity.timeout == timedelta(seconds=45)
     assert timeouts.console_activity.timeout == timedelta(seconds=13)
     assert timeouts.watchdogs.get("custom1").timeout == timedelta(seconds=42)
+    assert timeouts.watchdogs["custom1"] in timeouts
 
 
 # Pattern
@@ -219,6 +220,67 @@ def test_Pattern_from_job__missing_regex():
 def test_Pattern_from_job__invalid_regex():
     with pytest.raises(re.error):
         Pattern.from_job({"regex": "BOOM\\"})
+
+
+# Watchdogs
+
+
+def test_Watchdog_from_job__missing_regex():
+    with pytest.raises(ValueError) as exc:
+        Watchdog.from_job({})
+
+    assert "The fields start, reset, and stop need to be specified for watchdogs" in str(exc.value)
+
+
+def test_Watchdog__process_line():
+    wd = Watchdog.from_job({
+        "start": {"regex": "start"},
+        "reset": {"regex": "reset"},
+        "stop": {"regex": "stop"},
+    })
+
+    # Check that nothing explodes if we have no timeouts set
+    assert wd.process_line(b"line") == {}
+
+    # Set the timeout
+    wd.set_timeout(MagicMock(is_started=False))
+    wd.timeout.start.assert_not_called()
+    wd.timeout.reset.assert_not_called()
+    wd.timeout.stop.assert_not_called()
+
+    # Check that sending the reset/stop patterns before starting does nothing
+    assert wd.process_line(b"line reset line") == {}
+    assert wd.process_line(b"line stop line") == {}
+    wd.timeout.start.assert_not_called()
+    wd.timeout.reset.assert_not_called()
+    wd.timeout.stop.assert_not_called()
+
+    # Check that the start pattern starts the timeout
+    assert wd.process_line(b"line start line") == {"start"}
+    wd.timeout.start.assert_called_once()
+    wd.timeout.reset.assert_not_called()
+    wd.timeout.stop.assert_not_called()
+
+    # Emulate the behaviour of the timeout
+    wd.timeout.is_started = True
+
+    # Check that the start pattern does not restart the timeout
+    assert wd.process_line(b"line start line") == {}
+    wd.timeout.start.assert_called_once()
+    wd.timeout.reset.assert_not_called()
+    wd.timeout.stop.assert_not_called()
+
+    # Check that the reset pattern works
+    assert wd.process_line(b"line reset line") == {"reset"}
+    wd.timeout.start.assert_called_once()
+    wd.timeout.reset.assert_called_once()
+    wd.timeout.stop.assert_not_called()
+
+    # Check that the stop pattern works
+    assert wd.process_line(b"line stop line") == {"stop"}
+    wd.timeout.start.assert_called_once()
+    wd.timeout.reset.assert_called_once()
+    wd.timeout.stop.assert_called_once()
 
 
 # ConsoleState
@@ -252,20 +314,23 @@ def test_ConsoleState__simple_lifecycle():
 def test_ConsoleState__lifecycle_with_extended_support():
     state = ConsoleState(session_end=Pattern("session_end"), session_reboot=Pattern("session_reboot"),
                          job_success=Pattern("job_success"), job_warn=Pattern("job_warn"),
-                         machine_unfit_for_service=Pattern("machine_unfit_for_service"))
+                         machine_unfit_for_service=Pattern("machine_unfit_for_service"),
+                         watchdogs={"wd1": Watchdog(start=Pattern(r"wd1_start"),
+                                                    reset=Pattern(r"wd1_reset"),
+                                                    stop=Pattern(r"wd1_stop"))})
 
     assert state.job_status == "INCOMPLETE"
     assert not state.session_has_ended
     assert not state.needs_reboot
     assert not state.machine_is_unfit_for_service
 
-    state.process_line(b"oh oh oh")
+    assert state.process_line(b"oh oh oh") == set()
     assert state.job_status == "INCOMPLETE"
     assert not state.session_has_ended
     assert not state.needs_reboot
     assert not state.machine_is_unfit_for_service
 
-    state.process_line(b"blabla session_reboot blabla")
+    assert state.process_line(b"blabla session_reboot blabla") == {"session_reboot"}
     assert state.job_status == "INCOMPLETE"
     assert not state.session_has_ended
     assert state.needs_reboot
@@ -275,25 +340,32 @@ def test_ConsoleState__lifecycle_with_extended_support():
     assert not state.session_has_ended
     assert not state.needs_reboot
 
-    state.process_line(b"blabla session_end blaba\n")
+    assert state.process_line(b"blabla session_end blaba\n") == {"session_end"}
     assert state.job_status == "FAIL"
     assert state.session_has_ended
     assert not state.needs_reboot
     assert not state.machine_is_unfit_for_service
 
-    state.process_line(b"blabla job_success blaba\n")
+    assert state.process_line(b"blabla job_success blaba\n") == {"job_success"}
     assert state.job_status == "PASS"
     assert state.session_has_ended
     assert not state.needs_reboot
     assert not state.machine_is_unfit_for_service
 
-    state.process_line(b"blabla job_warn blaba\n")
+    assert state.process_line(b"blabla job_warn blaba\n") == {"job_warn"}
     assert state.job_status == "WARN"
     assert state.session_has_ended
     assert not state.needs_reboot
     assert not state.machine_is_unfit_for_service
 
-    state.process_line(b"blabla machine_unfit_for_service blaba\n")
+    assert state.process_line(b"blabla machine_unfit_for_service blaba\n") == {"machine_unfit_for_service"}
+    assert state.job_status == "WARN"
+    assert state.session_has_ended
+    assert not state.needs_reboot
+    assert state.machine_is_unfit_for_service
+
+    state.watchdogs.get("wd1").set_timeout(Timeout(name="wd1", timeout=timedelta(seconds=1), retries=1))
+    assert state.process_line(b"blabla wd1_start blaba\n") == {"wd1.start"}
     assert state.job_status == "WARN"
     assert state.session_has_ended
     assert not state.needs_reboot
@@ -322,6 +394,12 @@ def test_ConsoleState_from_job__full():
             "regex": "job_warn"
         }, "machine_unfit_for_service": {
             "regex": "unfit_for_service"
+        }, "watchdogs": {
+            "mywatchdog": {
+                "start": {"regex": "start"},
+                "reset": {"regex": "reset"},
+                "stop": {"regex": "stop"},
+            }
         }
     })
 
@@ -575,3 +653,38 @@ deployment:
     assert job.deployment_continue.kernel_url == job.deployment_start.kernel_url
     assert job.deployment_continue.initramfs_url == job.deployment_start.initramfs_url
     assert job.deployment_continue.kernel_cmdline == job.deployment_start.kernel_cmdline
+
+
+def test_Job__watchdogs():
+    override_job = """
+version: 1
+target:
+  id: "b4:2e:99:f0:76:c6"
+timeouts:
+  watchdogs:
+    wd1:
+      minutes: 1
+console_patterns:
+  session_end:
+    regex: "session_end"
+  watchdogs:
+    wd1:
+      start:
+        regex: "start"
+      reset:
+        regex: "reset"
+      stop:
+        regex: "stop"
+deployment:
+  start:
+    kernel:
+      url: "kernel_url"
+      cmdline: "cmdline"
+    initramfs:
+      url: "initramfs_url"
+"""
+    job = Job.from_job(override_job)
+    assert job.console_patterns.watchdogs["wd1"].timeout == job.timeouts.watchdogs["wd1"]
+
+    # Test that getting the string does not explode
+    str(job)
