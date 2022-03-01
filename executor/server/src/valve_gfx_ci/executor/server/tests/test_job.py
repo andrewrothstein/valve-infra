@@ -1,9 +1,11 @@
 from datetime import datetime, timedelta
 from freezegun import freeze_time
-import pytest
 from unittest.mock import patch, MagicMock
+import re
 
-from server.job import Target, Timeout, Timeouts, ConsoleState, _multiline_string, Deployment, Job
+import pytest
+
+from server.job import Target, Timeout, Timeouts, ConsoleState, _multiline_string, Deployment, Job, Pattern
 
 # Target
 
@@ -199,6 +201,21 @@ def test_Timeouts__from_job():
     assert timeouts.watchdogs.get("custom1").timeout == timedelta(seconds=42)
 
 
+# Pattern
+
+
+def test_Pattern_from_job__missing_regex():
+    with pytest.raises(ValueError) as exc:
+        Pattern.from_job({})
+
+    assert "Console patterns require the 'regex' attribute" in str(exc.value)
+
+
+def test_Pattern_from_job__invalid_regex():
+    with pytest.raises(re.error):
+        Pattern.from_job({"regex": "BOOM\\"})
+
+
 # ConsoleState
 
 
@@ -209,7 +226,7 @@ def test_ConsoleState__missing_session_end():
 
 
 def test_ConsoleState__simple_lifecycle():
-    state = ConsoleState(session_end="session_end", session_reboot=None, job_success=None, job_warn=None,
+    state = ConsoleState(session_end=Pattern("session_end"), session_reboot=None, job_success=None, job_warn=None,
                          machine_unfit_for_service=None)
 
     assert state.job_status == "INCOMPLETE"
@@ -228,9 +245,9 @@ def test_ConsoleState__simple_lifecycle():
 
 
 def test_ConsoleState__lifecycle_with_extended_support():
-    state = ConsoleState(session_end="session_end", session_reboot="session_reboot",
-                         job_success="job_success", job_warn="job_warn",
-                         machine_unfit_for_service="machine_unfit_for_service")
+    state = ConsoleState(session_end=Pattern("session_end"), session_reboot=Pattern("session_reboot"),
+                         job_success=Pattern("job_success"), job_warn=Pattern("job_warn"),
+                         machine_unfit_for_service=Pattern("machine_unfit_for_service"))
 
     assert state.job_status == "INCOMPLETE"
     assert not state.session_has_ended
@@ -281,7 +298,7 @@ def test_ConsoleState__lifecycle_with_extended_support():
 def test_ConsoleState_from_job__default():
     console_state = ConsoleState.from_job({})
 
-    assert console_state.session_end == "^\\[[\\d \\.]{12}\\] reboot: Power Down$"
+    assert console_state.session_end.regex.pattern == b"^\\[[\\d \\.]{12}\\] reboot: Power Down$"
     assert console_state.session_reboot is None
     assert console_state.job_success is None
     assert console_state.job_warn is None
@@ -303,11 +320,11 @@ def test_ConsoleState_from_job__full():
         }
     })
 
-    assert console_state.session_end == "session_end"
-    assert console_state.session_reboot == "session_reboot"
-    assert console_state.job_success == "job_success"
-    assert console_state.job_warn == "job_warn"
-    assert console_state.machine_unfit_for_service == "unfit_for_service"
+    assert console_state.session_end.regex.pattern == b"session_end"
+    assert console_state.session_reboot.regex.pattern == b"session_reboot"
+    assert console_state.job_success.regex.pattern == b"job_success"
+    assert console_state.job_warn.regex.pattern == b"job_warn"
+    assert console_state.machine_unfit_for_service.regex.pattern == b"unfit_for_service"
 
 
 # _multiline_string

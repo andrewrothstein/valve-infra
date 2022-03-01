@@ -171,21 +171,41 @@ class Timeouts:
         return schema.load(data)
 
 
+class Pattern:
+    class Schema(Schema):
+        regex = fields.Str()
+
+        @post_load
+        def make(self, data, **kwargs):
+            if regex := data.get('regex', None):
+                return Pattern(regex)
+
+            raise ValueError("Console patterns require the 'regex' attribute")
+
+    def __init__(self, regex):
+        self.regex = re.compile(regex.encode())
+
+    def __str__(self):
+        return f"{self.regex.pattern}"
+
+    @classmethod
+    def from_job(cls, data):
+        schema = cls.Schema()
+        return schema.load(data)
+
+
 class ConsoleState:
     class Schema(Schema):
-        class PatternSchema(Schema):
-            regex = fields.Str()
-
-        session_end = fields.Nested(PatternSchema(), missing=None)
-        session_reboot = fields.Nested(PatternSchema(), missing=None)
-        job_success = fields.Nested(PatternSchema(), missing=None)
-        job_warn = fields.Nested(PatternSchema(), missing=None)
-        machine_unfit_for_service = fields.Nested(PatternSchema(), missing=None)
+        session_end = fields.Nested(Pattern.Schema(), missing=None)
+        session_reboot = fields.Nested(Pattern.Schema(), missing=None)
+        job_success = fields.Nested(Pattern.Schema(), missing=None)
+        job_warn = fields.Nested(Pattern.Schema(), missing=None)
+        machine_unfit_for_service = fields.Nested(Pattern.Schema(), missing=None)
 
         @post_load
         def make(self, data, **kwargs):
             patterns = {
-                "session_end": "^\\[[\\d \\.]{12}\\] reboot: Power Down$",
+                "session_end": Pattern("^\\[[\\d \\.]{12}\\] reboot: Power Down$"),
                 "session_reboot": None,
                 "job_success": None,
                 "job_warn": None,
@@ -194,8 +214,7 @@ class ConsoleState:
 
             for name, pattern in data.items():
                 if pattern is not None:
-                    if regex := pattern.get('regex', None):
-                        patterns[name] = regex
+                    patterns[name] = pattern
 
             return ConsoleState(**patterns)
 
@@ -207,20 +226,20 @@ class ConsoleState:
         self.machine_unfit_for_service = machine_unfit_for_service
 
         self._regexs = {
-            "session_end": re.compile(session_end.encode()),
+            "session_end": session_end.regex,
         }
 
         if session_reboot is not None:
-            self._regexs["session_reboot"] = re.compile(session_reboot.encode())
+            self._regexs["session_reboot"] = session_reboot.regex
 
         if job_success is not None:
-            self._regexs["job_success"] = re.compile(job_success.encode())
+            self._regexs["job_success"] = job_success.regex
 
         if job_warn is not None:
-            self._regexs["job_warn"] = re.compile(job_warn.encode())
+            self._regexs["job_warn"] = job_warn.regex
 
         if machine_unfit_for_service is not None:
-            self._regexs["machine_unfit_for_service"] = re.compile(machine_unfit_for_service.encode())
+            self._regexs["machine_unfit_for_service"] = machine_unfit_for_service.regex
 
         self._matched = set()
 
