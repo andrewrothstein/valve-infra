@@ -5,6 +5,7 @@ from tarfile import TarFile
 import subprocess
 import traceback
 import requests
+from requests_toolbelt import MultipartEncoder
 import tempfile
 import termios
 import select
@@ -185,23 +186,27 @@ class Job:
                     "tags": self.machine_tags
                 }
 
-            files = [('metadata', ('metadata', json.dumps(metadata), 'application/json')),
-                     ('job', ('job', self.job_desc, 'application/x-yaml'))]
+            fields = {
+                'metadata': ('metadata', json.dumps(metadata), 'application/json'),
+                'job': ('job', 'a job description', 'application/x-yaml')
+            }
+
             if self.share_directory:
                 print("Packing up the share_directory")
                 archive_path = self._create_archive()
                 archive_stats = os.stat(archive_path)
-                print("--> Wrote %s bytes..." % archive_stats.st_size)
+                print("--> Wrote %s bytes to tar archive..." % archive_stats.st_size)
 
                 # TODO: Delete this file after calling requests
                 archive_file = open(archive_path, 'rb')
-                files.append(('job_bucket_initial_state_tarball_file',
-                              ('job_bucket_initial_state_tarball_file',
-                               archive_file,
-                               'application/octet-stream')))
+                fields['job_bucket_initial_state_tarball_file'] = ('job_bucket_initial_state_tarball_file',
+                                                                   archive_file,
+                                                                   'application/octet-stream')
+
             first_wait = True
             while True:
-                r = requests.post(f"{self.executor_url}/api/v1/jobs", files=files)
+                m = MultipartEncoder(fields=fields)
+                r = requests.post(f"{self.executor_url}/api/v1/jobs", data=m, headers={'Content-Type': m.content_type})
                 response = self._parse_response(r)
 
                 if r.status_code == 200:
