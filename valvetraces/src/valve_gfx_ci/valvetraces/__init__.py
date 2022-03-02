@@ -1365,7 +1365,7 @@ Debug information:
 
     @cached_property
     def job_timeline(self):
-        project = get_env_var_or_fail('CI_PROJECT_PATH_SLUG')
+        project = get_env_var_or_fail('CI_PROJECT_PATH')
         branch = get_env_var_or_fail('CI_COMMIT_BRANCH')
         project_url = get_env_var_or_fail('CI_PROJECT_URL')
 
