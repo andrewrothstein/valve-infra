@@ -128,103 +128,28 @@ class Job:
                     "tags": self.machine_tags
                 }
 
-            files = [('metadata', ('metadata', json.dumps(metadata), 'application/json')),
-                     ('job', ('job', self.job_desc, 'application/x-yaml'))]
-            if self.share_directory:
-                print("Packing up the share_directory")
-                archive_path = self._create_archive()
-                archive_stats = os.stat(archive_path)
-                print("--> Wrote %s bytes..." % archive_stats.st_size)
-
-                with open(archive_path, 'rb') as archive_file:
-                    files.append(('job_bucket_initial_state_tarball_file',
-                                  ('job_bucket_initial_state_tarball_file',
-                                   archive_file,
-                                   'application/octet-stream')))
-
-                    success, response = queue_job(files=files)
-                    if not success:
-                        return None, response
-            else:
-                success, response = queue_job(files=files)
-                if not success:
-                    return None, response
-
-            # We should not have a connection queued, accept it with a timeout
-            print(f"Waiting for the executor to connect to our local port {local_port}")
-            tcp_server.settimeout(5)
-            try:
-                sock, _ = tcp_server.accept()
-            except socket.timeout:
-                raise ValueError("The server failed to initiate a connection")
-
-            # Set the resulting socket's timeout to blocking
-            sock.settimeout(None)
-
-        return sock, response
-
-        # Set up a TCP server
-        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as tcp_server:
-            tcp_server.bind(('', 0))
-            tcp_server.listen(1)
-            local_port = tcp_server.getsockname()[1]
-
-            # Queue the job
-            metadata = {
-                "version": 1,
-                "job_id": self.job_id,
-                "callback": {
-                    "port": local_port
-                }
-            }
-            if self.callback_host is not None:
-                metadata['callback']['host'] = self.callback_host
-
-            if self.machine_id is not None or (self.machine_tags is not None and len(self.machine_tags) > 0):
-                metadata['target'] = {
-                    "id": self.machine_id,
-                    "tags": self.machine_tags
-                }
-
             fields = {
                 'metadata': ('metadata', json.dumps(metadata), 'application/json'),
-                'job': ('job', 'a job description', 'application/x-yaml')
+                'job': ('job', self.job_desc, 'application/x-yaml')
             }
-
-            if self.share_directory:
-                print("Packing up the share_directory")
-                archive_path = self._create_archive()
-                archive_stats = os.stat(archive_path)
-                print("--> Wrote %s bytes to tar archive..." % archive_stats.st_size)
-
-                # TODO: Delete this file after calling requests
-                archive_file = open(archive_path, 'rb')
-                fields['job_bucket_initial_state_tarball_file'] = ('job_bucket_initial_state_tarball_file',
-                                                                   archive_file,
-                                                                   'application/octet-stream')
-
-            first_wait = True
-            while True:
+            start_job_file_archive = None
+            try:
+                if self.share_directory:
+                    print("Packing up the share_directory")
+                    archive_path = self._create_archive()
+                    archive_stats = os.stat(archive_path)
+                    print("--> Wrote %s bytes into tar archive..." % archive_stats.st_size)
+                    start_job_file_archive = open(archive_path, 'rb')
+                    fields['job_bucket_initial_state_tarball_file'] = ('job_bucket_initial_state_tarball_file',
+                                                                       start_job_file_archive,
+                                                                       'application/octet-stream')
                 m = MultipartEncoder(fields=fields)
-                r = requests.post(f"{self.executor_url}/api/v1/jobs", data=m, headers={'Content-Type': m.content_type})
-                response = self._parse_response(r)
-
-                if r.status_code == 200:
-                    break
-                elif r.status_code == 409 and self.wait_if_busy:
-                    if first_wait:
-                        print("No machines available for the job, waiting: ", end="", flush=True)
-                        first_wait = False
-                    else:
-                        print(".", end="", flush=True)
-                    time.sleep(1)
-                else:
-                    print(f"ERROR: Could not queue the work: \"{response.error_msg}\"", file=sys.stderr)
-
+                success, response = queue_job(data=m, headers={'Content-Type': m.content_type})
+                if not success:
                     return None, response
-
-            if not first_wait:
-                print("")
+            finally:
+                if start_job_file_archive is not None:
+                    start_job_file_archive.close()
 
             # We should not have a connection queued, accept it with a timeout
             print(f"Waiting for the executor to connect to our local port {local_port}")
