@@ -33,6 +33,3 @@ ip link set private up
 # Set up wireguard, and allow clients to access both the private and public networks
 wg-quick up wg0
 echo 1 > /proc/sys/net/ipv4/ip_forward
-iptables -A FORWARD -i wg0 -j ACCEPT
-iptables -A FORWARD -o wg0 -j ACCEPT
-iptables -t nat -A POSTROUTING -o $PUBLIC -j MASQUERADE
