@@ -1,0 +1,19 @@
+#!/usr/bin/nft -f
+table inet filter {
+    chain input {
+        udp dport {{ wg0_port }} accept comment "accept wireguard"
+        iifname "wg*" accept comment "accept incoming to wireguard"
+    }
+    chain output {
+        udp dport {{ wg0_port }} accept comment "accept wireguard"
+        oifname "wg*" accept comment "accept outgoing to wireguard"
+    }
+    chain forward {
+        iifname "wg*" accept comment "accept forwarding incoming to wireguard"
+        oifname "wg*" accept comment "accept forwarding outgoing from wireguard"
+    }
+    chain postrouting {
+        type nat hook postrouting priority srcnat; policy accept;
+        oifname != "private" masquerade
+    }
+}

@@ -24,6 +24,16 @@
     dest: '/etc/wireguard/wg0.conf'
     mode: 0600
 
+- name: Installing wireguard nft rule
+  become: true
+  ansible.builtin.template:
+    src: 10-wg.nft.j2
+    dest: /etc/nftables.d/10-wg.nft
+    owner: root
+    group: root
+    mode: 0644
+  notify: 'Restart nftables'
+
 - name: Installing network_setup service
   become: true
   ansible.builtin.copy:
