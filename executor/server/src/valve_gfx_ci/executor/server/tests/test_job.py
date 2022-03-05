@@ -60,11 +60,13 @@ def test_Timeout__expiration_test():
     with freeze_time(start_time.isoformat()):
         timeout = Timeout(name="name", timeout=timedelta(minutes=1), retries=0)
         assert timeout.started_at is None
+        assert not timeout.is_started
         assert timeout.active_for is None
 
         # Start the timeout and check the state
         timeout.start()
         assert timeout.started_at == start_time
+        assert timeout.is_started
         assert timeout.active_for == timedelta()
         assert not timeout.has_expired
 
@@ -73,6 +75,7 @@ def test_Timeout__expiration_test():
         with freeze_time((start_time + delta).isoformat()):
             assert timeout.started_at == start_time
             assert timeout.active_for == delta
+            assert timeout.is_started
             assert not timeout.has_expired
 
         # And check that an extra millisecond trip it
@@ -80,11 +83,13 @@ def test_Timeout__expiration_test():
         with freeze_time((start_time + delta).isoformat()):
             assert timeout.started_at == start_time
             assert timeout.active_for == delta
+            assert timeout.is_started
             assert timeout.has_expired
 
         # Stop the timeout and check the state
         timeout.stop()
         assert timeout.started_at is None
+        assert not timeout.is_started
         assert timeout.active_for is None
 
 

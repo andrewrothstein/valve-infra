@@ -70,6 +70,10 @@ class Timeout:
             return None
 
     @property
+    def is_started(self):
+        return self.started_at is not None
+
+    @property
     def has_expired(self):
         active_for = self.active_for
         return active_for is not None and active_for > self.timeout
