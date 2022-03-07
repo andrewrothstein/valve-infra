@@ -21,6 +21,7 @@ CONTAINER ?= mupuf/valve-infra/valve-infra-container:latest
 PRIV_MAC=$(shell printf "DE:AD:BE:EF:%02X:%02X\n" $$((RANDOM%256)) $$((RANDOM%256)))
 PUBLIC_MAC=$(shell printf "DE:AD:BE:EF:%02X:%02X\n" $$((RANDOM%256)) $$((RANDOM%256)))
 B2C_VERSION=v0.9.4
+FDO_DISTRIBUTION_TAG ?= "2022-03-07.1"
 
 tmp/boot2container-$(B2C_VERSION)-linux_amd64.cpio.xz:
 	[ -d tmp/ ] || mkdir tmp
@@ -35,15 +36,27 @@ tmp/ipxe-disk.img tmp/disk.img:
 	qemu-img create -f qcow2 $@ 20G
 
 .PHONY: valve-infra-container
+valve-infra-container: BASE_IMAGE ?= "registry.freedesktop.org/mupuf/valve-infra/valve-infra-base-container:latest"
 valve-infra-container:
 ifndef IMAGE_NAME
 	$(error "IMAGE_NAME is a required parameter (e.g. localhost:8088/mupuf/valve-infra/valve-infra-container:latest)")
 endif
 	env \
-	   IMAGE_NAME=$(IMAGE_NAME)
-	   BASE_IMAGE=registry.freedesktop.org/mupuf/valve-infra/valve-infra-base-container:latest \
+	   IMAGE_NAME=$(IMAGE_NAME) \
+	   BASE_IMAGE=$(BASE_IMAGE) \
 	   ANSIBLE_EXTRA_ARGS='--extra-vars service_mgr_override=inside_container' \
 	   buildah unshare -- sh .gitlab-ci/valve-infra-container-build.sh
+
+.PHONY: valve-infra-base-container
+valve-infra-base-container: BASE_IMAGE ?= "archlinux:base-devel-20220130.0.46058"
+valve-infra-base-container:
+ifndef IMAGE_NAME
+	$(error "IMAGE_NAME is a required parameter (e.g. localhost:8088/mupuf/valve-infra/valve-infra-base-container:latest)")
+endif
+	env \
+	   IMAGE_NAME=$(IMAGE_NAME) \
+	   BASE_IMAGE=$(BASE_IMAGE) \
+	   buildah unshare -- sh .gitlab-ci/valve-infra-base-container-build.sh
 
 .PHONY: machine-registration-container
 machine-registration-container:
