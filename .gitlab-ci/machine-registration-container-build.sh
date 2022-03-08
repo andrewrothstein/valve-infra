@@ -1,14 +1,13 @@
 #!/bin/bash
 set -ex
 
+. .gitlab-ci/build_functions.sh
+
 # (2022-02) Will be nice to use ci-templates, but we need --entrypoint
 # overrides in the container image, which we can't do with that
 # project. Couldn't push changes through the CI, and couldn't find
 # help from the developer in time, so just hand-roll it until those
 # issues are resolved.
-
-buildah_run="buildah run --isolation chroot"
-buildah_commit="buildah commit --format docker"
 
 buildcntr=$(buildah from --isolation=chroot debian:bullseye-slim)
 buildmnt=$(buildah mount $buildcntr)
@@ -36,22 +35,7 @@ $buildah_run $buildcntr sh -c 'apt remove -y gcc && apt autoremove -y && apt cle
 
 if [ -n "$IMAGE_NAME" ]; then
     buildah config --entrypoint '["/app/machine_registration/machine_registration.py"]' --cmd 'register' $buildcntr
-    $buildah_commit $buildcntr $IMAGE_NAME
-    [ -n "$CI_JOB_TOKEN" ] && [ -n "$CI_REGISTRY" ] && podman login -u gitlab-ci-token -p $CI_JOB_TOKEN $CI_REGISTRY
-    extra_podman_args=
-    [[ $IMAGE_NAME =~ ^localhost.* ]] && extra_podman_args='--tls-verify=false'
-    podman push $extra_podman_args $IMAGE_NAME || true
-    sleep 2
-    podman push $extra_podman_args $IMAGE_NAME
-    if [ -n "$IMAGE_NAME_LATEST" ]; then
-        extra_podman_args=
-        [[ $IMAGE_NAME_LATEST =~ ^localhost.* ]] && extra_podman_args='--tls-verify=false'
-        podman tag "$IMAGE_NAME" "$IMAGE_NAME_LATEST"
-        podman push $extra_podman_args $IMAGE_NAME_LATEST || true
-        sleep 2
-        podman push $extra_podman_args $IMAGE_NAME_LATEST
-    fi
+	push_image
 fi
 
-buildah unmount $buildcntr
-buildah rm $buildcntr
+cleanup
