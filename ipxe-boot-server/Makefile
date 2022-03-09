@@ -158,7 +158,7 @@ endif
 	@# Generate the iPXE ISO
 	@# Overkill, but safety first.
 	make -C $(IPXE_DIR)/src clean
-	make -C $(IPXE_DIR)/src -j`nproc` $(IPXE_TARGET) EMBED=$(TMP_DIR)/ipxescript PRIVKEY=$(CLIENT_CERT_KEY) CERT=$(CLIENT_CERT_CRT) || exit 1
+	make -C $(IPXE_DIR)/src -j`nproc` $(IPXE_TARGET) EMBED=$(TMP_DIR)/ipxescript PRIVKEY=$(CLIENT_CERT_KEY) CERT=$(CLIENT_CERT_CRT) DEBUG=x509 || exit 1
 
 	$(IPXE_DIR)/src/util/genfsimg -o $(OUTPUT_ISO) $(IPXE_DIR)/src/bin-x86_64-efi/ipxe.efi $(IPXE_DIR)/src/bin/ipxe.lkrn || exit 1
 
