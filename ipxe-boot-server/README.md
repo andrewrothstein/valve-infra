@@ -131,11 +131,11 @@ To generate bootable ISOs for your gateways, you will need:
  - perl
  - liblzma-dev
  - mtools
- - xorrisofs
+ - xorriso
  - syslinux
  - syslinux-efi
  - syslinux-utils
- - mkisolinux
+ - isolinux
 
 and then execute the following commands:
 
