@@ -27,7 +27,7 @@ ifndef IPXE_SERVER_FQDN
 endif
 
 	@mkdir "$(CERTS_DIR)" 2> /dev/null
-	openssl req -nodes -x509 -newkey rsa:2048 -out $(CA_CERT) -keyout $(CA_KEY) -subj "/CN=$(IPXE_SERVER_FQDN)"
+	openssl req -nodes -x509 -newkey rsa:2048 -out $(CA_CERT) -keyout $(CA_KEY) -subj "/CN=$(IPXE_SERVER_FQDN)" -days 3650
 	touch $(CERTS_DIR)/ca.idx
 	echo 00 > $(CERTS_DIR)/ca.srl
 
