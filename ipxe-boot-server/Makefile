@@ -10,8 +10,12 @@ CA_CNF := $(CERTS_DIR)/ca.cnf
 
 TMP_DIR := $(PWD)/tmp
 
-OUTPUT_ISO_FOLDER := infra_isos
+OUTPUT_ISO_FOLDER := $(PWD)/infra_isos
 OUTPUT_ISO := $(OUTPUT_ISO_FOLDER)/ci-gateway-$(CLIENT_NAME).iso
+CLIENT_CERT_KEY := $(OUTPUT_ISO).key
+CLIENT_CERT_REQ := $(OUTPUT_ISO).req
+CLIENT_CERT_CRT := $(OUTPUT_ISO).crt
+CLIENT_CERT_FINGERPRINT := $(OUTPUT_ISO).fingerprint
 
 PRIV_MAC=$(shell printf "DE:AD:BE:EF:%02X:%02X\n" $$((RANDOM%256)) $$((RANDOM%256)))
 PUBLIC_MAC=$(shell printf "DE:AD:BE:EF:%02X:%02X\n" $$((RANDOM%256)) $$((RANDOM%256)))
@@ -40,7 +44,7 @@ endif
 	private_key            = $(CA_KEY)
 	serial                 = $(CA_SRL)
 	database               = $(CA_IDX)
-	new_certs_dir          = tmp
+	new_certs_dir          = $(TMP_DIR)
 	default_md             = default
 	policy                 = policy_anything
 	preserve               = yes
@@ -73,7 +77,30 @@ $(IPXE_DIR):
 	git clone git://git.ipxe.org/ipxe.git $(IPXE_DIR)
 
 
-$(OUTPUT_ISO): $(IPXE_DIR) $(CA_CERT)
+$(CLIENT_CERT_KEY) $(CLIENT_CERT_REQ): $(CA_CERT)
+ifndef CLIENT_NAME
+	$(error CLIENT_NAME is not set)
+endif
+	mkdir $(OUTPUT_ISO_FOLDER)
+
+	openssl req -newkey rsa -nodes -keyout $(CLIENT_CERT_KEY) -out $(CLIENT_CERT_REQ) -subj "/CN=$(CLIENT_NAME)" -days 3650
+
+
+$(CLIENT_CERT_CRT) $(CLIENT_CERT_FINGERPRINT): $(CA_CERT) $(CLIENT_CERT_REQ)
+	@# Create a temporary directory for the generation of the client certificate
+	-rm -rf $(TMP_DIR)
+	mkdir $(TMP_DIR)
+
+	openssl ca -batch -config $(CA_CNF) -in $(CLIENT_CERT_REQ) -out $(CLIENT_CERT_CRT)
+	openssl verify -verbose -CAfile $(CA_CERT) $(CLIENT_CERT_CRT) || exit 1
+
+	CLIENT_FINGERPRINT=`openssl x509 -in $(CLIENT_CERT_CRT) -noout -fingerprint | sed 's/^SHA1 Fingerprint=\(.*\)/\1/' | tr '[:upper:]' '[:lower:]' | tr -d ':'`
+	echo "$$CLIENT_FINGERPRINT" > $(CLIENT_CERT_FINGERPRINT)
+
+	rm -rf $(TMP_DIR)
+
+
+$(OUTPUT_ISO): $(IPXE_DIR) $(CA_CERT) $(CLIENT_CERT_KEY) $(CLIENT_CERT_CRT)
 ifndef CLIENT_NAME
 	$(error CLIENT_NAME is not set)
 endif
@@ -85,13 +112,6 @@ endif
 	@# Create a temporary directory for the generation of the client certificate
 	-rm -rf $(TMP_DIR)
 	mkdir $(TMP_DIR)
-	mkdir $(OUTPUT_ISO_FOLDER)
-
-	openssl req -newkey rsa -nodes -keyout $(TMP_DIR)/client.key -out $(TMP_DIR)/client.req -subj "/CN=$(CLIENT_NAME)" -days 3650
-	openssl ca -batch -config $(CA_CNF) -in $(TMP_DIR)/client.req -out $(TMP_DIR)/client.crt
-	openssl verify -verbose -CAfile $(CA_CERT) $(TMP_DIR)/client.crt || exit 1
-	CLIENT_FINGERPRINT=`openssl x509 -in "$(TMP_DIR)/client.crt" -noout -fingerprint | sed 's/^SHA1 Fingerprint=\(.*\)/\1/' | tr '[:upper:]' '[:lower:]' | tr -d ':'`
-	echo "$$CLIENT_FINGERPRINT" > $(OUTPUT_ISO).fingerprint
 
 	@# Enable HTTPS
 	sed -i 's/#undef\tDOWNLOAD_PROTO_HTTPS/#define\tDOWNLOAD_PROTO_HTTPS/' $(IPXE_DIR)/src/config/general.h
@@ -138,11 +158,11 @@ endif
 	@# Generate the iPXE ISO
 	@# Overkill, but safety first.
 	make -C $(IPXE_DIR)/src clean
-	make -C $(IPXE_DIR)/src -j`nproc` $(IPXE_TARGET) EMBED=$(TMP_DIR)/ipxescript PRIVKEY=$(TMP_DIR)/client.key CERT=$(TMP_DIR)/client.crt || exit 1
+	make -C $(IPXE_DIR)/src -j`nproc` $(IPXE_TARGET) EMBED=$(TMP_DIR)/ipxescript PRIVKEY=$(CLIENT_CERT_KEY) CERT=$(CLIENT_CERT_CRT) || exit 1
 
 	$(IPXE_DIR)/src/util/genfsimg -o $(OUTPUT_ISO) $(IPXE_DIR)/src/bin-x86_64-efi/ipxe.efi $(IPXE_DIR)/src/bin/ipxe.lkrn || exit 1
 
-	@echo "Generated the bootable image '$(OUTPUT_ISO)' (fingerprint $$CLIENT_FINGERPRINT)"
+	@echo "Generated the bootable image '$(OUTPUT_ISO)' (fingerprint `cat $(CLIENT_CERT_FINGERPRINT)`)"
 	sha256sum $(OUTPUT_ISO) > $(OUTPUT_ISO).sha256sum
 
 	@# Remove the temporary directory
