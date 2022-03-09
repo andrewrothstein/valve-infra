@@ -126,8 +126,8 @@ endif
 	@# Disable PXE_CMD, as fails to compile
 	sed -Ei 's/#define PXE_CMD/\/\/#define PXE_CMD/' $(IPXE_DIR)/src/config/general.h
 
-	@# Enable the serial console
-	sed -i 's/\/\/#define\tCONSOLE_SERIAL/#define\tCONSOLE_SERIAL/' $(IPXE_DIR)/src/config/console.h
+	@# Enable the serial, syslog, and syslogs consoles
+	sed -Ei 's/\/\/#define\tCONSOLE_(SERIAL|SYSLOG|SYSLOGS)/#define\tCONSOLE_\1/' $(IPXE_DIR)/src/config/console.h
 
 	@# Generate the iPXE init script
 	cat <<'EOF'>$(TMP_DIR)/ipxescript
