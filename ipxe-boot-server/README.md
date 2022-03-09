@@ -17,6 +17,9 @@ of your choice, as this README would be outdated very quickly.
 When done, you should see "It works!" when opening https://ipxe.$domain_name
 in your browser, without SSL warnings.
 
+WARNING: Until https://github.com/ipxe/ipxe/issues/606 is fixed, you will need
+to add `--preferred-chain "ISRG Root X1"` to your certbot command line.
+
 WARNING: iPXE is quite picky about the SSL certificate size, and will reject
 anything above 4K. It would seem that the only way to stay under that is to
 use a 2048 bits key, and limit the certificate to one domain name.
