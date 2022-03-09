@@ -96,6 +96,9 @@ endif
 	@# Enable HTTPS
 	sed -i 's/#undef\tDOWNLOAD_PROTO_HTTPS/#define\tDOWNLOAD_PROTO_HTTPS/' $(IPXE_DIR)/src/config/general.h
 
+	@# Enable the NTP command
+	sed -i 's/\/\/#define NTP_CMD/#define NTP_CMD/' $(IPXE_DIR)/src/config/general.h
+
 	@# Enable the serial console
 	sed -i 's/\/\/#define\tCONSOLE_SERIAL/#define\tCONSOLE_SERIAL/' $(IPXE_DIR)/src/config/console.h
 
@@ -109,6 +112,12 @@ endif
 	echo Acquiring an IP
 	dhcp || goto retry # Keep retrying indefinitely
 	echo Got the IP: $${netX/ip} / $${netX/netmask}
+
+	echo
+
+	echo Updating the current time using NTP
+	ntp pool.ntp.org || goto retry
+	echo Current unixtime: $${unixtime} (use `date --date=@$$(($${unixtime}))` to decode it)
 
 	echo
 
