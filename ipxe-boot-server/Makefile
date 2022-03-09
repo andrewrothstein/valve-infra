@@ -120,8 +120,11 @@ endif
 	@# Enable HTTPS
 	sed -i 's/#undef\tDOWNLOAD_PROTO_HTTPS/#define\tDOWNLOAD_PROTO_HTTPS/' $(IPXE_DIR)/src/config/general.h
 
-	@# Enable the NTP command
-	sed -i 's/\/\/#define NTP_CMD/#define NTP_CMD/' $(IPXE_DIR)/src/config/general.h
+	@# Enable all the commands
+	sed -Ei 's/\/\/#define (.*)_CMD/#define \1_CMD/' $(IPXE_DIR)/src/config/general.h
+
+	@# Disable PXE_CMD, as fails to compile
+	sed -Ei 's/#define PXE_CMD/\/\/#define PXE_CMD/' $(IPXE_DIR)/src/config/general.h
 
 	@# Enable the serial console
 	sed -i 's/\/\/#define\tCONSOLE_SERIAL/#define\tCONSOLE_SERIAL/' $(IPXE_DIR)/src/config/console.h
