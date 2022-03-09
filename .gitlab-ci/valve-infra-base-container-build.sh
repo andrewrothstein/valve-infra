@@ -59,6 +59,10 @@ $buildah_run $buildcntr sh -c 'env LC_ALL=C pacman -Qi' | awk '/^Name/{name=$3} 
 $buildah_run $buildcntr du -h -d 3 /usr /etc | sort -h
 $buildah_run $buildcntr du -h /usr/lib/python3.10/site-packages | sort -h
 
+# pacman's clean command defaults to 'n' for cache, which makes --noconfirm do
+# exactly what we don't want (nothing)
+$buildah_run $buildcntr sh -c "yes 'y' | pacman -Scc"
+
 if [ -n "$IMAGE_NAME" ]; then
     buildah config --entrypoint /bin/init $buildcntr
 	push_image
