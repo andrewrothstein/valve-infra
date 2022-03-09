@@ -83,7 +83,7 @@ ifndef CLIENT_NAME
 endif
 	mkdir $(OUTPUT_ISO_FOLDER)
 
-	openssl req -newkey rsa -nodes -keyout $(CLIENT_CERT_KEY) -out $(CLIENT_CERT_REQ) -subj "/CN=$(CLIENT_NAME)" -days 3650
+	openssl req -newkey rsa -nodes -keyout $(CLIENT_CERT_KEY) -out $(CLIENT_CERT_REQ) -subj "/CN=$(CLIENT_NAME)"
 
 
 $(CLIENT_CERT_CRT) $(CLIENT_CERT_FINGERPRINT): $(CA_CERT) $(CLIENT_CERT_REQ)
@@ -91,7 +91,7 @@ $(CLIENT_CERT_CRT) $(CLIENT_CERT_FINGERPRINT): $(CA_CERT) $(CLIENT_CERT_REQ)
 	-rm -rf $(TMP_DIR)
 	mkdir $(TMP_DIR)
 
-	openssl ca -batch -config $(CA_CNF) -in $(CLIENT_CERT_REQ) -out $(CLIENT_CERT_CRT)
+	openssl ca -batch -config $(CA_CNF) -in $(CLIENT_CERT_REQ) -out $(CLIENT_CERT_CRT) -days 3650
 	openssl verify -verbose -CAfile $(CA_CERT) $(CLIENT_CERT_CRT) || exit 1
 
 	CLIENT_FINGERPRINT=`openssl x509 -in $(CLIENT_CERT_CRT) -noout -fingerprint | sed 's/^SHA1 Fingerprint=\(.*\)/\1/' | tr '[:upper:]' '[:lower:]' | tr -d ':'`
