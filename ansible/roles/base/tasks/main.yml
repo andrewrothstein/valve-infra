@@ -58,3 +58,10 @@
   ansible.builtin.systemd:
     name: systemd-firstboot.service
     masked: true
+
+- name: Installing sysctl config
+  become: true
+  ansible.builtin.copy:
+    src: 10-printk.conf
+    dest: /etc/sysctl.d/10-printk.conf
+    mode: 0644
