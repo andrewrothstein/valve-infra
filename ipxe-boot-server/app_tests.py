@@ -19,6 +19,8 @@ class TestClientProfile(unittest.TestCase):
         client = ClientProfile(
             mac_address='52:54:00:12:34:56',
             ip_address="10.0.0.1",
+            platform="efi",
+            buildarch="x86_64",
             client_cert_serial_number='03',
             client_cert_fingerprint=self.CERT_FINGERPRINT)
 

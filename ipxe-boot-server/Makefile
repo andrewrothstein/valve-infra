@@ -149,7 +149,7 @@ endif
 	echo
 
 	echo Chainloading from the iPXE server...
-	chain https://${IPXE_SERVER_FQDN}/boot/ipxe?mac=$${netX/mac} || goto retry
+	chain https://${IPXE_SERVER_FQDN}/boot/ipxe?mac=$${netX/mac}&platform=$${platform}&buildarch=$${buildarch} || goto retry
 
 	# The above command may "succeed" but we actually fail to
 	# boot. This could happen if the iPXE boot file is

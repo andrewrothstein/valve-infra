@@ -43,6 +43,8 @@ class BbzBucket:
 class ClientProfile:
     ip_address: str
     mac_address: str
+    platform: str
+    buildarch: str
     client_cert_serial_number: str
     client_cert_fingerprint: str
 
@@ -117,6 +119,8 @@ def gen_client_profile():
         client_cert_serial_number=request.headers.get('X-Ssl-Client-Serial'),
         client_cert_fingerprint=request.headers.get('X-Ssl-Client-Fingerprint'),
         mac_address=request.args.get('mac', default=None, type=str),
+        platform=request.args.get('platform', default=None, type=str),
+        buildarch=request.args.get('buildarch', default=None, type=str),
         ip_address=request.headers.get("X-Real-Ip", request.remote_addr))
 
 
