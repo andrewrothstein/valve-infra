@@ -103,6 +103,7 @@ def gen_conf(template_name: str, p: ClientProfile, bucket: BbzBucket, secrets_ur
         's3_access_key': bucket.access_key,
         's3_bucket_name': bucket.bucket_name,
         'client_cert_fingerprint': p.client_cert_fingerprint,
+        'client': p,
         'secrets_url': secrets_url
     }
 
