@@ -190,13 +190,9 @@ requirements.
 
 Other notes,
 
- - Systemd will try to take over the current console at boot. To see the infrastructure's dashboard, just press
-`Alt+->` or `CTRL+F2`. This will be addressed in a future series.
  - Press `Ctrl-b c` to start a new shell in the dashboard.
  - `make clean` removes all the files created for the test environment.
 
-WARNING: powering off the machine does not currently work, for reasons that are still being investigated. Just kill
-qemu when you are done!
 
 ## Production deployment
 
