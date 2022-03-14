@@ -30,7 +30,6 @@ class Salad(Thread):
 
         self._machines = {}
         self._serial_devs = {}
-        self._external_socket_streams = {}
         self._netconsole_streams = {}
 
     @property
@@ -39,7 +38,7 @@ class Salad(Thread):
 
     def find_console_listener(self, machine_id):
         return next((s for s in chain(self._serial_devs.values(),
-                                      self._external_socket_streams.values())
+                                      self._netconsole_streams.values())
                      if s.machine_id == machine_id), None)
 
     def get_or_create_machine(self, machine_id):
