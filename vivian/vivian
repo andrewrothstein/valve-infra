@@ -229,6 +229,7 @@ gitlab:
       exposed: true
 EOF
         scp $__scp_options vivian/__mars_db.yaml root@localhost:/mnt/permanent/mars_db.yaml
+        rm vivian/__mars_db.yaml
     fi
 }
 
