@@ -183,6 +183,10 @@ key is). You can now validate a couple of things,
 
   12. Go to Gitlab and check that the new runner has been registered.
 
+Finally, you may queue jobs in Vivian using:
+
+	executorctl -e http://localhost:8000 run -t virtio:family:VIRTIO $JOB_FILE
+
 Congratulations! You seem to have a functional setup! Most of the
 steps above are amenable to further configuration. You are now in a
 position to play around and modify defaults to your testing
