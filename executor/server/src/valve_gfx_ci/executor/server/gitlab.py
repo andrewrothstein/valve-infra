@@ -6,8 +6,21 @@ from .logger import logger
 from . import config
 
 
+class SanitizedFieldsMixin:
+    @classmethod
+    def from_api(cls, fields, **kwargs):
+        valid_fields = {f.name for f in cls.__dataclass_fields__.values()}
+
+        sanitized_kwargs = dict(fields)
+        for arg in fields:
+            if arg not in valid_fields:
+                sanitized_kwargs.pop(arg)
+
+        return cls(**sanitized_kwargs, **kwargs)
+
+
 @dataclass
-class GitlabRunnerRegistration:
+class GitlabRunnerRegistration(SanitizedFieldsMixin):
     id: int
     token: str
 
@@ -25,7 +38,7 @@ def register_runner(gitlab_url: str, registration_token: str,
 
     r = requests.post(f"{gitlab_url}/api/v4/runners", params=params)
     if r.status_code == 201:
-        return GitlabRunnerRegistration(**r.json())
+        return GitlabRunnerRegistration.from_api(r.json())
     else:
         return None
 

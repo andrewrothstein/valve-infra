@@ -1,8 +1,18 @@
 from unittest.mock import MagicMock, patch, mock_open
+from dataclasses import dataclass
 
 from server.gitlab import GitlabRunnerRegistration, register_runner, unregister_runner
-from server.gitlab import verify_runner_token, generate_runner_config
+from server.gitlab import verify_runner_token, generate_runner_config, SanitizedFieldsMixin
 import server.config as config
+
+
+def test_SanitizedFieldsMixin__from_api():
+    @dataclass
+    class Dataclass(SanitizedFieldsMixin):
+        field1: int
+        field2: int
+
+    assert Dataclass.from_api({"field1": 1, "field2": 2, "field3": 3}) == Dataclass(field1=1, field2=2)
 
 
 def test_register_runner():
