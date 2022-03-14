@@ -136,7 +136,7 @@ class Salad(Thread):
                         if console := self.find_console_listener(machine.id):
                             console.send(buf)
                         else:
-                            logger.warning("Dropping %s, no console attached for %s",
+                            logger.warning("Dropping %s, no associated consoles for %s",
                                            buf, machine.id)
                 except Exception:
                     logger.error(traceback.format_exc())
