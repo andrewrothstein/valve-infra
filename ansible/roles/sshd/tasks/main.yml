@@ -56,6 +56,15 @@
     owner: root
     group: root
 
+- name: Installing ssh nft rule
+  become: true
+  ansible.builtin.copy:
+    src: 10-sshd.nft
+    dest: /etc/nftables.d/10-sshd.nft
+    owner: root
+    group: root
+    mode: 0644
+  notify: 'Restart nftables'
 
 - name: Installing authorized keys
   become: true

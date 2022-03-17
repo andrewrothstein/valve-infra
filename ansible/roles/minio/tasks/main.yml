@@ -33,6 +33,16 @@
   # config changes are applied to minio by this service
   notify: "Restart minio_configure"
 
+- name: Adding minio firewall config
+  become: true
+  ansible.builtin.template:
+    src: 'minio.nft.j2'
+    dest: /etc/nftables.d/50-minio.nft
+    owner: root
+    group: root
+    mode: '0644'
+  notify: 'Restart nftables'
+
 - name: Installing minio_configure script
   become: true
   ansible.builtin.template:

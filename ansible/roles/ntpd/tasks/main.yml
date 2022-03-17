@@ -21,3 +21,13 @@
     group: root
     mode: '0644'
   notify: 'Restart chrony'
+
+- name: Adding firewall rule for Chrony
+  become: true
+  ansible.builtin.copy:
+    src: 10-chrony.nft
+    dest: /etc/nftables.d/10-chrony.nft
+    owner: root
+    group: root
+    mode: '0644'
+  notify: 'Restart nftables'
