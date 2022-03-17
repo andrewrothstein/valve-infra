@@ -91,6 +91,16 @@ def machine_detail_get(machine_id):
     return CustomJSONEncoder().default(machine)
 
 
+@app.route('/boot/<machine_id>/boot.ipxe', methods=['GET'])
+def machine_ipxe_boot_script(machine_id):
+    with app.app_context():
+        mars = flask.current_app.mars
+
+    machine = mars.get_machine_by_id(machine_id)
+    args = flask.request.args
+    return mars.boots.ipxe_boot_script(machine, platform=args.get("platform"), buildarch=args.get("buildarch"))
+
+
 @dataclass
 class MinIOCredentials:
     access_key: str
@@ -316,7 +326,6 @@ def run():  # pragma: nocover
     boots = BootService(config_paths={
         'BOOTS_ROOT': config.BOOTS_ROOT,
         'TFTP_DIR': config.BOOTS_TFTP_ROOT,
-        'PXELINUX_CONFIG_DIR': config.BOOTS_PXELINUX_CONFIG_DIR,
     })
 
     # Create all the workers based on the machines found in MaRS

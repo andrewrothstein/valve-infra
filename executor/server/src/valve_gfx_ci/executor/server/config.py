@@ -28,7 +28,6 @@ configurables = {
     'SALAD_URL': 'http://10.42.0.1:8005',
     'BOOTS_ROOT': '/mnt/tmp/boots',
     'BOOTS_TFTP_ROOT': '/mnt/tmp/boots/tftp',
-    'BOOTS_PXELINUX_CONFIG_DIR': '/mnt/tmp/boots/tftp/pxelinux.cfg',
     'BOOTS_DISABLE_DNSMASQ': None,
     'MINIO_URL': 'http://10.42.0.1:9000',
     'MINIO_ROOT_USER': 'minioadmin',

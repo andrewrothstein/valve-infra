@@ -13,6 +13,7 @@ from .job import Job
 from .logger import logger
 from .minioclient import MinioClient, MinIOPolicyStatement, generate_policy
 from . import config
+from .boots import BootConfig
 
 import traceback
 import requests
@@ -519,6 +520,7 @@ class Executor(Thread):
         self.job_config = None
         self.job_console = None
         self.job_bucket = None
+        self.boot_config = None
 
         # Remote artifacts (typically over HTTPS) are stored in our
         # local minio instance which is exposed over HTTP to the
@@ -531,6 +533,10 @@ class Executor(Thread):
         # Start the background thread that will manage the machine
         self.stop_event = Event()
         self.start()
+
+    def boot_config_query(self, platform=None, buildarch=None):
+        self.log(f"The machine queried the boot configuration as a {platform} / {buildarch} platform\n")
+        return self.boot_config
 
     def start_job(self, job_request):
         if self.state != MachineState.IDLE:
@@ -604,7 +610,7 @@ class Executor(Thread):
             # Reset the state
             self.job_config = None
             self.job_console = None
-            self.machine.boots.remove_pxelinux_config(self.machine.mac_address)
+            self.boot_config = None
 
             # Pick a job
             if self.sergent_hartman.is_available and not self.machine.ready_for_service:
@@ -650,7 +656,7 @@ class Executor(Thread):
             if self.job_console is not None:
                 self.job_console.close()
                 self.job_console = None
-                self.machine.boots.remove_pxelinux_config(self.machine.mac_address)
+                self.boot_config = None
                 if self.job_bucket:
                     del self.job_bucket
 
@@ -690,11 +696,10 @@ class Executor(Thread):
 
                 # Set up the deployment
                 self.log("Setting up the boot configuration\n")
-                self.machine.boots.write_pxelinux_config(
-                    mac_addr=self.machine.id,
-                    kernel_path=self.remote_url_to_local_cache_mapping.get(deployment.kernel_url),
-                    cmdline=deployment.kernel_cmdline,
-                    initrd_path=self.remote_url_to_local_cache_mapping.get(deployment.initramfs_url))
+                cache_mapping = self.remote_url_to_local_cache_mapping
+                self.boot_config = BootConfig(kernel=cache_mapping.get(deployment.kernel_url),
+                                              initrd=cache_mapping.get(deployment.initramfs_url),
+                                              cmdline=deployment.kernel_cmdline)
 
                 self.log(f"Power up the machine, enforcing {self.machine.pdu_port.min_off_time} seconds of down time\n")
                 self.machine.pdu_port.set(PDUState.ON)

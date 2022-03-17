@@ -113,6 +113,129 @@ vivian-provision:
 vpdu:
 	$(PYTHON) ./vivian/vpdu.py --port $(VPDU_PORT)
 
+
+TMP_DIR := $(PWD)/tmp
+IPXE_DIR := $(TMP_DIR)/ipxe
+$(IPXE_DIR):
+	-mkdir -p $(TMP_DIR)
+	git clone git://git.ipxe.org/ipxe.git $(IPXE_DIR)
+
+
+.PHONY: ipxe-dut-clients
+ipxe-dut-clients: $(IPXE_DIR)
+	@# Tidy up the ipxe folder (overkill, but safety first)
+	make -C $(IPXE_DIR)/src clean
+	(cd $(IPXE_DIR) && git clean -fdx && git fetch && git reset --hard HEAD)
+
+	cat <<'EOF'> $(IPXE_DIR)/src/config/general.h
+	#ifndef CONFIG_GENERAL_H
+	#define CONFIG_GENERAL_H
+
+	FILE_LICENCE ( GPL2_OR_LATER_OR_UBDL );
+
+	#include <config/defaults.h>
+
+	#define BANNER_TIMEOUT		0
+	#define ROM_BANNER_TIMEOUT	( 2 * BANNER_TIMEOUT )
+
+	#define	NET_PROTO_IPV4		/* IPv4 protocol */
+
+	#undef	DOWNLOAD_PROTO_TFTP	/* Trivial File Transfer Protocol */
+	#define	DOWNLOAD_PROTO_HTTP	/* Hypertext Transfer Protocol */
+	#undef	DOWNLOAD_PROTO_HTTPS	/* Secure Hypertext Transfer Protocol */
+	#undef	DOWNLOAD_PROTO_FTP	/* File Transfer Protocol */
+	#undef	DOWNLOAD_PROTO_SLAM	/* Scalable Local Area Multicast */
+	#undef	DOWNLOAD_PROTO_NFS	/* Network File System Protocol */
+	#undef	DOWNLOAD_PROTO_FILE	/* Local filesystem access */
+
+	#undef	SANBOOT_PROTO_ISCSI	/* iSCSI protocol */
+	#undef	SANBOOT_PROTO_AOE	/* AoE protocol */
+	#undef	SANBOOT_PROTO_IB_SRP	/* Infiniband SCSI RDMA protocol */
+	#undef	SANBOOT_PROTO_FCP	/* Fibre Channel protocol */
+	#undef	SANBOOT_PROTO_HTTP	/* HTTP SAN protocol */
+
+	#define	DNS_RESOLVER		/* DNS resolver */
+
+	#define	NVO_CMD			/* Non-volatile option storage commands */
+	#define	CONFIG_CMD		/* Option configuration console */
+	#define CONSOLE_CMD		/* Console command */
+	#define IMAGE_CMD		/* Image management commands */
+	#define DHCP_CMD		/* DHCP management commands */
+	#define IMAGE_ARCHIVE_CMD	/* Archive image management commands */
+
+	#undef	ERRMSG_80211		/* All 802.11 error descriptions (~3.3kb) */
+
+	#undef	BUILD_SERIAL
+	#undef	BUILD_ID
+	#undef	NULL_TRAP
+	#undef	GDBSERIA
+	#undef	GDBUDP
+
+	#include <config/named.h>
+	#include NAMED_CONFIG(general.h)
+	#include <config/local/general.h>
+	#include LOCAL_NAMED_CONFIG(general.h)
+
+	#endif /* CONFIG_GENERAL_H */
+	EOF
+
+	cat <<'EOF'>$(IPXE_DIR)/src/config/console.h
+	#ifndef CONFIG_CONSOLE_H
+	#define CONFIG_CONSOLE_H
+
+	FILE_LICENCE ( GPL2_OR_LATER_OR_UBDL );
+
+	#include <config/defaults.h>
+
+	#define	CONSOLE_SERIAL		/* Serial port console */
+	#define	CONSOLE_SYSLOG		/* Syslog console */
+	#define	KEYBOARD_MAP	us
+	#define	LOG_LEVEL	LOG_ALL
+
+	#include <config/named.h>
+	#include NAMED_CONFIG(console.h)
+	#include <config/local/console.h>
+	#include LOCAL_NAMED_CONFIG(console.h)
+
+	#endif /* CONFIG_CONSOLE_H */
+	EOF
+
+	@# Generate the iPXE init script
+	cat <<'EOF'>$(IPXE_DIR)/boot.ipxe
+	#!ipxe
+
+	echo Welcome to Valve infra's iPXE boot script
+
+	:retry
+	echo Acquiring an IP...
+	dhcp || goto retry
+	echo SALAD.machine_id=$${netX/mac}
+	echo Got the IP: $${netX/ip} / $${netX/netmask}
+
+	echo
+
+	echo Dowloading the boot configuration...
+	chain http://10.42.0.1/boot/$${netX/mac}/boot.ipxe?platform=$${platform}&buildarch=$${buildarch} || goto retry
+
+	sleep 1
+	goto retry
+	EOF
+
+	@# Compile the binaries
+	make -C $(IPXE_DIR)/src -j`nproc` EMBED=$(IPXE_DIR)/boot.ipxe bin-x86_64-efi/ipxe.efi bin/undionly.kpxe || exit 1
+
+	echo
+	echo "########################################################################"
+	echo
+	echo "The compilation is now complete, you will find your binaries at:"
+	echo
+	echo " - PCBIOS: $(IPXE_DIR)/src/bin/undionly.kpxe"
+	echo " - EFI: $(IPXE_DIR)/src/bin-x86_64-efi/ipxe.efi"
+	echo
+	echo "Upload them to https://downloads.gfx-ci.steamos.cloud/ipxe-dut-client/"
+	echo
+	echo "########################################################################"
+
 .PHONY: clean
 clean:
-	-rm -rf tmp vpdu_tmp container_build.log
+	-rm -rf tmp $(TMP_DIR) vpdu_tmp container_build.log
