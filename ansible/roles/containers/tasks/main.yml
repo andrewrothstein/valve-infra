@@ -1,4 +1,11 @@
 ---
+- name: Installing required packages
+  become: true
+  pacman:
+    state: present
+    name:
+      - fuse-overlayfs # used by podman
+
 - name: Enable podman.service
   become: true
   ansible.builtin.systemd:
