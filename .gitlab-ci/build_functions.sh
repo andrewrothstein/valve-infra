@@ -19,8 +19,20 @@ push_image() {
 	sleep 2
 	podman push $extra_podman_args $IMAGE_NAME
     if [ -n "$IMAGE_NAME_LATEST" ]; then
-		# Do not tag :latest on feature/merge request branches in CI, but still allow tagging when not in CI
-		if [ -z "$CI_COMMIT_BRANCH" ] || [ "$CI_COMMIT_BRANCH" == "$CI_DEFAULT_BRANCH" ]; then
+		# Pushing a new :latest tag should only happen when:
+		# 1) when running locally (where $CI is unset)
+		# 2) CI pipelines on the "default" branch of the project ($CI_COMMIT_BRANCH is set AND equal to CI_DEFAULT_BRANCH)
+		tag_latest=false
+
+		if [ -z "$CI" ]; then
+			# running locally
+			tag_latest=true
+		elif [ -n "$CI_COMMIT_BRANCH" ] && [ "$CI_COMMIT_BRANCH" = "$CI_DEFAULT_BRANCH" ]; then
+			# running on the default branch. CI_COMMIT_BRANCH is *not* set in MRs
+			tag_latest=true
+		fi
+
+		if $tag_latest; then
 			extra_podman_args=
 			[[ $IMAGE_NAME_LATEST =~ ^localhost.* ]] && extra_podman_args='--tls-verify=false'
 			podman tag "$IMAGE_NAME" "$IMAGE_NAME_LATEST"
