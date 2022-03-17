@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Copyright © 2021 Valve Corporation
+# Copyright © 2021-2022 Valve Corporation
 # Script to start a virtual testing harness for Valve's graphics
 # infrastructure.
 
@@ -158,6 +158,29 @@ start_gateway() {
 	__qemu_kernel_opts=""
     fi
 
+    set +e
+    grep -q "allow $__host_bridge_name" /etc/qemu/bridge.conf 2> /dev/null
+    __result=$?
+    set -e
+    if [ $__result -ne 0 ]; then
+        if [ -f /etc/qemu/bridge.conf ] && [ $__result -ne 1 ]; then
+            echo 'WARNING: You probably need to make "/etc/qemu/bridge.conf" readable!'
+        else
+            $_sudo mkdir -p /etc/qemu || true
+            $_sudo sh -c "echo \"allow $__host_bridge_name\" >> /etc/qemu/bridge.conf"
+        fi
+    fi
+
+    # WARNING: you should make sure that the
+    # /usr/lib/qemu/qemu-bridge-helper (or similar path) has setuid.
+    #
+    # If not, you may see the following error:
+    # "failed to create tun device: Operation not permitted"
+    #
+    # You can set the setuid with something like:
+    #
+    # chmod u+s /usr/lib/qemu/qemu-bridge-helper
+
     qemu-system-x86_64 \
 	-daemonize \
 	-hda "$__disk_img" \
@@ -242,6 +265,7 @@ create_host_bridge() {
 	echo "Host bridge $__host_bridge_name already exists"
     fi
 }
+
 remove_host_bridge() {
     if ip link show "$__host_bridge_name" 2>&1>/dev/null ; then
 	$_sudo ip link set "$__host_bridge_name" down
