@@ -143,8 +143,8 @@ __gateway_nic_opts="-nic user,ipv6=off,mac=$__gateway_public_mac_addr,hostfwd=tc
 __ssh_options="-p $__ssh_port -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=quiet"
 __scp_options="-P $__ssh_port -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=quiet"
 if [ ! -z "$__ssh_id" ]; then
-    __ssh_options="$__ssh_options -i $__ssh_id"
-    __scp_options="$__scp_options -i $__ssh_id"
+    __ssh_options="$__ssh_options -i $__ssh_id -o IdentitiesOnly=yes"
+    __scp_options="$__scp_options -i $__ssh_id -o IdentitiesOnly=yes"
 fi
 
 start_gateway() {

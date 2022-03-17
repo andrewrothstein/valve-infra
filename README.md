@@ -43,6 +43,10 @@ however the general idea of the deployment.
 The container image is provisioned using Ansible recipes (see the
 `ansible/` subproject).
 
+*WARNING:* in order to *"ssh"* into the gateway container you will
+need to provide your own public key. Make sure to add yours at
+[ansible/gateway.yml](ansible/gateway.yml).
+
 To build the container,
 
 	make IMAGE_NAME=localhost:8088/mupuf/valve-infra/valve-infra-$(whoami):latest valve-infra-container
@@ -77,7 +81,7 @@ To test a built container image, first start a local registry to host
 it, this will save round-trips to an external registry, the container
 is too big,
 
-    podman run --rm -p 8088:5000  --name registry docker.io/library/registry:2
+    podman run --rm -p 8088:5000 --name registry docker.io/library/registry:2
 
 The other testing dependency we need a virtual PDU, start that service
 on the host like so,
@@ -95,13 +99,13 @@ Push the container for validation,
 
 Now, run a virtual gateway machine, which will boot directly into this container,
 
-	make REGISTRY=10.0.2.2:8088 CONTAINER=mupuf/valve-infra/valve-infra-$(whoami):latest FARM_NAME=$(whoami)-test GITLAB_REGISTRATION_TOKEN=... GITLAB_URL=https://gitlab.freedesktop.org vivian
+	make SSH_ID_KEY=~/.ssh/vivian REGISTRY=10.0.2.2:8088 CONTAINER=mupuf/valve-infra/valve-infra-$(whoami):latest FARM_NAME=$(whoami)-farm GITLAB_REGISTRATION_TOKEN=... GITLAB_URL=https://gitlab.freedesktop.org vivian
 
 *TODO: make GITLAB_REGISTRATION_TOKEN/GITLAB_URL optional*
 
 Note: options to vivian can be passed by setting `VIVIAN_OPTS`, for example:
 
-	make VIVIAN_OPTS="--ssh-id=~/.ssh/foo" ... vivian
+	make VIVIAN_OPTS="--ssh-port=50022" ... vivian
 
 The virtual testing recipes will fetch a Linux kernel and a
 boot2container ramdisk, and start the system. After the kernel boots
