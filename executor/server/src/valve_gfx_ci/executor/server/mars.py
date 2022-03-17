@@ -230,6 +230,9 @@ class Machine:
 
     @ready_for_service.setter
     def ready_for_service(self, val):
+        if self.db_dut.ready_for_service == val:
+            return
+
         self.db_dut.ready_for_service = val
 
         # Make sure the updates are reflected in the runner's state
