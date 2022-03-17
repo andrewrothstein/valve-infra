@@ -19,7 +19,6 @@ EOF
 		bash bash-completion \
 		gcc \
 		git \
-		glances \
 		htop \
 		nano vim \
 		net-snmp \
