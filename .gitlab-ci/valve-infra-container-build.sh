@@ -25,7 +25,7 @@ $buildah_run $buildcntr ansible-playbook $ANSIBLE_EXTRA_ARGS ./gateway.yml -l lo
 
 if [ -n "$IMAGE_NAME" ]; then
     buildah config --entrypoint /bin/init $buildcntr
-	push_image
+    push_image
 fi
 
 cleanup

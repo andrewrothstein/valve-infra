@@ -45,7 +45,7 @@ endif
 	   IMAGE_NAME=$(IMAGE_NAME) \
 	   BASE_IMAGE=$(BASE_IMAGE) \
 	   ANSIBLE_EXTRA_ARGS='--extra-vars service_mgr_override=inside_container' \
-	   buildah unshare -- sh .gitlab-ci/valve-infra-container-build.sh
+	   buildah unshare -- .gitlab-ci/valve-infra-container-build.sh
 
 .PHONY: valve-infra-base-container
 valve-infra-base-container: BASE_IMAGE ?= "archlinux:base-devel-20220130.0.46058"
@@ -56,7 +56,7 @@ endif
 	env \
 	   IMAGE_NAME=$(IMAGE_NAME) \
 	   BASE_IMAGE=$(BASE_IMAGE) \
-	   buildah unshare -- sh .gitlab-ci/valve-infra-base-container-build.sh
+	   buildah unshare -- .gitlab-ci/valve-infra-base-container-build.sh
 
 .PHONY: machine-registration-container
 machine-registration-container:
@@ -65,7 +65,7 @@ ifndef IMAGE_NAME
 endif
 	env \
 	   IMAGE_NAME=$(IMAGE_NAME)
-	   buildah unshare -- sh .gitlab-ci/machine-registration-container-build.sh
+	   buildah unshare -- .gitlab-ci/machine-registration-container-build.sh
 
 # Run the valve-infra multi-service container inside a VM for local testing.
 .PHONY: vivian
