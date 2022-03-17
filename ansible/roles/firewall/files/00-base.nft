@@ -16,15 +16,35 @@ table inet filter {
         tcp dport ssh accept comment "accept SSH"
     }
     chain output {
-        # drop all outbound requests except those to something in the
-        # list of allowed IP addresses
+        # drop all outbound connections by default
         type filter hook output priority 0; policy drop;
 
+        ct state { related, established } accept
+
+        oifname "lo" accept comment "accept outgoing to loopback"
         oifname "docker*" accept comment "accept outgoing to docker*"
         oifname "private" accept comment "accept outgoing to private"
         oifname "veth*" accept
+
+        # allow DNS
+        udp dport 53 accept comment "accept DNS"
+
+        # allow HTTP(S)
+        tcp dport {http, https } accept comment "accept HTTP(S)"
+
+        # allow NTP
+        udp dport 123 accept comment "accept NTP"
+
+        # allow SNMP
+        udp dport 161 accept comment "accept SNMP"
     }
     chain forward {
         type filter hook forward priority filter; policy drop
+
+        iifname "cni-podman*" accept comment "accept podman CNI bridge"
+        oifname "cni-podman*" accept comment "accept podman CNI bridge"
+
+        iifname "podman*" accept comment "accept podman netavark bridge"
+        oifname "podman*" accept comment "accept podman netavark bridge"
     }
 }
