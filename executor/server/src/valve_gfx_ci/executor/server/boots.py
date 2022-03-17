@@ -120,9 +120,8 @@ option:ntp-server,10.42.0.1
                     f'--dhcp-boot={IPXE_MBR_FILENAME}',
                     '--dhcp-range=10.42.0.10,10.42.0.100',
                     '--dhcp-script=/bin/echo',
-                    # f'--dhcp-hostsfile={static_hosts_file}',
                     f'--enable-tftp={private_interface}',
-                    f'--tftp-root={config_paths["BOOTS_ROOT"]}/tftp',
+                    f'--tftp-root={config_paths["TFTP_DIR"]}',
                     # TODO: Rotation
                     f'--log-facility={config_paths["BOOTS_ROOT"]}/dnsmasq.log',
                     '--log-queries=extra',
