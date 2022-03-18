@@ -5,7 +5,8 @@ table inet filter {
         ct state { established, related } accept
         ct state invalid drop
         iifname "lo" accept comment "accept incoming on lo"
-        iifname "docker*" accept comment "accept incoming on docker*"
+        iifname "cni-podman*" accept comment "accept podman CNI bridge"
+        iifname "podman*" accept comment "accept podman netavark bridge"
         iifname "private" accept comment "accept incoming on private"
 
         # allow ping
@@ -22,8 +23,9 @@ table inet filter {
         ct state { related, established } accept
 
         oifname "lo" accept comment "accept outgoing to loopback"
-        oifname "docker*" accept comment "accept outgoing to docker*"
         oifname "private" accept comment "accept outgoing to private"
+        oifname "cni-podman*" accept comment "accept podman CNI bridge"
+        oifname "podman*" accept comment "accept podman netavark bridge"
         oifname "veth*" accept
 
         # allow DNS
