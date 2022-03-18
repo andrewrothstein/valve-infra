@@ -738,15 +738,16 @@ class Executor(Thread):
                     abort = abort or not retry
 
                 if abort:
-                    return
+                    # We have reached a timeout retry limit, time to stop!
+                    self.job_console.set_state(JobConsoleState.DUT_DONE)
+                else:
+                    # Stop all the timeouts, except the overall
+                    timeouts.first_console_activity.stop()
+                    timeouts.console_activity.stop()
+                    timeouts.boot_cycle.stop()
 
-                # Stop all the timeouts, except the overall
-                timeouts.first_console_activity.stop()
-                timeouts.console_activity.stop()
-                timeouts.boot_cycle.stop()
-
-                # We went through one boot cycle, update the
-                deployment = self.job_config.deployment_continue
+                    # We went through one boot cycle, use the "continue" deployment
+                    deployment = self.job_config.deployment_continue
 
             # We either reached the end of the job, or the client got disconnected
             if self.job_console.state == JobConsoleState.DUT_DONE:
