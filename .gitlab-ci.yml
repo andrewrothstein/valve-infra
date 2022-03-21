@@ -68,17 +68,7 @@ valve-infra-base-container:
     # Getting this on the farm runner gateways,
     #   User-selected graph driver \"vfs\" overwritten by graph driver \"overlay\" from database - delete libpod local files to resolve"
     - rm -rf /var/lib/containers/storage/libpod/*
-  script: |
-    set -eux
-
-    ( skopeo inspect docker://$IMAGE_NAME || true ) | jq '[.Digest, .Layers]' > local_sha
-    if [ -s local_sha ]; then
-       echo "Container already built"
-       exit 0
-    fi
-
-    sh .gitlab-ci/valve-infra-base-container-build.sh
-
+  script: .gitlab-ci/valve-infra-base-container-build.sh
   rules:
     - changes:
       - .gitlab-ci.yml
@@ -251,16 +241,7 @@ valve-infra-container:
     # Getting this on the farm runner gateways,
     #   User-selected graph driver \"vfs\" overwritten by graph driver \"overlay\" from database - delete libpod local files to resolve"
     - rm -rf /var/lib/containers/storage/libpod/*
-  script: |
-    set -x
-
-    ( skopeo inspect docker://$IMAGE_NAME || true ) | jq '[.Digest, .Layers]' > local_sha
-    if [ -s local_sha ]; then
-       echo "Container already built"
-       exit 0
-    fi
-
-    sh .gitlab-ci/valve-infra-container-build.sh
+  script: .gitlab-ci/valve-infra-container-build.sh
   rules:
     - changes:
       - .gitlab-ci.yml
@@ -278,15 +259,7 @@ machine_registration:
     #   User-selected graph driver \"vfs\" overwritten by graph driver \"overlay\" from database - delete libpod local files to resolve"
     - rm -rf /var/lib/containers/storage/libpod/*
   # FIXME: Move to ci-templates when the entrypoint / working-dir changes are merged into upstream
-  script: |
-    set -x
-
-    ( skopeo inspect docker://$IMAGE_NAME || true ) | jq '[.Digest, .Layers]' > local_sha
-    if [ -s local_sha ]; then
-       echo "Container already built"
-       exit 0
-    fi
-    sh .gitlab-ci/machine-registration-container-build.sh
+  script: .gitlab-ci/machine-registration-container-build.sh
   rules:
     - changes:
       - .gitlab-ci.yml
