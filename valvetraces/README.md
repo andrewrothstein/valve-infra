@@ -219,7 +219,7 @@ example one, that would be targeted towards the valve-ci-gfx infra:
             - b2c.container="-ti --tls-verify=false docker://{{ fdo_proxy_registry }}/mupuf/valve-infra/machine_registration:latest check"
             - b2c.container="-v {{ job_bucket }}-job:/job -w /job -v valvetraces:/traces --tls-verify=false -w /job docker://10.42.0.1:8002/$PATH_TO_YOUR_CONTAINER  /entrypoint-dxvk"
         initramfs:
-        url: 'https://gitlab.freedesktop.org/mupuf/boot2container/-/releases/v0.9.4/downloads/initramfs.linux_amd64.cpio.xz'
+        url: 'https://gitlab.freedesktop.org/mupuf/boot2container/-/releases/v0.9.5/downloads/initramfs.linux_amd64.cpio.xz'
 
 ### Running valvetraces
 

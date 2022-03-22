@@ -58,7 +58,7 @@
       - fdo-proxy-registry
 
     # Default boot files for DUTs.
-    b2c_release: v0.9.4
+    b2c_release: v0.9.5
     kernel_release: v5.16-for-valve-ci
     b2c_url: "https://gitlab.freedesktop.org/mupuf/boot2container/-/releases/{{ b2c_release }}/downloads/initramfs.linux_amd64.cpio.xz"
     kernel_url: "https://gitlab.freedesktop.org/mupuf/valve-infra/-/package_files/117/download"  # v5.16-for-mesa-ci
