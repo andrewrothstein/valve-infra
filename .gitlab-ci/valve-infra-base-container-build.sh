@@ -57,8 +57,6 @@ EOF
 	$buildah_run $buildcntr sh -c 'find /usr /etc /root -name __pycache__ -type d | xargs rm -rf'
 
 	$buildah_run $buildcntr sh -c 'env LC_ALL=C pacman -Qi' | awk '/^Name/{name=$3} /^Installed Size/{print $4$5, name}' | sort -h
-	$buildah_run $buildcntr du -h -d 3 /usr /etc | sort -h
-	$buildah_run $buildcntr du -h /usr/lib/python3.10/site-packages | sort -h
 
 	# pacman's clean command defaults to 'n' for cache, which makes --noconfirm do
 	# exactly what we don't want (nothing)

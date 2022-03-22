@@ -11,8 +11,6 @@ build() {
     buildah config --workingdir /app/valve-infra/ansible $buildcntr
 
     $buildah_run $buildcntr sh -c 'env LC_ALL=C pacman -Qi' | awk '/^Name/{name=$3} /^Installed Size/{print $4$5, name}' | sort -h
-    $buildah_run $buildcntr du -h -d 3 /usr /etc /app | sort -h
-    $buildah_run $buildcntr du -h /usr/lib/python3.10/site-packages | sort -h
 
     # The Gitlab runner cache deliberately chmod 777's all
     # directories. This upsets ansible and there's nothing we can
