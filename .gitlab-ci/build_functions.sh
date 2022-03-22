@@ -31,12 +31,11 @@ tag_latest_when_applicable() {
 	fi
 
 	if $tag_latest; then
-		extra_podman_args=
-		[[ $IMAGE_NAME_LATEST =~ ^localhost.* ]] && extra_podman_args='--tls-verify=false'
-		podman tag "$IMAGE_NAME" "$IMAGE_NAME_LATEST"
-		podman push $extra_podman_args $IMAGE_NAME_LATEST || true
-		sleep 2
-		podman push $extra_podman_args $IMAGE_NAME_LATEST
+		extra_skopeo_args=
+		[[ $IMAGE_NAME =~ ^localhost.* ]] && extra_skopeo_args="$extra_skopeo_args --src-tls-verify=false"
+		[[ $IMAGE_NAME_LATEST =~ ^localhost.* ]] && extra_skopeo_args="$extra_skopeo_args --dest-tls-verify=false"
+		[ -n "$CI_JOB_TOKEN" ] && [ -n "$CI_REGISTRY" ] && skopeo login -u gitlab-ci-token -p $CI_JOB_TOKEN $CI_REGISTRY
+		skopeo copy $extra_skopeo_args "docker://$IMAGE_NAME" "docker://$IMAGE_NAME_LATEST"
 	fi
 }
 
