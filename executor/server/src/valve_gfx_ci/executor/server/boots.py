@@ -252,9 +252,12 @@ boot
 """
 
     def ipxe_boot_script(self, machine=None, platform=None, buildarch=None):
+        bootconfig = None
+
         if machine is not None and machine.executor is not None:
             bootconfig = machine.executor.boot_config_query(platform=platform, buildarch=buildarch)
-        else:
+
+        if bootconfig is None:
             bootconfig = self.default_boot_config
 
         return self._gen_ipxe_boot_script(bootconfig, platform=platform)
