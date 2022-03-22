@@ -63,8 +63,8 @@
     b2c_url: "https://gitlab.freedesktop.org/mupuf/boot2container/-/releases/{{ b2c_release }}/downloads/initramfs.linux_amd64.cpio.xz"
     kernel_url: "https://gitlab.freedesktop.org/mupuf/valve-infra/-/package_files/117/download"  # v5.16-for-mesa-ci
 
-    sergent_hartman_boot_count: 100
-    sergent_hartman_qualifying_boot_count: 100
+    sergent_hartman_boot_count: 20
+    sergent_hartman_qualifying_boot_count: 19
     sergent_hartman_registration_retrial_delay: 120
 
     whitelisted_domains:
