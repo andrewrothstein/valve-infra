@@ -3,7 +3,9 @@ from dataclasses import asdict, field
 from datetime import datetime, timedelta
 from ipaddress import IPv4Address
 from pathlib import Path
+from pprint import pprint
 
+from deepdiff import DeepDiff
 from pydantic.dataclasses import dataclass
 from pydantic import validator, PositiveInt
 from inotify_simple import INotify, flags
@@ -156,8 +158,12 @@ class MarsDB:
         self._disk_state = asdict(self)
 
     @property
+    def diff_from_disk_state(self):
+        return DeepDiff(self._disk_state, asdict(self), ignore_order=True)
+
+    @property
     def is_tainted(self):
-        return asdict(self) != self._disk_state
+        return len(self.diff_from_disk_state) > 0
 
     @validator('duts')
     def mac_addresses_are_understood_by_boots(cls, v):
@@ -305,8 +311,10 @@ class Mars(Thread):
 
     def save_db_if_needed(self):
         if self.mars_db.is_tainted:
-            print("Write-back the MarsDB to disk, after some local changes")
-            # TODO: Print a list of the changes, possibly using deepdiff?
+            print("Write-back the MarsDB to disk, after some local changes:")
+            pprint(self.mars_db.diff_from_disk_state, indent=2)
+            print()
+
             self.mars_db.save(config.MARS_DB_FILE)
 
     def add_or_update_machine(self, fields: dict):
