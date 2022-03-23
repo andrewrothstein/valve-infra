@@ -1,8 +1,3 @@
-# TODO: Move all the container builds to ci-templates, it provides
-# some features like including project caching and more aggressive
-# image size optimisations than we do here, as well as being something
-# of a standard in fd.o. Unfortunately, there's a few shortcomings,
-# and the project is rather complex to hack, so very much a WIP!
 stages:
   - prep
   - tests
