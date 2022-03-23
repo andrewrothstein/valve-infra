@@ -60,9 +60,7 @@ Build options
   - `EXTRA_ANSIBLE_VARS="private_interface=brian ..."` -
     The ansible playbook for the gateway container has a number of
     configuration variables. You may override/specify them using this
-    Makefile argument. TODO: We may be better served using Ansible to
-    build the container directly, rather than using Podman to build
-    from a Dockerfile, which indirectly uses ansible.
+    Makefile argument.
   - `IMAGE_NAME=localhost:8088/mupuf/valve-infra/valve-infra-$(whoami):latest` -
     The container name to tag the image with. *WARNING:* The image
     will automatically be pushed to the registry that got tagged!
