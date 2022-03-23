@@ -611,7 +611,6 @@ class Executor(Thread):
             self.job_config = None
             self.job_console = None
             self.boot_config = None
-            self.job_bucket = None
 
             # Pick a job
             if self.sergent_hartman.is_available and not self.machine.ready_for_service:
