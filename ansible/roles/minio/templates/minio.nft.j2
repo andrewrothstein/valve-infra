@@ -1,6 +1,7 @@
 #!/usr/bin/nft -f
 table inet filter {
-    chain forward {
+    chain input {
+        iifname "wg0" tcp dport {{ minio_console_port }} accept comment "accept incoming from wg0 for minio console"
         iifname "private" tcp dport {{ minio_port }} accept comment "accept incoming from private to minio/{{ minio_port }}"
     }
 }
