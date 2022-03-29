@@ -1,17 +1,17 @@
 # Valve CI Infrastructure
 
-This repository contains the source for the Valve CI
-infrastructure. Its main purpose is to build a multi-service
-container that acts as a bare-metal CI gateway service, responsible
-for the orchestration and management of devices under test, or DUTs as
-we call them. *NOTE:* We plan to move away from a nested-container
-approach, instead of the services running as containers within the
-parent valve-infra container, they will run as systemd managed
-daemons. The churn is due to a long-running move away from a
-multi-service architecture. This will simplify deployment and
-maintenance further.
+This repository contains the source for the Valve CI infrastructure. Its main
+purpose is to build a multi-service container that acts as a bare-metal CI
+gateway service, responsible for the orchestration and management of devices
+under test, or DUTs as we call them.
 
-## Requirements (TODO)
+This container can in turn be run from a host OS, booted directly using
+[boot2container](https://gitlab.freedesktop.org/mupuf/boot2container),
+or netbooted over the internet using
+[iPXE boot server](ipxe-boot-server/README.md).
+
+## Requirements
+
 The Valve Infra container is meant to be run on the gateway machine of
 a CI farm, and comes with the following requirements:
 
@@ -20,10 +20,6 @@ a CI farm, and comes with the following requirements:
  - Volumes: The container requires a volume to store persistent data (mounted at /mnt/permanent), and optionally a
    temporary volume which acts as a cache across reboots (mounted at /mnt/tmp).
  - Container: The container needs to be run as privileged, and using the host network
-
-*TODO:* we now boot in production indirectly via an iPXE boot server
-(see the `ipxe-boot-server/` subproject). The following is
-out-of-date. Explain.
 
 ## Hacking on the infrastructure
 
@@ -38,7 +34,7 @@ its privileged status. It is recommended to keep reading for tips on
 running it all in a virtual and production environment. This is
 however the general idea of the deployment.
 
-## Building
+### Building
 
 The container image is provisioned using Ansible recipes (see the
 `ansible/` subproject).
@@ -47,7 +43,12 @@ The container image is provisioned using Ansible recipes (see the
 need to provide your own public key. Make sure to add yours at
 [ansible/gateway.yml](ansible/gateway.yml).
 
-To build the container,
+Before building the container, it is first recommended to start a local
+registry to host it, as this will save round-trips to an external registry:
+
+    podman run --rm -d -p 8088:5000 --name registry docker.io/library/registry:2
+
+You can then build the container:
 
 	make IMAGE_NAME=localhost:8088/mupuf/valve-infra/valve-infra-$(whoami):latest valve-infra-container
 
@@ -73,16 +74,11 @@ Once completed, a container image will be generated, for example,
 Notice it defaults to a `localhost` registry. This is to save on
 bandwidth (the valve-infra container is too big).
 
-# Virtual deployment (for local testing)
+### Running the infrastructure
 
-To test a built container image, first start a local registry to host
-it, this will save round-trips to an external registry, the container
-is too big,
-
-    podman run --rm -p 8088:5000 --name registry docker.io/library/registry:2
-
-The other testing dependency we need a virtual PDU, start that service
-on the host like so,
+Now that we have built our container, we need to start another component: a
+virtual PDU that will spawn a virtual machine every time its virtual port turns
+on. This can be done by running this simple command:
 
 	make PORT=9191 vpdu
 
@@ -91,11 +87,8 @@ container, but then you need to bundle QEMU (not a huge deal), and
 worry about X11 forwarding from QEMU to the host if you wish to see a
 graphical QEMU window, which can be handy. WIP.
 
-Push the container for validation,
-
-    podman push --tls-verify=false localhost:8088/mupuf/valve-infra/valve-infra-$(whoami):latest
-
-Now, run a virtual gateway machine, which will boot directly into this container,
+We are now ready to start our virtual gateway machine, which will boot
+directly into the container we built in the previous section:
 
 	make SSH_ID_KEY=~/.ssh/vivian REGISTRY=10.0.2.2:8088 CONTAINER=mupuf/valve-infra/valve-infra-$(whoami):latest FARM_NAME=$(whoami)-farm GITLAB_REGISTRATION_TOKEN=... GITLAB_URL=https://gitlab.freedesktop.org vivian
 
@@ -118,15 +111,63 @@ contacted inside the VM.
 VM's tmp disk, it is wise to occasionally delete said disk and check
 a fresh boot continues to work as expected.
 
+You should now see a QEMU window, which will boot a Linux kernel, then
+boot2container will download the container we built and boot into it.
+When this is done, you should now see a dashboard which looks mostly green.
+The same dashboard should also be present in the terminal you used to connect.
+
+To get a shell on the gateway you can either create one from the dashboard
+by pressing `Ctrl-b c`, or connect via SSH using `make vivian-connect`.
+
 *TODO:* Drop vivian as a side-project, integrate its testing
 dependencies directly into the container image.
 
-Once the VM is up, open SSH connections like so,
+### Spawning virtual DUTs
 
-	make vivian-connect
+Right now, our gateway has no idea about any potential machine connected
+to its private network interface. Let's boot one!
 
-A good place to start for now is to watch `journalctl -f` and check
-everything looks OK. A dashboard is WIP.
+    python3 vivian/client.py --outlet 1 --on
+
+This will open a new QEMU window, where the machine will get an IP from
+the gateway, download iPXE then boot the kernel/initramfs which will in
+turn register the machine using the machine_registration container.
+
+If all went well, you should now see a machine appear in the "Machines"
+column of the dashboard, with the state `WAIT_FOR_CONFIG`. This indicates
+that the machine has been properly registered, but is missing information
+about which PDU and PDU port it is connected to. To set these parameters,
+you will need to SSH into the gateway using `make vivian-connect`, then edit
+`/mnt/permanent/mars_db.yaml` to set the `pdu` field of the machine to `VPDU`,
+and the `pdu_port` to `1`. While you are at it, you may also want to set the
+`pdu_off_delay` to `1`s rather than 30 to speed up testing. For more
+information about the MaRS DB, check out our
+[executor's README](executor/server/README.md).
+
+Once you save your changes, the state of the machine should switch to
+`TRAINING` and the machine will go be booted in a loop for a set amount of
+times in order to test the boot reliability. After the boot loop is complete,
+the machine will be marked as ready for testing and its state should change to
+`IDLE`.
+
+Your first virtual test machine is now available for testing both locally, and
+on your chosen Gitlab instance.
+
+### Running a job on the virtual gateway
+
+Now that you have at least one machine available, you may run jobs on it using
+the following command:
+
+	executorctl -e http://localhost:8000 run -t virtio:family:VIRTIO $JOB_FILE
+
+If all went well, congratulations! You seem to have a functional
+setup! Most of the steps above are amenable to further configuration.
+You are now in a position to play around and modify defaults to your
+testing requirements.
+
+### Iterating on changes
+
+*TODO:* partial updates are currently broken, and are being worked on.
 
 After making changes to Ansible, it's useful to sync them to a running
 VM and check the desired changes were made. To replay the entire
@@ -137,68 +178,6 @@ gateway playbook against the VM,
 Or just the items tagged dashboard and minio,
 
 	make FARM_NAME=$(whoami)-farm TAGS=dashboard,minio vivian-provision
-
-*TODO:* There is a script to setup a `tmux` session, with all the
-service dependencies started and a personal development environment,
-
- - `./tools/vivian-tmux.sh`
-
-This will start a tmux dashboard with several panes showing the status
-of the virtual infrastructure. Pane 1 contains a shell to the virtual
-gateway. Switch to it using `Ctrl+b 1` (or whatever your tmux prefix
-key is). You can now validate a couple of things,
-
-  1. Check in pane 0 that all the services are looking healthy. This
-  is simply the system journal being followed.
-
-  2. Check in vPDU status that all ports are OFF, this is the starting
-  configuration.
-
-  3. Check there is on virtual PDU registered in pane 4.
-
-  4. Check there are no DUTs currently registered in the gateway under pane 5.
-
-  5. Open a shell and manually power on a virtual test device,
-
-     valve-infra $ python ./vivian/client.py --outlet 3 --on
-
-  6. Check the machine boots and registers with the executor
-  correctly, pane 5 will now show the newly registered machine (from
-  the internal machine DB)
-
-  7. Notice the newly created machine is not registered remotely yet,
-  this is because it hasn't completed the pre-service checks
-  (Sgt. Hartman)
-
-  8. Navigate to http://localhost:8001/admin/ to modify the machine
-  configuration. The default username and password is =admin= and
-  =password=.
-
-  9. Set the PDU port for this machine, in our example the port ID is
-  3 and the PDU is vpdu1. These data are not auto-discovered
-  currently.
-
-  10. Check the local TTY device, it should be autoconfigured as
-  =ttyS1=.
-
-  11. Check the "Ready for service" box and click save.
-
-  12. Go to Gitlab and check that the new runner has been registered.
-
-Finally, you may queue jobs in Vivian using:
-
-	executorctl -e http://localhost:8000 run -t virtio:family:VIRTIO $JOB_FILE
-
-Congratulations! You seem to have a functional setup! Most of the
-steps above are amenable to further configuration. You are now in a
-position to play around and modify defaults to your testing
-requirements.
-
-Other notes,
-
- - Press `Ctrl-b c` to start a new shell in the dashboard.
- - `make clean` removes all the files created for the test environment.
-
 
 ## Production deployment
 
