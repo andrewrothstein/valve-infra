@@ -13,7 +13,7 @@
       - "{{ base_config_env_file }}"
     optional_container_env_files:
       - "{{ config_env_file }}"
-    container_cmd: "server /data"
+    container_cmd: "server /data --console-address :9001"
     service_pre_conditions:
       - "mkdir -pv {{ tmp_mount }}/minio"
     part_of:
