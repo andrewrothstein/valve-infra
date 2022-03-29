@@ -22,7 +22,7 @@
   ansible.builtin.template:
     src: 'wg0.conf.j2'
     dest: '/etc/wireguard/wg0.conf'
-    mode: 0644
+    mode: 0600
 
 - name: Installing network_setup service
   become: true
