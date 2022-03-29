@@ -4,6 +4,6 @@ windows:
 - window_name: dashboard
   layout: even-horizontal
   panes:
-    - /usr/local/lib/dashboard/network.sh private
+    - /usr/local/lib/dashboard/network.sh private wg0
     - /usr/local/lib/dashboard/services.sh {{ dashboard_monitor_services|join(' ') }}
     - /usr/local/lib/dashboard/machines.py

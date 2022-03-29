@@ -14,21 +14,22 @@ show_nic() {
 		return
 	fi
 
-
 	local __status=$(<$__sysfs/operstate)
 	local __color
-	local __ip
+	local __ip="$(ip a show $__nic | grep -e 'inet\s' |tr -s ' ' | cut -d' ' -f3)"
 	case "$__status" in
+		"unknown")
+			__status="???"
+			__color=$yellow
+			;;
 		"up")
 			__color=$green
-			local __ip="$(ip a show $__nic | grep -e 'inet\s' |tr -s ' ' | cut -d' ' -f3)"
-			__status="$__status ($__ip)"
 			;;
 		*)
 			__color=$red
 			;;
 	esac
-	printf "%-8s %s\n" "$__nic" "${__color}$__status${normal}"
+	printf "%-8s %s%-4s %s%s\n" "$__nic" "${__color}" "$__status" "$__ip" "${normal}"
 }
 
 while true; do
