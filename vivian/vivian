@@ -82,20 +82,11 @@ while test -n "$1"; do
         --executor-port=*)
             __executor_port="${1#--executor-port=}"
             ;;
-        --mars-port=*)
-            __mars_port="${1#--mars-port=}"
-            ;;
         --salad-port=*)
             __salad_port="${1#--salad-port=}"
             ;;
         --minio-port=*)
             __minio_port="${1#--minio-port=}"
-            ;;
-        --minio-admin-name=*)
-            __mars_admin_name="${1#--minio-admin-name=}"
-            ;;
-        --minio-admin-password=*)
-            __mars_admin_password="${1#--minio-admin-password=}"
             ;;
         --ssh-port=*)
             __ssh_port="${1#--ssh-port=}"

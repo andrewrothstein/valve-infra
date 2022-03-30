@@ -14,7 +14,6 @@
     salad_package_location: "{{ valve_infra_root }}/salad"
 
     dnsmasq_port: 53
-    mars_port: 8000
     gitlab_runner_port: 8001
     fdo_proxy_registry_port: 8002
     local_registry_port: 8004
