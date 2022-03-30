@@ -43,7 +43,7 @@ endif
 	env \
 	   IMAGE_NAME=$(IMAGE_NAME) \
 	   BASE_IMAGE=$(BASE_IMAGE) \
-	   ANSIBLE_EXTRA_ARGS='--extra-vars service_mgr_override=inside_container' \
+	   ANSIBLE_EXTRA_ARGS='--extra-vars service_mgr_override=inside_container -e development=true' \
 	   buildah unshare -- .gitlab-ci/valve-infra-container-build.sh
 
 .PHONY: valve-infra-base-container
@@ -106,7 +106,7 @@ vivian-connect:
 vivian-provision:
 	if [ -n "$(TAGS)" ]; then _TAGS="-t $(TAGS)" ; else _TAGS="" ; fi
 	cd ansible
-	ansible-playbook gateway.yml $$_TAGS -e valve_infra_root=$(CURDIR) -l vivian
+	ansible-playbook gateway.yml $$_TAGS -e valve_infra_root=$(CURDIR) -e development=true -l vivian
 
 .PHONY: vpdu
 vpdu:
