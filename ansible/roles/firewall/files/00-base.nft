@@ -15,6 +15,9 @@ table inet filter {
 
         # allow ssh
         tcp dport ssh accept comment "accept SSH"
+
+        # explicitly drop random broadcasts/multicast here, so they aren't logged later
+        pkttype { broadcast,multicast} drop comment "drop random broadcasts"
     }
     chain output {
         # drop all outbound connections by default
@@ -39,6 +42,9 @@ table inet filter {
 
         # allow SNMP
         udp dport 161 accept comment "accept SNMP"
+
+        # explicitly drop random broadcasts/multicast here, so they aren't logged later
+        pkttype { broadcast,multicast} drop comment "drop random broadcasts"
     }
     chain forward {
         type filter hook forward priority filter; policy drop
