@@ -8,8 +8,10 @@
     registry_mount: "{{ tmp_mount }}/registry"
     private_interface_ip: "10.42.0.1"
 
-    executor_package_location: "file:///app/valve-infra/executor/server"
-    salad_package_location: "file:///app/valve-infra/salad"
+    valve_infra_root: "/app/valve-infra"
+
+    executor_package_location: "{{ valve_infra_root }}/executor/server"
+    salad_package_location: "{{ valve_infra_root }}/salad"
 
     dnsmasq_port: 53
     mars_port: 8000
