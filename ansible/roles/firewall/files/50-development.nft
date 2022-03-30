@@ -6,8 +6,11 @@ table inet filter {
         # 10.0.2.2 is from qemu
         ip saddr 10.0.2.2 tcp dport 2375 accept comment "allow developer docker port forward"
         ip saddr 10.0.2.2 tcp dport 80   accept comment "allow developer executor forwarding"
-        ip saddr 10.0.2.2 tcp dport 8000 accept comment "allow developer mars forwarding"
-        ip saddr 10.0.2.2 tcp dport 8006 accept comment "allow developer salad forwarding"
+        ip saddr 10.0.2.2 tcp dport 8100 accept comment "allow developer salad forwarding"
         ip saddr 10.0.2.2 tcp dport 9000 accept comment "allow developer minio forwarding"
+    }
+    chain output {
+        # Allow connecting to any external service on the host machine (destination 10.0.2.2)
+        ip daddr 10.0.2.2 accept comment "allow any connection to the host machine"
     }
 }
