@@ -1,7 +1,12 @@
 ---
+- name: Copy package
+  ansible.builtin.copy:
+    src: "{{ executor_package_location }}"
+    dest: /app/valve-infra/executor/
+
 - name: Install the executor server package
   ansible.builtin.pip:
-    name: "{{ executor_package_location }}"
+    name: "file:///app/valve-infra/executor/server"
 
 - name: Install executor systemd unit file
   ansible.builtin.template:

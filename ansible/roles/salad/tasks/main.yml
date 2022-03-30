@@ -1,7 +1,12 @@
 ---
+- name: Copy package
+  ansible.builtin.copy:
+    src: "{{ salad_package_location }}"
+    dest: /app/valve-infra/
+
 - name: Install the salad server package
   ansible.builtin.pip:
-    name: "{{ salad_package_location }}"
+    name: "file:///app/valve-infra/salad"
 
 - name: Install salad systemd unit file
   ansible.builtin.template:
