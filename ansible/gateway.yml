@@ -109,6 +109,11 @@
       - "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQDmwHU7L+WMxLCTh6oOwCBQ+TKynq7OPCgAu4+ikulVcddXhCEoryfROO0EeTT2z5tEMhzE7VnqISc5kakOOprvh5aoGDmsX7noS8hHdMV8G651GUX7LNI0J2VgjztGl8IBRK2oH1zPKZ9no7nBBuA7Ia4itUryz/fGQO8Bog6Afni/V7u6C4UsPHf1sDNXOaGfLBIuC1zR5XMAYb/lr4mUOd1CmepmLCzn5XnPyElTX3OWLrhO+4ltnpK8AhGDPZ10siJNKztyhN5brMqLBALH2dr5H/rEyKjEp8YJ7bvpRrokfqO0Zbnl7f0IBaqkxugk3uWGC1LAwZUt2PaibKEFFfb0L8Zfdx7/xSKm+V187OJbPCW91pHP7R5+CYK/MzAvTPiB1hIDjqeY4l0qBeqUlP30WYNCfN6pGLp7CVOFILq/1zhQVlhfTKgTL/pUPVg0r/94T7JRThZsy3OGI/+/PszliC0+2IrPvmXY54/viwEh6/Oo0GmTw0Oa9orDBykw6+lNCkWf8zLrVIidxf5InSY6LeCOs8e2Eow4tticPPiiGQWK6JPuJR3qOFWtHoluSXtnb59JXvKGwf+9wa3t7+aSoc4kwTM2jPwGd7F8PcZ1+Be+I3BuA9YodB2zg96+UzI+sB1NXjOM9veyonwZ6iIz+fiFXAGcOT6G9yOMBQ== tanty@valve-infra-gateway"
 
   roles:
+    # the 'always' tag is used for roles that must always run, i.e. other roles
+    # depend on them but we don't want to set "dependencies:" for every role
+    # that does
+    - {role: pid1,                tags: always}
+
     - {role: base,                tags: base}
     - {role: containers,          tags: containers}
     - {role: network_setup,       tags: network_setup}

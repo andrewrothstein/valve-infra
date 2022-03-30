@@ -1,0 +1,23 @@
+---
+# Make sure this is the first thing to run! We need this fact early.
+- name: Capture the init process name
+  become: true
+  ansible.builtin.shell: set -o pipefail ; ps -p 1 -o comm | tail -n1
+  register: init_ps_command_output
+  changed_when: init_ps_command_output.rc != 0
+
+# Used to figure when to try and declartively push services into
+# particular states. When running within a container, this will be !=
+# systemd (typically instead it's sh or bash).
+- name: Add the init process name to the facts database
+  ansible.builtin.set_fact:
+    pid_1_name: "{{ init_ps_command_output.stdout }}"
+
+- name: Check if service_mgr is overridden
+  ansible.builtin.set_fact:
+    pid_1_name: "{{ service_mgr_override }}"
+  when: service_mgr_override is defined
+
+- name: Debug string
+  ansible.builtin.debug:
+    msg: "pid_1_name is {{ pid_1_name }}"
