@@ -106,7 +106,7 @@ vivian-connect:
 vivian-provision:
 	if [ -n "$(TAGS)" ]; then _TAGS="-t $(TAGS)" ; else _TAGS="" ; fi
 	cd ansible
-	ansible-playbook gateway.yml $$_TAGS -l vivian
+	ansible-playbook gateway.yml $$_TAGS -e valve_infra_root=$(CURDIR) -l vivian
 
 .PHONY: vpdu
 vpdu:
