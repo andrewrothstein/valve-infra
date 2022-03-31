@@ -84,7 +84,7 @@ class DUT:
         log_name = datetime.now().strftime(f'{VPDU_DIR}/dut-log-{mac.replace(":", "")}-%H%M%S-%d%m%Y.log')
         cmd = [
             'qemu-system-x86_64',
-            '-machine', 'pc-q35-6.0,accel=kvm',
+            '-machine', 'q35,accel=kvm',
             '-m', '2048',
             '-smp', '2,sockets=2,cores=1,threads=1',
             '-hda', disk,
