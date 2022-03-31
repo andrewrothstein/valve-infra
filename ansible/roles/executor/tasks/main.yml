@@ -3,10 +3,17 @@
   ansible.builtin.copy:
     src: "{{ executor_package_location }}"
     dest: /app/valve-infra/executor/
+  register: executor_package
 
-- name: Install the executor server package
+- name: Install executor # noqa no-handler
   ansible.builtin.pip:
     name: "file:///app/valve-infra/executor/server"
+  notify: 'Restart executor'
+  # Always install when building the container, since the previous task won't
+  # result in a "changed" status.
+  # This is necessary because pip installing a local dist is never idempotent,
+  # see: https://github.com/pypa/pip/pull/9147
+  when: pid_1_name != "systemd" or executor_package.changed
 
 - name: Install executor systemd unit file
   ansible.builtin.template:
@@ -15,6 +22,7 @@
     owner: root
     group: root
     mode: 0644
+  notify: 'Restart executor'
 
 - name: Enable executor service
   become: true
@@ -42,3 +50,4 @@
       BOOTS_DEFAULT_INITRD=http://{{ private_interface_ip }}:{{ minio_port }}/boot/default_boot2container.cpio.xz
       BOOTS_DEFAULT_CMDLINE=b2c.container="-ti --tls-verify=false docker://{{ private_interface_ip }}:{{ fdo_proxy_registry_port }}/mupuf/valve-infra/machine_registration:latest register" b2c.ntp_peer="{{ private_interface_ip }}" b2c.cache_device=none loglevel=6
       MARS_DB_FILE=/mnt/permanent/mars_db.yaml
+  notify: 'Restart executor'

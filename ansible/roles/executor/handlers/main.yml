@@ -1,0 +1,6 @@
+---
+- name: Restart executor
+  ansible.builtin.systemd:
+    name: 'executor'
+    state: restarted
+  when: pid_1_name == "systemd"
