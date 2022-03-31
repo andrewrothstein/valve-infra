@@ -42,6 +42,9 @@
 - name: Installing sysctl config
   become: true
   ansible.builtin.copy:
-    src: 10-printk.conf
-    dest: /etc/sysctl.d/10-printk.conf
+    src: "{{ item }}"
+    dest: "/etc/sysctl.d/{{ item }}"
     mode: 0644
+  loop:
+    - 10-printk.conf
+    - 10-disable-ipv6.conf
