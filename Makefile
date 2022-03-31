@@ -108,6 +108,15 @@ vivian-provision:
 	cd ansible
 	ansible-playbook gateway.yml $$_TAGS -e valve_infra_root=$(CURDIR) -e development=true -l vivian
 
+.PHONY: live-provision
+live-provision:
+ifndef TARGET
+	$(error "TARGET needs to point to the host you want to deploy to")
+endif
+	if [ -n "$(TAGS)" ]; then _TAGS="-t $(TAGS)" ; else _TAGS="" ; fi
+	cd ansible
+	ansible-playbook gateway.yml $$_TAGS -e valve_infra_root=$(CURDIR) -e target=$(TARGET) -l live
+
 .PHONY: vpdu
 vpdu:
 	$(PYTHON) ./vivian/vpdu.py --port $(VPDU_PORT)
