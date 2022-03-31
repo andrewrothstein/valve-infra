@@ -6,8 +6,14 @@
     name:
       - wireguard-tools
 
-- name: Create the /etc/wireguard directory
-  ansible.builtin.file: path=/etc/wireguard/ state=directory mode=0755
+- name: Create required directories the /etc/wireguard directory
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    mode: 0755
+  loop:
+    - /etc/wireguard
+    - "{{ wireguard_secrets_dir }}"
 
 - name: Set up the wg0 configuration file
   become: true
@@ -15,6 +21,13 @@
     src: 'wg0.conf.j2'
     dest: '/etc/wireguard/wg0.conf'
     mode: 0644
+  notify: 'Restart wireguard'
+
+- name: Generating keys
+  ansible.builtin.shell:
+    creates: "{{ wg0_private_key }}"
+    cmd: wg genkey | (umask 0077 && tee "{{ wg0_private_key }}") | wg pubkey > "{{ wg0_public_key }}"
+  notify: 'Restart wireguard'
 
 - name: Installing wireguard nft rule
   become: true
@@ -25,3 +38,16 @@
     group: root
     mode: 0644
   notify: 'Restart nftables'
+
+# wg-quick@.service depends on this, but we don't manage interfaces here so it
+# always fails since there are no managed interfaces.
+- name: mask systemd-networkd-wait-online
+  ansible.builtin.systemd:
+    name: systemd-networkd-wait-online
+    masked: true
+
+- name: Enabling wg-quick service
+  become: true
+  ansible.builtin.systemd:
+    name: wg-quick@wg0
+    enabled: true

@@ -24,12 +24,4 @@ ip link set $PRIVATE name private
 ip addr add {{private_interface_ip}}/24 dev private
 ip link set private up
 
-# Set up wireguard keys if missing
-[ -d "{{ wireguard_secrets_dir }}" ] || mkdir -p "{{ wireguard_secrets_dir }}"
-[ -f "{{ wg0_private_key }}" -a -f "{{ wg0_public_key }}" ] || {
-    wg genkey | (umask 0077 && tee "{{ wg0_private_key }}") | wg pubkey > "{{ wg0_public_key }}"
-}
-
-# Set up wireguard, and allow clients to access both the private and public networks
-wg-quick up wg0
 echo 1 > /proc/sys/net/ipv4/ip_forward
