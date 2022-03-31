@@ -14,6 +14,7 @@ import json
 import time
 import tty
 import sys
+import shutil
 import re
 import os
 
@@ -286,6 +287,12 @@ class Job:
         try:
             sock, response = self._setup_connection()
             if sock is None:
+                return JobStatus.SETUP_FAIL
+
+            if response.version != 0 and shutil.which('mcli') is None:
+                logger.error("The MinIO client is needed for running the job. "
+                             "You may want to install it locally from "
+                             "https://github.com/minio/mc")
                 return JobStatus.SETUP_FAIL
 
             status = self._forward_inputs_and_outputs(sock, response)
