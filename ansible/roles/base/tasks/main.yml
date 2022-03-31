@@ -1,10 +1,13 @@
 ---
-- name: Ensure custom resolv.conf
-  become: true
-  ansible.builtin.copy:
-    src: resolv.conf
-    dest: /etc/resolv.conf
-    mode: 0744
+# Disabled since there is currently no need for this, and it causes issues with
+# the way podman currently runs the infra container. Not removed because this
+# is needed if/when we try to resurrect DNS-based filtering.
+# - name: Ensure custom resolv.conf
+#   become: true
+#   ansible.builtin.copy:
+#     src: resolv.conf
+#     dest: /etc/resolv.conf
+#     mode: 0744
 
 - name: Update pacman cache
   pacman:
