@@ -24,6 +24,8 @@ __vpdu_port=9191
 
 __disk_img=
 
+__local_share=
+
 __gateway_monitor_socket='gateway_monitor.sock'
 __gateway_qemu_log_file='gateway_qemu.log'
 __gateway_public_mac_addr='DE:AD:BE:EF:00:11'
@@ -82,6 +84,9 @@ while test -n "$1"; do
         --influxd-port=*)
             __influxd_port="${1#--influxd-port=}"
             ;;
+        --local-share=*)
+            __local_share="${1#--local-share=}"
+            ;;
         --salad-port=*)
             __salad_port="${1#--salad-port=}"
             ;;
@@ -139,14 +144,20 @@ if [ ! -z "$__ssh_id" ]; then
 fi
 
 start_gateway() {
-    # TODO export a 9P share into /root/valve-infra to support
-    # host-local editing of the infra code?
     [ -f $__disk_img ] || ( echo "$__disk_image is not a file" && exit 1 )
 
     if [ -n "$__kernel_img" ] || [ -n "$__ramdisk" ] || [ "$__kernel_append" ]; then
 	__qemu_kernel_opts="-kernel $__kernel_img -initrd $__ramdisk"
     else
 	__qemu_kernel_opts=""
+    fi
+
+    if [ -n "$__local_share" ]; then
+	# TODO: No 9pfs built into boot2container
+	# __qemu_mount_opts="-virtfs local,path=$__local_share,mount_tag=local-share,security_model=mapped-xattr,id=local-share,readonly"
+	__qemu_mount_opts=""
+    else
+	__qemu_mount_opts=""
     fi
 
     set +e
@@ -179,6 +190,7 @@ start_gateway() {
         $__gateway_nic_opts \
         $__boot_mode \
         $__qemu_kernel_opts \
+	$__qemu_mount_opts \
         -append "$__kernel_append" \
         -m 4G \
         -enable-kvm -smp 4
