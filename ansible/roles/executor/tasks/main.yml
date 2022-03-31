@@ -1,8 +1,20 @@
 ---
+- name: Creates /app/valve-infra/executor/
+  ansible.builtin.file:
+    path: /app/valve-infra/executor/
+    state: directory
+    mode: 0755
+
 - name: Copy package
-  ansible.builtin.copy:
+  ansible.posix.synchronize:
     src: "{{ executor_package_location }}"
     dest: /app/valve-infra/executor/
+    rsync_opts:
+      - "--exclude=.tox"
+      - "--exclude=.venv"
+      - "--exclude=htmlcov"
+      - "--exclude=__pycache__"
+      - "--exclude=*.pyc"
   register: executor_package
 
 - name: Install executor # noqa no-handler

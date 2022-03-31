@@ -1,8 +1,20 @@
 ---
+- name: Creates /app/valve-infra/salad/
+  ansible.builtin.file:
+    path: /app/valve-infra/salad/
+    state: directory
+    mode: 0755
+
 - name: Copy package
-  ansible.builtin.copy:
+  ansible.posix.synchronize:
     src: "{{ salad_package_location }}"
     dest: /app/valve-infra/
+    rsync_opts:
+      - "--exclude=.tox"
+      - "--exclude=.venv"
+      - "--exclude=htmlcov"
+      - "--exclude=__pycache__"
+      - "--exclude=*.pyc"
   register: salad_package
 
 - name: Install salad # noqa no-handler

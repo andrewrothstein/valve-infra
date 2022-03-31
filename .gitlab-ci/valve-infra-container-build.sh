@@ -19,6 +19,7 @@ build() {
     $buildah_run $buildcntr chmod -R o-w /app/valve-infra/ansible
     $buildah_run $buildcntr ansible-lint --version
     $buildah_run $buildcntr ansible-lint -f plain
+    $buildah_run $buildcntr ansible-galaxy collection install -r requirements.yml
     $buildah_run $buildcntr ansible-playbook --syntax-check gateway.yml
     $buildah_run $buildcntr ansible-playbook $ANSIBLE_EXTRA_ARGS ./gateway.yml -l localhost
 
