@@ -1,0 +1,21 @@
+---
+- name: Stop executor
+  ansible.builtin.systemd:
+    name: 'executor'
+    state: stopped
+  when: pid_1_name == "systemd"
+  listen: 'Restart salad'
+
+- name: Restarting service
+  ansible.builtin.systemd:
+    name: 'salad'
+    state: restarted
+  when: pid_1_name == "systemd"
+  listen: 'Restart salad'
+
+- name: Start executor
+  ansible.builtin.systemd:
+    name: 'executor'
+    state: started
+  when: pid_1_name == "systemd"
+  listen: 'Restart salad'

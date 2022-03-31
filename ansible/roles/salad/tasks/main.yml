@@ -3,10 +3,17 @@
   ansible.builtin.copy:
     src: "{{ salad_package_location }}"
     dest: /app/valve-infra/
+  register: salad_package
 
-- name: Install the salad server package
+- name: Install salad # noqa no-handler
   ansible.builtin.pip:
     name: "file:///app/valve-infra/salad"
+  notify: 'Restart salad'
+  # Always install when building the container, since the previous task won't
+  # result in a "changed" status.
+  # This is necessary because pip installing a local dist is never idempotent,
+  # see: https://github.com/pypa/pip/pull/9147
+  when: pid_1_name != "systemd" or salad_package.changed
 
 - name: Install salad systemd unit file
   ansible.builtin.template:
@@ -15,6 +22,7 @@
     owner: root
     group: root
     mode: 0644
+  notify: 'Restart salad'
 
 - name: Enable salad service
   become: true
@@ -31,3 +39,4 @@
     marker: "# {mark} ANSIBLE MANAGED BLOCK {{ role_name }}"
     block: |
       SALAD_PORT={{ salad_port }}
+  notify: 'Restart salad'
