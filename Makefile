@@ -14,6 +14,7 @@ endif
 ifdef SSH_ID_KEY
 	VIVIAN_SSH_KEY_OPT=--ssh-id=$(SSH_ID_KEY)
 	SSH_KEY_OPT=-i $(SSH_ID_KEY) -o IdentitiesOnly=yes
+	ANSIBLE_SSH_KEY_OPT=--private-key $(SSH_ID_KEY) --ssh-common-args "-o IdentitiesOnly=yes"
 endif
 V ?= 0
 GITLAB_URL ?= "https://gitlab.freedesktop.org"
@@ -111,7 +112,7 @@ vivian-connect:
 vivian-provision:
 	if [ -n "$(TAGS)" ]; then _TAGS="-t $(TAGS)" ; else _TAGS="" ; fi
 	cd ansible
-	ansible-playbook gateway.yml $$_TAGS -e valve_infra_root=$(CURDIR) -e development=true -l vivian
+	ansible-playbook gateway.yml $(ANSIBLE_SSH_KEY_OPT) $$_TAGS -e valve_infra_root=$(CURDIR) -e development=true -l vivian
 
 .PHONY: live-provision
 live-provision:
@@ -120,7 +121,7 @@ ifndef TARGET
 endif
 	if [ -n "$(TAGS)" ]; then _TAGS="-t $(TAGS)" ; else _TAGS="" ; fi
 	cd ansible
-	ansible-playbook gateway.yml $$_TAGS -e valve_infra_root=$(CURDIR) -e target=$(TARGET) -l live
+	ansible-playbook gateway.yml $(ANSIBLE_SSH_KEY_OPT) $$_TAGS -e valve_infra_root=$(CURDIR) -e target=$(TARGET) -l live
 
 .PHONY: vpdu
 vpdu:
