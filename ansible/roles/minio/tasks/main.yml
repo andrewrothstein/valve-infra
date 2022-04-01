@@ -82,7 +82,3 @@
   ansible.builtin.systemd:
     name: 'minio_configure'
     enabled: true
-
-- name: Get status of system services
-  ansible.builtin.service_facts:
-  register: services_state

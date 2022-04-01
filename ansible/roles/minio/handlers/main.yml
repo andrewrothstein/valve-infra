@@ -1,7 +1,6 @@
+---
 - name: Restart minio_configure
   ansible.builtin.systemd:
     name: 'minio_configure'
     state: restarted
-  # note: this avoids running minio_configure when in a chroot, and minio is
-  # not running
-  when: '"minio" in services_state and services_state["minio"].state == "running" and pid_1_name == "systemd"'
+  when: pid_1_name == "systemd"
