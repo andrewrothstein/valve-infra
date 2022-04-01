@@ -19,7 +19,32 @@
     part_of:
       - "infra.service"
 
-- name: configuring minio user/passwords
+- name: check for existing minio password
+  ansible.builtin.lineinfile:
+    path: "{{ base_config_env_file }}"
+    regex: '^MINIO_ROOT_PASSWORD=.*'
+    state: absent
+  # don't actually make any changes
+  check_mode: true
+  register: minio_pw
+  changed_when: false
+
+- name: storing minio admin password
+  become: true
+  ansible.builtin.blockinfile:
+    create: true
+    path: "{{ base_config_env_file }}"
+    mode: '0644'
+    marker: "# {mark} ANSIBLE MANAGED BLOCK {{ role_name }} password"
+    block: |
+      MINIO_ROOT_PASSWORD={{ lookup('community.general.random_string', length=12, special=false) }}
+  # first condition satisfies new installs, second condition guards against
+  # replacing an existing pw in the file
+  when: '("msg" in minio_pw and "file not present" in minio_pw["msg"]) or not minio_pw.found'
+  # config changes are applied to minio by this service
+  notify: "Restart minio_configure"
+
+- name: configuring minio
   become: true
   ansible.builtin.blockinfile:
     create: true
@@ -29,7 +54,6 @@
     block: |
       MINIO_ROOT_USER=minioadmin
       VALVETRACES_MINIO_PASSWORD={{ valvetraces_minio_password }}
-      MINIO_ROOT_PASSWORD={{ lookup('community.general.random_string', length=12, special=false) }}
   # config changes are applied to minio by this service
   notify: "Restart minio_configure"
 
