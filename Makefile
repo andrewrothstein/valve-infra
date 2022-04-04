@@ -68,11 +68,8 @@ endif
 
 # Run the valve-infra multi-service container inside a VM for local testing.
 .PHONY: vivian
+vivian: FARM_NAME ?= "vivian-$(USER)"
 vivian: tmp/boot2container-$(B2C_VERSION)-linux_amd64.cpio.xz tmp/linux-b2c-$(B2C_VERSION) tmp/disk.img
-ifndef FARM_NAME
-	$(error "FARM_NAME is a required parameter")
-endif
-
 ifndef GITLAB_REGISTRATION_TOKEN
 	$(error "GITLAB_REGISTRATION_TOKEN is a required parameter")
 endif
@@ -80,7 +77,11 @@ endif
 ifndef GITLAB_URL
 	$(error "GITLAB_URL is a required parameter")
 endif
-	@$(VIVIAN) $(VIVIAN_OPTS) $(VIVIAN_SSH_KEY_OPT) --vpdu-port=$(VPDU_PORT) --kernel-img=tmp/linux-b2c-$(B2C_VERSION) --ramdisk=tmp/boot2container-$(B2C_VERSION)-linux_amd64.cpio.xz --gateway-disk-img=tmp/disk.img --kernel-append='b2c.volume="tmp" b2c.volume="perm" b2c.container="-ti --dns=none -v tmp:/mnt/tmp -v perm:/mnt/permanent --tls-verify=false --entrypoint=/bin/init docker://${REGISTRY}/${CONTAINER}" b2c.ntp_peer=auto b2c.pipefail b2c.cache_device=auto net.ifnames=0 quiet'  start
+
+	echo "FARM_NAME = $(FARM_NAME)"
+	@env \
+	   FARM_NAME=$(FARM_NAME) \
+	   $(VIVIAN) $(VIVIAN_OPTS) $(VIVIAN_SSH_KEY_OPT) --vpdu-port=$(VPDU_PORT) --kernel-img=tmp/linux-b2c-$(B2C_VERSION) --ramdisk=tmp/boot2container-$(B2C_VERSION)-linux_amd64.cpio.xz --gateway-disk-img=tmp/disk.img --kernel-append='b2c.volume="tmp" b2c.volume="perm" b2c.container="-ti --dns=none -v tmp:/mnt/tmp -v perm:/mnt/permanent --tls-verify=false --entrypoint=/bin/init docker://${REGISTRY}/${CONTAINER}" b2c.ntp_peer=auto b2c.pipefail b2c.cache_device=auto net.ifnames=0 quiet' start
 
 # Start a production test of the virtual gateway. It will retrieve
 # boot configuration from an external PXE server, booting from the

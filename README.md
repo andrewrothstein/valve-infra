@@ -90,7 +90,7 @@ graphical QEMU window, which can be handy. WIP.
 We are now ready to start our virtual gateway machine, which will boot
 directly into the container we built in the previous section:
 
-	make SSH_ID_KEY=~/.ssh/vivian REGISTRY=10.0.2.2:8088 CONTAINER=mupuf/valve-infra/valve-infra-$(whoami):latest FARM_NAME=$(whoami)-farm GITLAB_REGISTRATION_TOKEN=... GITLAB_URL=https://gitlab.freedesktop.org vivian
+	make SSH_ID_KEY=~/.ssh/vivian REGISTRY=10.0.2.2:8088 CONTAINER=mupuf/valve-infra/valve-infra-$(whoami):latest GITLAB_REGISTRATION_TOKEN=... GITLAB_URL=https://gitlab.freedesktop.org vivian
 
 *TODO: make GITLAB_REGISTRATION_TOKEN/GITLAB_URL optional*
 
