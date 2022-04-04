@@ -50,7 +50,7 @@ registry to host it, as this will save round-trips to an external registry:
 
 You can then build the container:
 
-	make IMAGE_NAME=localhost:8088/mupuf/valve-infra/valve-infra-$(whoami):latest valve-infra-container
+	make IMAGE_NAME=localhost:8088/mupuf/valve-infra/valve-infra-container:latest valve-infra-container
 
 Build options
 
@@ -62,7 +62,7 @@ Build options
     The ansible playbook for the gateway container has a number of
     configuration variables. You may override/specify them using this
     Makefile argument.
-  - `IMAGE_NAME=localhost:8088/mupuf/valve-infra/valve-infra-$(whoami):latest` -
+  - `IMAGE_NAME=localhost:8088/mupuf/valve-infra/valve-infra-container:latest` -
     The container name to tag the image with. *WARNING:* The image
     will automatically be pushed to the registry that got tagged!
 
