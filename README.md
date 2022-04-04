@@ -81,7 +81,7 @@ Now that we have built our container, we need to start another component: a
 virtual PDU that will spawn a virtual machine every time its virtual port turns
 on. This can be done by running this simple command:
 
-	make PORT=9191 vpdu
+	make vpdu
 
 *TODO:* This might make more sense to be pre-configured inside the
 container, but then you need to bundle QEMU (not a huge deal), and
