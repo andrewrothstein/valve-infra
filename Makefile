@@ -16,8 +16,6 @@ ifdef SSH_ID_KEY
 	SSH_KEY_OPT=-i $(SSH_ID_KEY) -o IdentitiesOnly=yes
 endif
 V ?= 0
-REGISTRY ?= registry.freedesktop.org
-CONTAINER ?= mupuf/valve-infra/valve-infra-container:latest
 GITLAB_URL ?= "https://gitlab.freedesktop.org"
 PRIV_MAC=$(shell printf "DE:AD:BE:EF:%02X:%02X\n" $$((RANDOM%256)) $$((RANDOM%256)))
 PUBLIC_MAC=$(shell printf "DE:AD:BE:EF:%02X:%02X\n" $$((RANDOM%256)) $$((RANDOM%256)))
@@ -35,14 +33,16 @@ tmp/ipxe-disk.img tmp/disk.img:
 	[ -d tmp/ ] || mkdir tmp
 	qemu-img create -f qcow2 $@ 20G
 
+.PHONY: local-registry
+local-registry:
+	-podman rm registry || true  # Try removing the container. This will fail if the conainer is running, which is good!
+	-podman run --rm -d -p 8088:5000 --name registry docker.io/library/registry:2
+
 .PHONY: valve-infra-container
 valve-infra-container: BASE_IMAGE ?= "registry.freedesktop.org/mupuf/valve-infra/valve-infra-base-container:latest"
-valve-infra-container:
-ifndef IMAGE_NAME
-	$(error "IMAGE_NAME is a required parameter (e.g. localhost:8088/mupuf/valve-infra/valve-infra-container:latest)")
-endif
+valve-infra-container: local-registry
 	env \
-	   IMAGE_NAME=$(IMAGE_NAME) \
+	   IMAGE_NAME=localhost:8088/valve-infra/valve-infra-container:latest \
 	   BASE_IMAGE=$(BASE_IMAGE) \
 	   ANSIBLE_EXTRA_ARGS='--extra-vars service_mgr_override=inside_container -e development=true' \
 	   buildah unshare -- .gitlab-ci/valve-infra-container-build.sh
@@ -70,12 +70,13 @@ endif
 # Run the valve-infra multi-service container inside a VM for local testing.
 .PHONY: vivian
 vivian: FARM_NAME ?= "vivian-$(USER)"
-vivian: tmp/boot2container-$(B2C_VERSION)-linux_amd64.cpio.xz tmp/linux-b2c-$(B2C_VERSION) tmp/disk.img
+vivian: tmp/boot2container-$(B2C_VERSION)-linux_amd64.cpio.xz tmp/linux-b2c-$(B2C_VERSION) tmp/disk.img local-registry
+	podman image exists localhost:8088/valve-infra/valve-infra-container:latest || $(MAKE) -j1 valve-infra-container
 	@env \
 	   FARM_NAME=$(FARM_NAME) \
 	   GITLAB_URL=$(GITLAB_URL) \
 	   GITLAB_REGISTRATION_TOKEN=$(GITLAB_REGISTRATION_TOKEN) \
-	   $(VIVIAN) $(VIVIAN_OPTS) $(VIVIAN_SSH_KEY_OPT) --vpdu-port=$(VPDU_PORT) --kernel-img=tmp/linux-b2c-$(B2C_VERSION) --ramdisk=tmp/boot2container-$(B2C_VERSION)-linux_amd64.cpio.xz --gateway-disk-img=tmp/disk.img --kernel-append='b2c.volume="tmp" b2c.volume="perm" b2c.container="-ti --dns=none -v tmp:/mnt/tmp -v perm:/mnt/permanent --tls-verify=false --entrypoint=/bin/init docker://${REGISTRY}/${CONTAINER}" b2c.ntp_peer=auto b2c.pipefail b2c.cache_device=auto net.ifnames=0 quiet' start
+	   $(VIVIAN) $(VIVIAN_OPTS) $(VIVIAN_SSH_KEY_OPT) --vpdu-port=$(VPDU_PORT) --kernel-img=tmp/linux-b2c-$(B2C_VERSION) --ramdisk=tmp/boot2container-$(B2C_VERSION)-linux_amd64.cpio.xz --gateway-disk-img=tmp/disk.img --kernel-append='b2c.volume="tmp" b2c.volume="perm" b2c.container="-ti --dns=none -v tmp:/mnt/tmp -v perm:/mnt/permanent --tls-verify=false --entrypoint=/bin/init docker://10.0.2.2:8088/valve-infra/valve-infra-container:latest" b2c.ntp_peer=auto b2c.pipefail b2c.cache_device=auto net.ifnames=0 quiet' start
 
 # Start a production test of the virtual gateway. It will retrieve
 # boot configuration from an external PXE server, booting from the

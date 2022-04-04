@@ -43,14 +43,14 @@ The container image is provisioned using Ansible recipes (see the
 need to provide your own public key. Make sure to add yours at
 [ansible/gateway.yml](ansible/gateway.yml).
 
-Before building the container, it is first recommended to start a local
-registry to host it, as this will save round-trips to an external registry:
+Before building the container, we first need to start a local registry to
+host it, as this will save round-trips to an external registry:
 
-    podman run --rm -d -p 8088:5000 --name registry docker.io/library/registry:2
+    make local-registry
 
 You can then build the container:
 
-	make IMAGE_NAME=localhost:8088/mupuf/valve-infra/valve-infra-container:latest valve-infra-container
+	make valve-infra-container
 
 Build options
 
@@ -62,17 +62,18 @@ Build options
     The ansible playbook for the gateway container has a number of
     configuration variables. You may override/specify them using this
     Makefile argument.
-  - `IMAGE_NAME=localhost:8088/mupuf/valve-infra/valve-infra-container:latest` -
+  - `IMAGE_NAME=localhost:8088/my/image` -
     The container name to tag the image with. *WARNING:* The image
     will automatically be pushed to the registry that got tagged!
+    Defaults to `localhost:8088/valve-infra/valve-infra-container:latest`.
 
 Once completed, a container image will be generated, for example,
 
-    Successfully tagged localhost:8088/mupuf/valve-infra/valve-infra-cturner:latest
+    Successfully tagged localhost:8088/valve-infra/valve-infra-container:latest
     60cc3db9bedd2a11d8d61a4433a2a8e8daf35a59d6229b80c1fdcf9ece73b7ab
 
 Notice it defaults to a `localhost` registry. This is to save on
-bandwidth (the valve-infra container is too big).
+bandwidth (the valve-infra container is quite big).
 
 ### Running the infrastructure
 
@@ -90,7 +91,7 @@ graphical QEMU window, which can be handy. WIP.
 We are now ready to start our virtual gateway machine, which will boot
 directly into the container we built in the previous section:
 
-	make vivian REGISTRY=10.0.2.2:8088 CONTAINER=mupuf/valve-infra/valve-infra-$(whoami):latest [SSH_ID_KEY=~/.ssh/vivian] [GITLAB_REGISTRATION_TOKEN=...] [GITLAB_URL=https://gitlab.freedesktop.org]
+	make vivian [SSH_ID_KEY=~/.ssh/vivian] [GITLAB_REGISTRATION_TOKEN=...] [GITLAB_URL=https://gitlab.freedesktop.org]
 
 Note: options to vivian can be passed by setting `VIVIAN_OPTS`, for example:
 
@@ -100,10 +101,6 @@ The virtual testing recipes will fetch a Linux kernel and a
 boot2container ramdisk, and start the system. After the kernel boots
 and loads the ramdisk, the ramdisk will then pull the valve-infra
 container, and hand control to it.
-
-**N.B:** The `REGISTRY` is given as `10.0.2.2`, this is the "slirp"
-interface provided by QEMU, through which host services can be
-contacted inside the VM.
 
 **N.B:** Due to the stateful nature of the permanent partition in the
 VM's tmp disk, it is wise to occasionally delete said disk and check
