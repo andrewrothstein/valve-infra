@@ -18,6 +18,7 @@ endif
 V ?= 0
 REGISTRY ?= registry.freedesktop.org
 CONTAINER ?= mupuf/valve-infra/valve-infra-container:latest
+GITLAB_URL ?= "https://gitlab.freedesktop.org"
 PRIV_MAC=$(shell printf "DE:AD:BE:EF:%02X:%02X\n" $$((RANDOM%256)) $$((RANDOM%256)))
 PUBLIC_MAC=$(shell printf "DE:AD:BE:EF:%02X:%02X\n" $$((RANDOM%256)) $$((RANDOM%256)))
 B2C_VERSION=v0.9.5
@@ -70,17 +71,10 @@ endif
 .PHONY: vivian
 vivian: FARM_NAME ?= "vivian-$(USER)"
 vivian: tmp/boot2container-$(B2C_VERSION)-linux_amd64.cpio.xz tmp/linux-b2c-$(B2C_VERSION) tmp/disk.img
-ifndef GITLAB_REGISTRATION_TOKEN
-	$(error "GITLAB_REGISTRATION_TOKEN is a required parameter")
-endif
-
-ifndef GITLAB_URL
-	$(error "GITLAB_URL is a required parameter")
-endif
-
-	echo "FARM_NAME = $(FARM_NAME)"
 	@env \
 	   FARM_NAME=$(FARM_NAME) \
+	   GITLAB_URL=$(GITLAB_URL) \
+	   GITLAB_REGISTRATION_TOKEN=$(GITLAB_REGISTRATION_TOKEN) \
 	   $(VIVIAN) $(VIVIAN_OPTS) $(VIVIAN_SSH_KEY_OPT) --vpdu-port=$(VPDU_PORT) --kernel-img=tmp/linux-b2c-$(B2C_VERSION) --ramdisk=tmp/boot2container-$(B2C_VERSION)-linux_amd64.cpio.xz --gateway-disk-img=tmp/disk.img --kernel-append='b2c.volume="tmp" b2c.volume="perm" b2c.container="-ti --dns=none -v tmp:/mnt/tmp -v perm:/mnt/permanent --tls-verify=false --entrypoint=/bin/init docker://${REGISTRY}/${CONTAINER}" b2c.ntp_peer=auto b2c.pipefail b2c.cache_device=auto net.ifnames=0 quiet' start
 
 # Start a production test of the virtual gateway. It will retrieve

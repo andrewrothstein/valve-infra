@@ -225,6 +225,8 @@ provision_infra() {
 
     # Initial provisioning of the MaRS DB
     if ! ssh $__ssh_options root@localhost "test -s /mnt/permanent/mars_db.yaml"; then
+        EXPOSE_RUNNERS=false
+        [ -n "${GITLAB_URL}" ] && [ -n "${GITLAB_REGISTRATION_TOKEN}" ] && EXPOSE_RUNNERS=true
         cat << EOF > vivian/__mars_db.yaml
 pdus:
   VPDU:
@@ -236,7 +238,7 @@ gitlab:
   freedesktop:
     url: ${GITLAB_URL}
     registration_token: ${GITLAB_REGISTRATION_TOKEN}
-    expose_runners: true
+    expose_runners: ${EXPOSE_RUNNERS}
     maximum_timeout: 21600
     gateway_runner:
       token: <invalid>
