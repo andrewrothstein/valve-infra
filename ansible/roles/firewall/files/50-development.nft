@@ -4,7 +4,6 @@ table inet filter {
     chain input {
         # Rules for allowing ports useful for debug/development
         # 10.0.2.2 is from qemu
-        ip saddr 10.0.2.2 tcp dport 2375 accept comment "allow developer docker port forward"
         ip saddr 10.0.2.2 tcp dport 80   accept comment "allow developer executor forwarding"
         ip saddr 10.0.2.2 tcp dport 8100 accept comment "allow developer salad forwarding"
         ip saddr 10.0.2.2 tcp dport 9000 accept comment "allow developer minio forwarding"

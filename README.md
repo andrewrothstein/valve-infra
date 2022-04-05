@@ -182,7 +182,7 @@ Or just the items tagged dashboard and minio,
 
 Running the infrastructure with the following command:
 
-    docker run --privileged --network=host --rm -it -v $(pwd):/app -v /var/run/docker.sock:/var/run/docker.sock -v /mnt:/mnt registry.freedesktop.org/mupuf/valve-infra
+    docker run --privileged --network=host --rm -it -v $(pwd):/app -v /mnt:/mnt registry.freedesktop.org/mupuf/valve-infra
 
 The project is voluntarily light on configuration options as it
 strives for auto-configuration as much as possible. However, it is
