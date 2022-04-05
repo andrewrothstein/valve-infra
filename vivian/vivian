@@ -50,32 +50,32 @@ while test -n "$1"; do
     case "$1" in
         --help*|-h*)
             usage
-	    exit 1
+            exit 1
             ;;
-	--host-bridge-name=*)
-	    __host_bridge_name="${1#--host-bridge-name=}"
-	    ;;
-	--gateway-monitor-socket=*)
-	    __gateway_monitor_socket="${1#--gateway-monitor-socket=}"
-	    ;;
-	--kernel-img=*)
-	    __kernel_img="${1#--kernel-img=}"
+        --host-bridge-name=*)
+            __host_bridge_name="${1#--host-bridge-name=}"
             ;;
-	--kernel-append=*)
-	    __kernel_append="${1#--kernel-append=}"
+        --gateway-monitor-socket=*)
+            __gateway_monitor_socket="${1#--gateway-monitor-socket=}"
             ;;
-	--ramdisk=*)
-	    __ramdisk="${1#--ramdisk=}"
+        --kernel-img=*)
+            __kernel_img="${1#--kernel-img=}"
+                ;;
+        --kernel-append=*)
+            __kernel_append="${1#--kernel-append=}"
+                ;;
+        --ramdisk=*)
+            __ramdisk="${1#--ramdisk=}"
+                ;;
+        --gateway-disk-img=*)
+            __disk_img="${1#--gateway-disk-img=}"
+                ;;
+        --gateway-public-mac-addr=*)
+            __gateway_public_mac_addr="${1#--gateway-public-mac-addr=}"
             ;;
-	--gateway-disk-img=*)
-	    __disk_img="${1#--gateway-disk-img=}"
+        --gateway-private-mac-addr=*)
+            __gateway_private_mac_addr="${1#--gateway-private-mac-addr=}"
             ;;
-	--gateway-public-mac-addr=*)
-	    __gateway_public_mac_addr="${1#--gateway-public-mac-addr=}"
-	    ;;
-	--gateway-private-mac-addr=*)
-	    __gateway_private_mac_addr="${1#--gateway-private-mac-addr=}"
-	    ;;
         --docker-port=*)
             __docker_port="${1#--docker-port=}"
             ;;
@@ -100,24 +100,24 @@ while test -n "$1"; do
         --vpdu-port=*)
             __vpdu_port="${1#--vpdu-port=}"
             ;;
-	--boot-mode=*)
-            mode="${1#--boot-mode=}"
-	    if [ "$mode" = "uefi" ]; then
-		__ovmf_dirs=("/usr/share/edk2-ovmf/x64" "/usr/share/OVMF")
-		__ovmf=
-		for d in ${__ovmf_dirs[@]}; do
-			[ -e "$d/OVMF.fd" ] && __ovmf="$d/OVMF.fd"
-		done
+        --boot-mode=*)
+                mode="${1#--boot-mode=}"
+            if [ "$mode" = "uefi" ]; then
+            __ovmf_dirs=("/usr/share/edk2-ovmf/x64" "/usr/share/OVMF")
+            __ovmf=
+            for d in ${__ovmf_dirs[@]}; do
+                [ -e "$d/OVMF.fd" ] && __ovmf="$d/OVMF.fd"
+            done
 
-		if [ -z "$__ovmf" ] ; then
-		    echo "ERROR: OVMF not found. Probably missing the edk2 ovmf packages."
-		    exit 1
-		fi
-		__boot_mode="-drive if=pflash,format=raw,unit=0,file=$__ovmf,readonly=on -global driver=cfi.pflash01,property=secure,value=off"
-	    else
-		__boot_mode=""
-	    fi
-	    ;;
+            if [ -z "$__ovmf" ] ; then
+                echo "ERROR: OVMF not found. Probably missing the edk2 ovmf packages."
+                exit 1
+            fi
+            __boot_mode="-drive if=pflash,format=raw,unit=0,file=$__ovmf,readonly=on -global driver=cfi.pflash01,property=secure,value=off"
+            else
+            __boot_mode=""
+            fi
+            ;;
         start|"test-installer"|"integration-tests")
             cmd="$1"
             break
@@ -173,15 +173,15 @@ start_gateway() {
     # chmod u+s /usr/lib/qemu/qemu-bridge-helper
 
     qemu-system-x86_64 \
-	-daemonize \
-	-hda "$__disk_img" \
-        -monitor unix:"$__gateway_monitor_socket",server,nowait \
-	$__gateway_nic_opts \
-	$__boot_mode \
-	$__qemu_kernel_opts \
-	-append "$__kernel_append" \
-	-m 4G \
-	-enable-kvm -smp 4
+        -daemonize \
+        -hda "$__disk_img" \
+            -monitor unix:"$__gateway_monitor_socket",server,nowait \
+        $__gateway_nic_opts \
+        $__boot_mode \
+        $__qemu_kernel_opts \
+        -append "$__kernel_append" \
+        -m 4G \
+        -enable-kvm -smp 4
 
     echo "Started gateway VM"
 }
@@ -191,7 +191,7 @@ wait_for_ssh() {
     { local prev_shell_config=$-; set +x; } 2>/dev/null
     __ssh_options="$__ssh_options -o BatchMode=yes -o ConnectionAttempts=1"
     while ! ssh $__ssh_options root@localhost true; do
-	sleep 0.2
+    sleep 0.2
     done >/dev/null 2>&1
     echo "SSH is up..."
     set "-$prev_shell_config"
@@ -204,7 +204,7 @@ wait_for_endpoint() {
     echo "Waiting for http://localhost:$port/$endpoint to respond..."
     { local prev_shell_config=$-; set +x; } 2>/dev/null
     while ! curl -sL "http://localhost:$port/$endpoint" -o/dev/null; do
-	sleep 0.1
+    sleep 0.1
     done
     set "-$prev_shell_config"
 }
@@ -251,20 +251,20 @@ EOF
 
 create_host_bridge() {
     if ! ip link show "$__host_bridge_name" 2>&1>/dev/null ; then
-	$_sudo ip link add name "$__host_bridge_name" type bridge
-	$_sudo ip link set "$__host_bridge_name" up
-	$_sudo iptables -I FORWARD -m physdev --physdev-is-bridged -j ACCEPT
+    $_sudo ip link add name "$__host_bridge_name" type bridge
+    $_sudo ip link set "$__host_bridge_name" up
+    $_sudo iptables -I FORWARD -m physdev --physdev-is-bridged -j ACCEPT
     else
-	echo "Host bridge $__host_bridge_name already exists"
+    echo "Host bridge $__host_bridge_name already exists"
     fi
 }
 
 remove_host_bridge() {
     if ip link show "$__host_bridge_name" 2>&1>/dev/null ; then
-	$_sudo ip link set "$__host_bridge_name" down
-	$_sudo ip link del name "$__host_bridge_name" type bridge
-	# TODO: Should we get rid of this? Maybe it already existed on the system, eh...
-	# iptables -I FORWARD -m physdev --physdev-is-bridged -j ACCEPT
+    $_sudo ip link set "$__host_bridge_name" down
+    $_sudo ip link del name "$__host_bridge_name" type bridge
+    # TODO: Should we get rid of this? Maybe it already existed on the system, eh...
+    # iptables -I FORWARD -m physdev --physdev-is-bridged -j ACCEPT
     fi
 }
 
@@ -306,38 +306,38 @@ test_installer() {
 
     # TODO: Allow specifying differing block device topologies
     qemu-system-x86_64 \
-	-drive file="$__gateway_disk_img",if=none,id=nvm \
-	-device nvme,serial=deadbeef,drive=nvm \
-	-cdrom "$__iso" \
-	-boot d \
-	$__gateway_nic_opts \
-	$__boot_mode \
-	-m 4G \
-	-display gtk \
-	-enable-kvm \
-	-serial stdio
+        -drive file="$__gateway_disk_img",if=none,id=nvm \
+        -device nvme,serial=deadbeef,drive=nvm \
+        -cdrom "$__iso" \
+        -boot d \
+        $__gateway_nic_opts \
+        $__boot_mode \
+        -m 4G \
+        -display gtk \
+        -enable-kvm \
+        -serial stdio
 }
 
 case "$cmd" in
     start)
-	if test -z "$__disk_img"; then
-	    echo "ERROR: Give a path to the disk image to use for the gateway VM"
-	    exit 1
-	fi
-	trap cleanup EXIT
-	create_host_bridge
-	start_gateway
-	provision_infra || true
+        if test -z "$__disk_img"; then
+            echo "ERROR: Give a path to the disk image to use for the gateway VM"
+            exit 1
+        fi
+        trap cleanup EXIT
+        create_host_bridge
+        start_gateway
+        provision_infra || true
 
-	ssh $__ssh_options -t root@localhost env LC_ALL=en_US.utf8 tmuxp load .tmuxp/dashboard.yml
-	;;
+        ssh $__ssh_options -t root@localhost env LC_ALL=en_US.utf8 tmuxp load .tmuxp/dashboard.yml
+        ;;
     test-installer)
-	create_host_bridge
-	trap cleanup EXIT
-	test_installer "$@"
-	;;
-    integration-tests)
-	echo "WIP: No tests yet!"
-	exit 1
-	;;
+        create_host_bridge
+        trap cleanup EXIT
+        test_installer "$@"
+        ;;
+        integration-tests)
+        echo "WIP: No tests yet!"
+        exit 1
+        ;;
 esac
