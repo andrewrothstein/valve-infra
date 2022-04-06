@@ -1,0 +1,15 @@
+[Service]
+StateDirectory=
+
+# NOTE: We need the root user for the `ExecStartPre` commands, needed to create the base folder for influxdb
+DynamicUser=No
+User=root
+Group=root
+ExecStartPre=-mkdir {{ influxdb_path }}
+ExecStartPre=-chown -R influxdb:influxdb {{ influxdb_path }}
+
+ExecStart=
+ExecStart=-su - influxdb -c "/usr/bin/influxd --http-bind-address=':8087' --bolt-path {{ influxdb_path }}/influxd.bolt --engine-path {{ influxdb_path }}/engine"
+
+[Install]
+WantedBy=infra.service

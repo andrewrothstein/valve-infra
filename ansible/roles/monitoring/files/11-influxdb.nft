@@ -1,0 +1,7 @@
+#!/usr/sbin/nft -f
+
+table inet filter {
+	chain input {
+        iifname "private" tcp dport 8086 accept comment "accept connections to influxdb from the private iface"
+	}
+}

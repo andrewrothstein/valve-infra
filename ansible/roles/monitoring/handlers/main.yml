@@ -1,0 +1,21 @@
+---
+- name: Restart influxdb
+  ansible.builtin.systemd:
+    name: 'influxdb'
+    state: restarted
+    daemon-reload: true
+  when: pid_1_name == "systemd"
+
+- name: Restart influxdb_configure
+  ansible.builtin.systemd:
+    name: 'influxdb_configure'
+    state: restarted
+    daemon-reload: true
+  when: pid_1_name == "systemd"
+
+- name: Restart telegraf
+  ansible.builtin.systemd:
+    name: 'telegraf'
+    state: restarted
+    daemon-reload: true
+  when: pid_1_name == "systemd"

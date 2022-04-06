@@ -1,0 +1,28 @@
+#!/bin/sh
+
+set -eux
+
+if [ ! -s "{{ influxdb_path }}/admin_token" ]; then
+    # NOTE: security is enforced through the nftables, not credentials
+    influx setup --username {{ influxdb_admin_username }} --password {{ influxdb_admin_password }} --org {{ influxdb_org }} --bucket {{ influxdb_bucket }} --retention 30d -f || /bin/true
+
+    influx auth create --org valve.ci --all-access --json | jq -r .token > "{{ influxdb_path }}/admin_token"
+fi
+
+export INFLUX_TOKEN=$(cat "{{ influxdb_path }}/admin_token")
+
+# Create the bucket policy
+bucket_id=$(influx bucket find --name {{ influxdb_bucket }} --org {{ influxdb_org }} --json | jq -r .[0].id)
+dbrp_id=$(influx v1 dbrp find --hide-headers --bucket-id ${bucket_id} --org {{ influxdb_org }} --json | jq -r .[0].id)
+if [[ "$dbrp_id" == "null"  ]]; then
+    influx v1 dbrp create --db {{ influxdb_bucket }} --bucket-id ${bucket_id} -rp 30d
+fi
+
+# Create a v1 auth for telegraf
+if ! influx v1 auth find --username {{ influxdb_telegraf_username }}; then
+    # NOTE: security is enforced through the nftables, not credentials
+    influx v1 auth create --username {{ influxdb_telegraf_username }} --password {{ influxdb_telegraf_password }} -o {{ influxdb_org }} --read-bucket "$bucket_id" --write-bucket "$bucket_id"
+fi
+
+# Install the dashboard
+influx apply -f "/usr/local/etc/linux_system_dashboard.yml" --org {{ influxdb_org }} --force conflict

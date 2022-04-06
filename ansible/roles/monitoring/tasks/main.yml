@@ -1,0 +1,140 @@
+---
+- name: Installing influxdb
+  become: true
+  pacman:
+    state: present
+    name:
+      - influxdb
+      - influx-cli
+
+- name: Add the influxdb group
+  ansible.builtin.group:
+    name: influxdb
+
+- name: Add the influxdb user
+  ansible.builtin.user:
+    name: influxdb
+    group: influxdb
+
+- name: Ensure /mmt/tmp/influxdb directory exists
+  become: true
+  ansible.builtin.file:
+    mode: 0700
+    owner: influxdb
+    group: influxdb
+    path: "{{ influxdb_path }}"
+    state: directory
+
+- name: Ensure /etc/systemd/system/influxdb.service.d/ directory exists
+  become: true
+  ansible.builtin.file:
+    mode: 0755
+    path: /etc/systemd/system/influxdb.service.d/
+    state: directory
+
+- name: Installing influxdb configuration override
+  become: true
+  ansible.builtin.template:
+    src: 'influxdb.service.d_override.conf.j2'
+    dest: '/etc/systemd/system/influxdb.service.d/override.conf'
+    mode: 0755
+    owner: root
+  notify: "Restart influxdb"
+
+- name: Adding firewall rule for influxdb
+  become: true
+  ansible.builtin.copy:
+    src: 11-influxdb.nft
+    dest: /etc/nftables.d/11-influxdb.nft
+    owner: root
+    group: root
+    mode: '0644'
+  notify: 'Restart nftables'
+
+- name: Enable influxdb service
+  become: true
+  ansible.builtin.systemd:
+    name: 'influxdb'
+    enabled: true
+
+- name: Start influxdb service
+  become: true
+  ansible.builtin.systemd:
+    name: 'influxdb'
+    state: started
+    daemon-reload: true
+  when: pid_1_name == "systemd"
+
+# Influxdb configuration
+- name: Installing influxdb_configure script
+  become: true
+  ansible.builtin.template:
+    src: 'influxdb_configure.sh.j2'
+    dest: '/usr/local/bin/influxdb_configure.sh'
+    mode: 0755
+    owner: root
+  # config changes are applied to minio by this service
+  notify: "Restart influxdb_configure"
+
+- name: Installing linux_system.yml dashboard
+  become: true
+  ansible.builtin.template:
+    src: 'linux_system.yml.j2'
+    dest: '/usr/local/etc/linux_system_dashboard.yml'
+    mode: 0644
+    owner: influxdb
+    group: influxdb
+  # config changes are applied to minio by this service
+  notify: "Restart influxdb_configure"
+
+- name: Installing influxdb_configure systemd.service file
+  become: true
+  ansible.builtin.template:
+    src: 'influxdb_configure.service.j2'
+    dest: '/etc/systemd/system/influxdb_configure.service'
+    mode: 0644
+
+- name: Enable influxdb_configure service
+  become: true
+  ansible.builtin.systemd:
+    name: 'influxdb_configure'
+    enabled: true
+
+- name: Start influxdb_configure service
+  become: true
+  ansible.builtin.systemd:
+    name: 'influxdb_configure'
+    state: started
+    daemon-reload: true
+  when: pid_1_name == "systemd"
+
+# Telegraf
+- name: Create the /etc/telegraf directory
+  ansible.builtin.file:
+    path: /etc/telegraf/
+    state: directory
+    mode: 0755
+
+- name: Installing the telegraf config
+  become: true
+  ansible.builtin.template:
+    src: telegraf.conf.j2
+    dest: /etc/telegraf/telegraf.conf
+    owner: root
+    group: root
+    mode: '0644'
+  notify: 'Restart telegraf'
+
+- name: Start the telegraf container service
+  ansible.builtin.include_role:
+    name: "systemd_podman"
+  vars:
+    container_name: "telegraf"
+    container_service_target: infra.service
+    container_image: docker://registry.freedesktop.org/mupuf/valve-infra/telegraf-container:latest
+    container_privileged: true
+    container_volumes:
+      - "/etc/telegraf/telegraf.conf:/etc/telegraf/telegraf.conf:ro"
+    container_host_network: true
+    part_of:
+      - "infra.service"

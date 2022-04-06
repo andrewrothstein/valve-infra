@@ -58,6 +58,9 @@
       - gitlab-runner
       - local-registry
       - fdo-proxy-registry
+      - influxdb
+      - influxdb_configure
+      - telegraf
 
     # Default boot files for DUTs.
     b2c_release: v0.9.5
@@ -129,3 +132,4 @@
     - {role: local_registry,      tags: local_registry}
     - {role: executor,            tags: executor}
     - {role: infra,               tags: infra}
+    - {role: monitoring,          tags: monitoring}

@@ -20,6 +20,8 @@ EOF
 		gcc \
 		git \
 		htop \
+		influxdb \
+		influx-cli \
 		nano vim \
 		net-snmp \
 		podman-docker \

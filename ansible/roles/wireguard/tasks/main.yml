@@ -6,7 +6,7 @@
     name:
       - wireguard-tools
 
-- name: Create required directories the /etc/wireguard directory
+- name: Create the required directories
   ansible.builtin.file:
     path: "{{ item }}"
     state: directory

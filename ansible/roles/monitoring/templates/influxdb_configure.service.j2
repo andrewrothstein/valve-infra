@@ -1,0 +1,18 @@
+[Unit]
+Description=Influxdb configuration helper
+After=influxdb.service
+Requires=influxdb.service
+
+[Service]
+Type=oneshot
+User=influxdb
+Group=influxdb
+# This is set so a successful run will have the
+# 'active' status in systemd:
+RemainAfterExit=yes
+ExecStart=/usr/local/bin/influxdb_configure.sh
+RestartSec=5
+Restart=on-failure
+
+[Install]
+WantedBy=infra.service

@@ -1,0 +1,12 @@
+---
+influxdb_path: /mnt/tmp/influxdb/
+influxdb_admin_username: admin
+influxdb_admin_password: influxdb
+influxdb_org: valve.ci
+influxdb_bucket: telegraf
+
+influxdb_telegraf_username: telegraf
+influxdb_telegraf_password: valvecimetrics
+
+influxdb_external_url: https://influxdb.gfx-ci.steamos.cloud:443
+influxdb_external_token: 4vLQyA_0JMv1DKoDscR69YkES8EJRhzVfg0N1ajXgtzNyD6iWKdj4riNtfse6UewRELtss0ENttjTQ6t3wwHfA==
