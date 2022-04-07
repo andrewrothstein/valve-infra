@@ -67,6 +67,15 @@ endif
 	   IMAGE_NAME=$(IMAGE_NAME)
 	   buildah unshare -- .gitlab-ci/machine-registration-container-build.sh
 
+.PHONY: telegraf-container
+telegraf-container:
+ifndef IMAGE_NAME
+	$(error "IMAGE_NAME is a required parameter (e.g. localhost:8088/mupuf/valve-infra/telegraf-container:latest)")
+endif
+	env \
+	   IMAGE_NAME=$(IMAGE_NAME)
+	   buildah unshare -- .gitlab-ci/telegraf-container-build.sh
+
 # Run the valve-infra multi-service container inside a VM for local testing.
 .PHONY: vivian
 vivian: FARM_NAME ?= "vivian-$(USER)"
