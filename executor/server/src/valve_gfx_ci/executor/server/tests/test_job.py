@@ -550,6 +550,21 @@ class MockMachine:
     def local_tty_device(self):
         return "ttyS0"
 
+    @property
+    def ip_address(self):
+        return "10.42.0.123"
+
+    @property
+    def safe_attributes(self):
+        return {
+            "base_name": "base_name",
+            "full_name": "full_name",
+            "tags": self.tags,
+            "ip_address": self.ip_address,
+            "local_tty_device": self.local_tty_device,
+            "ready_for_service": self.ready_for_service,
+        }
+
 
 class MockBucket:
     @property
@@ -635,6 +650,7 @@ deployment:
       cmdline:
         - my {{ minio_url }}
         - start cmdline {{ ntp_peer }}
+        - hostname {{ machine.full_name }}
     initramfs:
       url: "initramfs_url"
 """
@@ -648,7 +664,7 @@ deployment:
 
     assert job.deployment_start.kernel_url == "kernel_url"
     assert job.deployment_start.initramfs_url == "initramfs_url"
-    assert job.deployment_start.kernel_cmdline == "my minio_url start cmdline 10.42.0.1"
+    assert job.deployment_start.kernel_cmdline == "my minio_url start cmdline 10.42.0.1 hostname full_name"
 
     assert job.deployment_continue.kernel_url == job.deployment_start.kernel_url
     assert job.deployment_continue.initramfs_url == job.deployment_start.initramfs_url

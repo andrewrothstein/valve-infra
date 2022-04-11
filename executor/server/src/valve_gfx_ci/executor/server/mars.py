@@ -226,6 +226,18 @@ class Machine:
     def __getattr__(self, attr):
         return getattr(self.db_dut, attr)
 
+    # List of attributes that are safe to expose publicly
+    @property
+    def safe_attributes(self):
+        return {
+            "base_name": self.base_name,
+            "full_name": self.full_name,
+            "tags": self.tags,
+            "ip_address": self.ip_address,
+            "local_tty_device": self.local_tty_device,
+            "ready_for_service": self.ready_for_service,
+        }
+
     @property
     def id(self):
         return self.mac_address

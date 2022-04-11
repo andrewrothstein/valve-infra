@@ -478,6 +478,7 @@ class Job:
         template_params = {
             "ready_for_service": machine.ready_for_service,
             "machine_id": machine.id,
+            "machine": machine.safe_attributes,
             "machine_tags": machine.tags,
             "local_tty_device": machine.local_tty_device,
             **{k.lower(): v for k, v in config.job_environment_vars().items()},
