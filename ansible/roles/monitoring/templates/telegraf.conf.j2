@@ -4,7 +4,7 @@
 # Configuration for telegraf agent
 [agent]
   ## Default data collection interval for all inputs
-  interval = "1s"
+  interval = "15s"
   ## Rounds collection interval to 'interval'
   ## ie, if interval="10s" then always collect on :00, :10, :20, etc.
   round_interval = true
@@ -36,7 +36,7 @@
   ## Jitter the flush interval by a random amount. This is primarily to avoid
   ## large write spikes for users running a large number of telegraf instances.
   ## ie, a jitter of 5s and interval 10s means flushes will happen every 10-15s
-  flush_jitter = "1s"
+  flush_jitter = "5s"
 
   ## Collected metrics are rounded to the precision specified. Precision is
   ## specified as an interval with an integer + unit (e.g. 0s, 10ms, 2us, 4s).
