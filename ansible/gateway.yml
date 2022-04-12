@@ -20,6 +20,7 @@
     salad_port: 8005
     minio_port: 9000
     minio_console_port: 9001
+    gitlab_runner_metrics_port: 9252
 
     minio_root_user: minioadmin
     gitlab_access_token: ''

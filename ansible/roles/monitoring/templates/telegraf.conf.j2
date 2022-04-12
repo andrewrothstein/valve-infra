@@ -312,3 +312,7 @@
     ## Gather all returned S.M.A.R.T. attribute metrics and the detailed
     ## information from each drive into the 'smart_attribute' measurement.
     # attributes = true
+
+
+[[inputs.prometheus]]
+  urls = ["http://localhost:{{ gitlab_runner_metrics_port }}/metrics"]

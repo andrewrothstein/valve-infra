@@ -30,6 +30,7 @@
       - "{{ config_env_file }}"
     container_ports:
       - "{{ gitlab_runner_port }}:80/tcp"
+      - "{{ gitlab_runner_metrics_port }}:9252/tcp"
     container_volumes:
       - "/mnt:/mnt"
       - "{{ tmp_mount }}/gitlab-runner:/etc/gitlab-runner"
