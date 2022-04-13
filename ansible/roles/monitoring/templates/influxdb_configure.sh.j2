@@ -2,6 +2,8 @@
 
 set -eux
 
+export INFLUX_HOST="http://localhost:{{ influxdb_port }}"
+
 if [ ! -s "{{ influxdb_path }}/admin_token" ]; then
     # NOTE: security is enforced through the nftables, not credentials
     influx setup --username {{ influxdb_admin_username }} --password {{ influxdb_admin_password }} --org {{ influxdb_org }} --bucket {{ influxdb_bucket }} --retention 30d -f || /bin/true

@@ -9,7 +9,7 @@ ExecStartPre=-mkdir {{ influxdb_path }}
 ExecStartPre=-chown -R influxdb:influxdb {{ influxdb_path }}
 
 ExecStart=
-ExecStart=-su - influxdb -c "/usr/bin/influxd --http-bind-address=':8087' --bolt-path {{ influxdb_path }}/influxd.bolt --engine-path {{ influxdb_path }}/engine"
+ExecStart=-su - influxdb -c "/usr/bin/influxd --http-bind-address=':{{ influxdb_port }}' --bolt-path {{ influxdb_path }}/influxd.bolt --engine-path {{ influxdb_path }}/engine"
 
 [Install]
 WantedBy=infra.service
