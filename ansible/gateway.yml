@@ -18,6 +18,7 @@
     fdo_proxy_registry_port: 8002
     local_registry_port: 8004
     salad_port: 8005
+    telegraf_proxy_port: 8086  # WARNING: Make sure to update .gitlab-ci/telegraf.conf if you change it!
     influxdb_port: 8087  # WARNING: Make sure to update vivian/vivian if you change it!
     minio_port: 9000
     minio_console_port: 9001

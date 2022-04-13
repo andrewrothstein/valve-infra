@@ -198,7 +198,7 @@
 ###############################################################################
 
 [[inputs.influxdb_v2_listener]]
-  service_address = "10.42.0.1:8086"
+  service_address = "10.42.0.1:{{ telegraf_proxy_port }}"
 
 # Read metrics about cpu usage
 [[inputs.cpu]]

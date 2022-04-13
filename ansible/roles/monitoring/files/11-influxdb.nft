@@ -2,6 +2,6 @@
 
 table inet filter {
 	chain input {
-        iifname "private" tcp dport 8086 accept comment "accept connections to influxdb from the private iface"
+        iifname "private" tcp dport {{ telegraf_proxy_port }} accept comment "accept connections to influxdb from the private iface"
 	}
 }
