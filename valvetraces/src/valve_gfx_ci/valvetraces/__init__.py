@@ -20,6 +20,7 @@ from functools import partial
 import json
 import os
 import re
+import tempfile
 import traceback
 import requests
 import argparse
@@ -233,6 +234,19 @@ class Blob:
 
 @dataclass
 class Trace(SanitizedFieldsMixin):
+    @dataclass
+    class TraceInfo:
+        api: str
+        vendor_id: int
+        device_id: int
+
+        @property
+        def pciid(self):
+            if self.vendor_id is not None and self.device_id is not None:
+                return f"{hex(self.vendor_id)}:{hex(self.device_id)}"
+            else:
+                return None
+
     id: int
     filename: str = None
     metadata: dict = dataclasses.field(default_factory=dict)
@@ -335,6 +349,47 @@ $retval
 EOF
 """
 
+    def download(self, fd, verbose=True):
+        def log(text):
+            if verbose:
+                sys.stdout.write(text)
+                sys.stdout.flush()
+
+        with requests.get(self.url, stream=True) as r:
+            r.raise_for_status()
+
+            content_length = int(r.headers.get('content-length', 0))
+
+            total_downloaded = 0
+            previous_pc_downloaded = 0
+            chunk_size = 1024 * 1024
+            # Reading all the available data without limiting the
+            # chunk size is problematic when using SSL
+            # connections. Limit the chunk size:
+            # https://bugs.python.org/issue42853
+            for chunk in r.iter_content(chunk_size=chunk_size):
+                fd.write(chunk)
+                if content_length == 0:
+                    # This shouldn't happen, since the Mango
+                    # server returns Content-Length, no progress
+                    # info if we don't get a length back from the
+                    # serve
+                    continue
+                total_downloaded += len(chunk)
+                pc_downloaded = int(100.0 * total_downloaded/content_length)
+                # Log roughly every 2% downloaded, or end of stream.
+                if pc_downloaded - previous_pc_downloaded >= 2 or len(chunk) < chunk_size:
+                    log('\rDownloaded {}/{} {:0.2f}%    '.format(naturalsize(total_downloaded),
+                                                                 naturalsize(content_length),
+                                                                 pc_downloaded))
+
+                    previous_pc_downloaded = pc_downloaded
+            log('\n')
+
+    def update_fields(self, traces_client, fields):
+        traces_client._put(f"/api/v1/traces/{self.id}",
+                           {"trace": fields})
+
     def __str__(self):
         return f"<Trace {self.id}, {self.filename}, size {self.human_size}>"
 
@@ -405,6 +460,21 @@ class Client:
         elif r.status_code == 409:
             # TODO: Add an option to ignore some errors
             return r.json()
+
+        r.raise_for_status()
+
+        return r.json()
+
+    def _put(self, path, params):
+        err_msg = f"ERROR while executing the PUT query to {self.url}{path} with the following parameters: {params}"
+        try:
+            r = self.requests_retry_session.put(f"{self.url}{path}",
+                                                allow_redirects=False,
+                                                cookies=self.login(),
+                                                json=params)
+        except Exception as e:
+            print(err_msg)
+            raise e
 
         r.raise_for_status()
 
@@ -1718,6 +1788,124 @@ def report_results(traces_client, args):
         return 0 if report.is_success else 1
 
 
+def enroll_traces(traces_client, args):
+    @dataclass
+    class TraceInfo:
+        api: str
+        vendor_id: int
+        device_id: str
+
+        @property
+        def pciid(self):
+            return f"{hex(self.vendor_id)}:{hex(self.device_id)}"
+
+    def parse_apitrace(trace_path):
+        api = vendor_id = device_id = desc_line = None
+
+        p = subprocess.Popen(["apitrace", "dump", trace_path],
+                             stdout=subprocess.PIPE,
+                             universal_newlines=True)
+
+        for line in p.stdout:
+            if line.find("IDirect3D9::CreateDevice") > 0 or line.find("IDirect3D9Ex::CreateDevice") > 0:
+                api = "DX9"
+            elif line.find("D3D10CreateDevice") > 0:
+                api = "DX10"
+            elif line.find("D3D11CreateDevice") > 0:
+                api = "DX11"
+            elif line.find("D3D12CreateDevice::CreateDevice") > 0:
+                api = "DX12"
+            elif line.find("glSwapBuffers") > 0:
+                api = "OpenGL"
+            elif line.find("VendorId") > 0:
+                desc_line = line
+
+            if api is not None and desc_line is not None:
+                break
+
+        p.terminate()
+
+        if (desc_line):
+            for part in desc_line.split(","):
+                if part.find("VendorId") > 0:
+                    part = part.replace("VendorId", "")
+                    part = part.replace("=", "")
+                    vendor_id = part.strip()
+                if part.find("DeviceId = ") > 0:
+                    part = part.replace("DeviceId", "")
+                    part = part.replace("=", "")
+                    device_id = part.strip()
+
+        if (vendor_id):
+            vendor_id = int(vendor_id)
+
+        if (device_id):
+            device_id = int(device_id)
+
+        return TraceInfo(api, vendor_id, device_id)
+
+    def parse_gfxrecon(trace_path):
+        vendor_id = device_id = None
+
+        result = subprocess.check_output("gfxrecon-info " + trace_path, shell=True, universal_newlines=True)
+        result = result.split("\n")
+
+        for line in result:
+            if line.find("Device ID:") > 0:
+                line = line.replace("Device ID:", "")
+                line = line.strip()
+                device_id = int(line)
+            if line.find("Vendor ID:") > 0:
+                line = line.replace("Vendor ID:", "")
+                line = line.strip()
+                vendor_id = int(line)
+
+        return TraceInfo("Vulkan", vendor_id, device_id)
+
+    traces_needing_enrollment = traces_client._get("/api/v1/traces/enrollment")
+    for i, trace_blob in enumerate(traces_needing_enrollment):
+        try:
+            trace = Trace.from_api(trace_blob)
+            print(f"\n[{i+1}/{len(traces_needing_enrollment)}] {trace.filename}")
+
+            if trace.tracing_tool not in ["apitrace", "gfxrecon"]:
+                raise ValueError("Unknown tracing tool ")
+
+            # Download the trace
+            with tempfile.NamedTemporaryFile() as tf:
+                trace.download(tf)
+
+                trace_info = None
+                if trace.tracing_tool == "apitrace":
+                    trace_info = parse_apitrace(tf.name)
+                elif trace.tracing_tool == "gfxrecon":
+                    trace_info = parse_apitrace(tf.name)
+                else:
+                    raise ValueError("Unknown tracked")
+
+                if trace_info is None:
+                    print("ERROR: Could not fetch any information from the trace")
+                    continue
+
+                print(f"INFO: This is a {trace_info.api} trace, made on a {trace_info.pciid} GPU")
+
+                fields = {}
+                if trace_info.api:
+                    # Get or create the a GFX API (TODO: Move that to the client)
+                    r_api = traces_client._post("/api/v1/graphics_apis", {"graphics_api": {"name": trace_info.api}})
+                    fields["graphics_api_id"] = r_api.get("id")
+
+                if trace_info.pciid:
+                    # Get or create a GPU (TODO: Move that to the client)
+                    r_gpu = traces_client._post("/api/v1/gpus", {"gpu": {"pciid": trace_info.pciid}})
+                    fields["gpu_id"] = r_gpu.get("id")
+
+                print(f"INFO: Updating the following fields of the trace: {fields}")
+                trace.update_fields(traces_client, fields)
+        except Exception:
+            traceback.print_exc()
+
+
 def main():
     gfx_apis = {
         "gl": "OpenGL",
@@ -1750,7 +1938,7 @@ def main():
                         default=os.environ.get("VALVETRACES_SERVER", 'https://linux-perf.steamos.cloud'))
     parser.add_argument("-u", '--valvetraces-user', dest='valvetraces_user',
                         default=os.environ.get("VALVETRACES_USERNAME", None))
-    parser.add_argument("-r", '--run-name', dest='run_name', required=True)
+    parser.add_argument("-r", '--run-name', dest='run_name')
     parser.add_argument('--mesa', help='Path to the mesa repo')
     parser.add_argument('--dxvk', help='Path to the dxvk repo')
 
@@ -1801,10 +1989,17 @@ def main():
     report_parser.add_argument('results', help='Folder containing the results to report')
     report_parser.set_defaults(func=report_results)
 
+    report_parser = subparsers.add_parser('enroll-traces', help='Analyze and tag the new traces which have not been checked yet')
+    report_parser.set_defaults(func=enroll_traces)
+
     args = parser.parse_args()
 
     if args.valvetraces_user is None:
         print("ERROR: No traces server username specified")
+        sys.exit(1)
+
+    if args.run_name is None and args.func != enroll_traces:
+        print("ERROR: No run names specified")
         sys.exit(1)
 
     traces_client = Client(url=args.valvetraces_url, username=args.valvetraces_user)
