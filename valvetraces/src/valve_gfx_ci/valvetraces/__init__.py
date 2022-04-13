@@ -1438,9 +1438,14 @@ Debug information:
         branch = get_env_var_or_fail('CI_COMMIT_BRANCH')
         project_url = get_env_var_or_fail('CI_PROJECT_URL')
 
+        # HACK: Right now, we only support GitLab projects, but once we add
+        # support for GitHub, we'll need to change this link!
+        url_pattern_for_filing_issue = project_url + "/-/issues/new?issue[title]=%{title}&issue[description]=%{description}"
+
         return JobTimeline(project=project, branch=branch,
                            project_url=f"{project_url}/-/tree/{branch}",
-                           base_url_for_commits=f"{project_url}/-/commit/")
+                           base_url_for_commits=f"{project_url}/-/commit/",
+                           url_pattern_for_filing_issue=url_pattern_for_filing_issue)
 
     @classmethod
     def upload_frame(cls, client, frame_path):
