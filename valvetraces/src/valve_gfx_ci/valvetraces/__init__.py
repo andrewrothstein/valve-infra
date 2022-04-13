@@ -594,7 +594,6 @@ class Client:
             # Ask the website for the URL of where to upload the file
             r_blob = self._post("/rails/active_storage/direct_uploads",
                                 {"blob": {"filename": name, "byte_size": file_size,
-                                          "content_type": "application/octet-stream",
                                           "checksum": data_checksum,
                                           "image_checksum": image_checksum}})
             blob = Blob(r_blob)
