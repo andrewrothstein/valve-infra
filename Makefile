@@ -65,7 +65,7 @@ ifndef IMAGE_NAME
 	$(error "IMAGE_NAME is a required parameter (e.g. localhost:8088/mupuf/valve-infra/machine_registration:latest)")
 endif
 	env \
-	   IMAGE_NAME=$(IMAGE_NAME)
+	   IMAGE_NAME=$(IMAGE_NAME) \
 	   buildah unshare -- .gitlab-ci/machine-registration-container-build.sh
 
 .PHONY: telegraf-container
