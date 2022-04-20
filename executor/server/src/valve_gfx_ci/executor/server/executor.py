@@ -711,6 +711,10 @@ class Executor(Thread):
                 timeouts.first_console_activity.start()
                 timeouts.console_activity.stop()
 
+                # Reset all the watchdogs, since they are not supposed to remain active between rounds
+                for wd in timeouts.watchdogs:
+                    wd.stop()
+
                 while (self.job_console.state < JobConsoleState.DUT_DONE and
                        not self.job_console.needs_reboot and
                        not self.stop_event.is_set() and not timeouts.has_expired):
