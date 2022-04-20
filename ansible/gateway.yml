@@ -64,6 +64,7 @@
       - influxdb
       - influxdb_configure
       - telegraf
+      - nftables:inactive
 
     # Default boot files for DUTs.
     b2c_release: v0.9.5
