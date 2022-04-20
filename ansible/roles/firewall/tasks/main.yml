@@ -45,13 +45,11 @@
 
 - name: Installing nftables rules (development)
   become: true
-  ansible.builtin.copy:
-    src: "{{ item }}"
-    dest: "/etc/nftables.d/{{ item }}"
+  ansible.builtin.template:
+    src: 50-development.nft.j2
+    dest: /etc/nftables.d/50-development.nft
     owner: root
     group: root
     mode: '0644'
-  with_items:
-    - 50-development.nft
   notify: 'Restart nftables'
   when: development

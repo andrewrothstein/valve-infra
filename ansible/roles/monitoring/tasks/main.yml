@@ -43,8 +43,8 @@
 
 - name: Adding firewall rule for influxdb
   become: true
-  ansible.builtin.copy:
-    src: 11-influxdb.nft
+  ansible.builtin.template:
+    src: 11-influxdb.nft.j2
     dest: /etc/nftables.d/11-influxdb.nft
     owner: root
     group: root
