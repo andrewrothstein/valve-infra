@@ -283,6 +283,25 @@ def test_Watchdog__process_line():
     wd.timeout.stop.assert_called_once()
 
 
+def test_Watchdog__stop():
+    wd = Watchdog.from_job({
+        "start": {"regex": "start"},
+        "reset": {"regex": "reset"},
+        "stop": {"regex": "stop"},
+    })
+
+    # Check that nothing explodes if we have no timeouts set
+    wd.stop()
+
+    # Set the timeout
+    wd.set_timeout(MagicMock(is_started=False))
+    wd.timeout.stop.assert_not_called()
+
+    # Check that sending the reset/stop patterns before starting does nothing
+    wd.stop()
+    wd.timeout.stop.assert_called_once()
+
+
 # ConsoleState
 
 

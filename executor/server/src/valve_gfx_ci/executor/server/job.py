@@ -213,9 +213,9 @@ class Watchdog(Schema):
             return Watchdog(**data)
 
     def __init__(self, start, reset, stop):
-        self.start = start
-        self.reset = reset
-        self.stop = stop
+        self.start_pattern = start
+        self.reset_pattern = reset
+        self.stop_pattern = stop
 
         self.timeout = None
 
@@ -228,18 +228,22 @@ class Watchdog(Schema):
             return {}
 
         if not self.timeout.is_started:
-            if self.start.regex.search(line):
+            if self.start_pattern.regex.search(line):
                 self.timeout.start()
                 return {"start"}
         else:
-            if self.reset.regex.search(line):
+            if self.reset_pattern.regex.search(line):
                 self.timeout.reset()
                 return {"reset"}
-            elif self.stop.regex.search(line):
+            elif self.stop_pattern.regex.search(line):
                 self.timeout.stop()
                 return {"stop"}
 
         return {}
+
+    def stop(self):
+        if self.timeout is not None:
+            self.timeout.stop()
 
     @classmethod
     def from_job(cls, data):
@@ -515,9 +519,9 @@ class Job:
             patterns_watchdogs = ""
             for name, wd in self.console_patterns.watchdogs.items():
                 patterns_watchdogs += f"\n            {name}:"
-                patterns_watchdogs += f"\n                start: {wd.start}"
-                patterns_watchdogs += f"\n                reset: {wd.start}"
-                patterns_watchdogs += f"\n                stop:  {wd.start}"
+                patterns_watchdogs += f"\n                start: {wd.start_pattern}"
+                patterns_watchdogs += f"\n                reset: {wd.reset_pattern}"
+                patterns_watchdogs += f"\n                stop:  {wd.stop_pattern}"
 
         return f"""<Job:
     version: {self.version}
