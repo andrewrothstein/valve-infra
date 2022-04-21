@@ -1,0 +1,8 @@
+[server]
+domain-name={{ avahi_domain }}
+{% if avahi_allow_interfaces %}
+allow-interfaces={{','.join(avahi_allow_interfaces)}}
+{% endif %}
+{% if avahi_deny_interfaces %}
+deny-interfaces={{','.join(avahi_deny_interfaces)}}
+{% endif %}

@@ -90,6 +90,13 @@
       - address: "{{ private_interface_ip }}"
         host: ci-gateway
 
+    avahi_allow_interfaces:
+      - wg0
+      # not strictly needed for the CI to function, but can be helpful for
+      # debug:
+      - lo
+    avahi_domain: "local"
+
     whitelisted_domains:
       # Arch Linux / system admin
       - ntp.org
@@ -151,3 +158,4 @@
     - {role: executor,            tags: executor}
     - {role: infra,               tags: infra}
     - {role: monitoring,          tags: monitoring}
+    - {role: avahi,               tags: avahi}

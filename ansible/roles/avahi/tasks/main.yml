@@ -1,0 +1,60 @@
+---
+- name: Installing package
+  become: true
+  ansible.builtin.package:
+    name:
+      - avahi
+      - nss-mdns
+
+- name: Installing config
+  become: true
+  ansible.builtin.template:
+    src: avahi-daemon.conf.j2
+    dest: /etc/avahi/avahi-daemon.conf
+    owner: root
+    mode: 0644
+  notify: "Restart avahi"
+
+- name: Editing nsswitch
+  become: true
+  ansible.builtin.lineinfile:
+    dest: /etc/nsswitch.conf
+    regex: '^hosts:.*'
+    line: "hosts: files mdns4 [NOTFOUND=return] dns"
+  notify: "Restart avahi"
+
+- name: Editing mdns.allow
+  become: true
+  ansible.builtin.lineinfile:
+    dest: /etc/mdns.allow
+    create: true
+    line: "{{ item }}"
+    mode: 0644
+  notify: "Restart avahi"
+  loop:
+    - ".{{ avahi_domain }}"
+    - ".{{ avahi_domain }}."
+
+- name: Installing nft rule
+  become: true
+  ansible.builtin.copy:
+    src: 10-avahi.nft
+    dest: /etc/nftables.d/10-avahi.nft
+    owner: root
+    group: root
+    mode: 0644
+  notify: 'Restart nftables'
+
+- name: Disable systemd-resolved
+  become: true
+  ansible.builtin.systemd:
+    name: systemd-resolved
+    masked: true
+    enabled: false
+
+- name: Start/enable service
+  become: true
+  ansible.builtin.service:
+    name: avahi-daemon
+    state: started
+    enabled: true

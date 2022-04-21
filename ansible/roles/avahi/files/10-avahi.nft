@@ -1,0 +1,11 @@
+#!/usr/bin/nft -f
+table inet filter {
+    chain input {
+        # allow mDNS
+        iifname "wg*" udp dport 5353 accept comment "accept Avahi mDNS"
+    }
+    chain output {
+        # allow mDNS
+        oifname "wg*" udp dport 5353 accept comment "accept Avahi mDNS"
+    }
+}
