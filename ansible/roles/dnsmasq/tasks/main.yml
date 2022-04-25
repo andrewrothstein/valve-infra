@@ -1,24 +1,9 @@
 ---
-# Build dnsmasq-nftset from AUR, until the nftset patch is in a release
-# also see: https://lists.thekelleys.org.uk/pipermail/dnsmasq-discuss/2021q3/015413.html
-#
-#- name: Installing dnsmasq
-#  become: true
-#  pacman:
-#    state: present
-#    name:
-#      - dnsmasq
-#
-#
-
-- name: Install dnsmasq
+- name: Installing package
   become: true
-  become_user: aur_builder
-  kewlfft.aur.aur:
-    name: dnsmasq-nftset-git
-    use: makepkg
-    state: present
-    skip_pgp_check: true
+  ansible.builtin.package:
+    name:
+      - dnsmasq
 
 - name: Enable dnsmasq service
   become: true
@@ -31,23 +16,6 @@
   ansible.builtin.systemd:
     name: systemd-resolved
     masked: true
-    enabled: false
-
-- name: Reading mirrorlist
-  no_log: true
-  ansible.builtin.set_fact:
-    mirror_urls: '{{ mirror_urls | default([]) | union([item | regex_search("^Server =.*")]) }}'
-  with_lines:
-    - cat /etc/pacman.d/mirrorlist
-  changed_when: false
-
-- name: Getting mirror domains
-  no_log: true
-  ansible.builtin.set_fact:
-    mirror_domains: '{{ mirror_domains | default([]) | union([item.split("/")[2]]) }}'
-  with_items: "{{ mirror_urls }}"
-  when: item
-  changed_when: false
 
 - name: Installing dnsmasq config
   become: true
@@ -67,14 +35,3 @@
     group: root
     mode: '0644'
   notify: 'Restart nftables'
-
-- name: Installing dnsmasq nftables rules (development)
-  become: true
-  ansible.builtin.copy:
-    src: 10-dnsmasq-development.nft
-    dest: /etc/nftables.d/10-dnsmasq-development.nft
-    owner: root
-    group: root
-    mode: '0644'
-  notify: 'Restart nftables'
-  when: development

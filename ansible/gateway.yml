@@ -85,6 +85,10 @@
     sergent_hartman_qualifying_boot_count: 19
     sergent_hartman_registration_retrial_delay: 120
 
+    dnsmasq_dns_hosts:
+      - address: "{{ private_interface_ip }}"
+        host: ci-gateway
+
     whitelisted_domains:
       # Arch Linux / system admin
       - ntp.org
@@ -135,7 +139,7 @@
     - {role: wireguard,           tags: wireguard}
     - {role: ntpd,                tags: ntpd}
     - {role: sshd,                tags: sshd}
-#    - {role: dnsmasq,             tags: dnsmasq}
+    - {role: dnsmasq,             tags: dnsmasq}
     - {role: dashboard,           tags: dashboard}
     - {role: autologin,           tags: autologin}
     - {role: salad,               tags: salad}

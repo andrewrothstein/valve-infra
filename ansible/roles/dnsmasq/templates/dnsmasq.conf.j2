@@ -1,14 +1,13 @@
 port={{dnsmasq_port}}
-# don't use /etc/resolv.conf
+# don't use /etc/resolv.conf or /etc/hosts
 no-resolv
+no-hosts
 
-# dns servers
-{% for server in dnsmasq_servers %}
-server={{ server }}
-{% endfor %}
-
-# format is: /domain/domain/.../inet filter allowed_addresses
-nftset=/{{ (whitelisted_domains + mirror_domains) | join("/") }}/inet filter allowed_addresses
+interface=private
 
 # useful for debug
 log-queries
+
+{% for pair in dnsmasq_dns_hosts %}
+address=/{{ pair["host"] }}/{{ pair["address"] }}
+{% endfor %}
