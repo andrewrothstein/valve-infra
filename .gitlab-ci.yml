@@ -265,7 +265,7 @@ telegraf-container:
   image: registry.freedesktop.org/freedesktop/ci-templates/x86_64/container-build-base:2021-06-21.2
   stage: containers
   variables:
-    FDO_DISTRIBUTION_TAG: 2022-04-12.2
+    FDO_DISTRIBUTION_TAG: 2022-04-25.1
     IMAGE_NAME: $CI_REGISTRY_IMAGE/$CI_JOB_NAME:$FDO_DISTRIBUTION_TAG
     IMAGE_NAME_LATEST: $CI_REGISTRY_IMAGE/$CI_JOB_NAME:latest
   before_script:
