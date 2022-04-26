@@ -48,16 +48,19 @@ class ConfigGitlabRunner:
 
             self.remove(gl)
 
-            runner = gitlab.register_runner(gitlab_url=gl.url,
-                                            registration_token=gl.registration_token,
-                                            description=description,
-                                            tag_list=tags,
-                                            maximum_timeout=gl.maximum_timeout)
-            if runner:
-                self.token = runner.token
-                logger.info(f"{log_prefix}: Got assigned the token {self.token}")
+            if gl.has_valid_looking_registration_token:
+                runner = gitlab.register_runner(gitlab_url=gl.url,
+                                                registration_token=gl.registration_token,
+                                                description=description,
+                                                tag_list=tags,
+                                                maximum_timeout=gl.maximum_timeout)
+                if runner:
+                    self.token = runner.token
+                    logger.info(f"{log_prefix}: Got assigned the token {self.token}")
+                else:
+                    logger.error(f"{log_prefix}: Could not register the runner on {gl.name}")
             else:
-                logger.error(f"{log_prefix}: Could not register the runner on {gl.name}")
+                logger.error(f"{log_prefix}: No registration tokens specified. Aborting...")
 
     def remove(self, gl):
         if self.token != "<invalid default>":
@@ -124,7 +127,7 @@ class ConfigDUT:
 @dataclass
 class ConfigGitlab:
     url: str
-    registration_token: str
+    registration_token: str = None
     expose_runners: bool = True
     maximum_timeout: PositiveInt = 21600
     gateway_runner: ConfigGitlabRunner = None
@@ -139,6 +142,10 @@ class ConfigGitlab:
     def url_is_valid(cls, v):
         assert v.startswith("https://")
         return v
+
+    @property
+    def has_valid_looking_registration_token(self):
+        return isinstance(self.registration_token, str) and len(self.registration_token) >= 8
 
     @property
     def should_expose_gateway_runner(self):
