@@ -14,12 +14,18 @@ function cpufreq() {
     # Print the value of all the integer attributes
     # NOTE: scaling_cur_freq is omitted because it takes waaaayyy to long to poll
     for attr in bios_limit cpuinfo_cur_freq cpuinfo_max_freq cpuinfo_min_freq scaling_max_freq scaling_min_freq; do
-        echo -n "$attr=$(<$path/$attr)u,"
+        local attr_path="$path/$attr"
+        if test -f "$attr_path"; then
+            echo -n "$attr=$(<$attr_path)u,"
+        fi
     done
 
     # Print all the string attributes
     for attr in scaling_driver scaling_governor; do
-        echo -n "$attr=\"$(<$path/$attr)\","
+        local attr_path="$path/$attr"
+        if test -f "$attr_path"; then
+            echo -n "$attr=\"$(<$attr_path)\","
+        fi
     done
 
     echo "e=1"  # End the list of attributes
@@ -33,22 +39,34 @@ function amdgpu() {
 
     # Print the value of all the attributes that can be quoted verbatim
     for attr in gpu_busy_percent mem_busy_percent mem_info_gtt_total mem_info_gtt_used mem_info_preempt_used mem_info_vis_vram_total mem_info_vis_vram_used mem_info_vram_total mem_info_vram_used current_link_width max_link_width pp_cur_state; do
-        echo -n "$attr=$(<$path/$attr)u,"
+        local attr_path="$path/$attr"
+        if test -f "$attr_path"; then
+            echo -n "$attr=$(<$attr_path)u,"
+        fi
     done
 
     # Print the link speed
     for attr in max_link_speed current_link_speed; do
-        echo -n "${attr}_GT/s=$(cat $path/$attr | cut -d ' ' -f 1),"
+        local attr_path="$path/$attr"
+        if test -f "$attr_path"; then
+            echo -n "${attr}_GT/s=$(cat $attr_path | cut -d ' ' -f 1),"
+        fi
     done
 
     # Print all the string attributes
     for attr in power_dpm_force_performance_level power_dpm_state power_state; do
-        echo -n "${attr}=\"$(< $path/$attr)\","
+        local attr_path="$path/$attr"
+        if test -f "$attr_path"; then
+            echo -n "${attr}=\"$(< $attr_path)\","
+        fi
     done
 
     # Print the clocks of the different clock domains
     for attr in pp_dpm_mclk pp_dpm_sclk; do
-        echo -n "${attr}_MHz=$(cat $path/$attr | grep '*' | cut -d ' ' -f 2 | egrep -o '[0-9.]+')u,"
+        local attr_path="$path/$attr"
+        if test -f "$attr_path"; then
+            echo -n "${attr}_MHz=$(cat $attr_path | grep '*' | cut -d ' ' -f 2 | egrep -o '[0-9.]+')u,"
+        fi
     done
 
     echo "e=1"  # End the list of attributes
