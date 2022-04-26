@@ -3,7 +3,6 @@ from freezegun import freeze_time
 from unittest import mock
 from unittest.mock import patch, MagicMock
 import os
-import re
 
 import pytest
 
@@ -221,8 +220,11 @@ def test_Pattern_from_job__missing_regex():
 
 
 def test_Pattern_from_job__invalid_regex():
-    with pytest.raises(re.error):
+    with pytest.raises(ValueError) as excinfo:
         Pattern.from_job({"regex": "BOOM\\"})
+
+    error_msg = "Console pattern 'BOOM\\' is not a valid regular expression: bad escape (end of pattern)"
+    assert str(excinfo.value) == error_msg
 
 
 # Watchdogs

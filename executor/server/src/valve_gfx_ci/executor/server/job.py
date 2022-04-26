@@ -187,7 +187,10 @@ class Pattern:
             raise ValueError("Console patterns require the 'regex' attribute")
 
     def __init__(self, regex):
-        self.regex = re.compile(regex.encode())
+        try:
+            self.regex = re.compile(regex.encode())
+        except re.error as e:
+            raise ValueError(f"Console pattern '{regex}' is not a valid regular expression: {e.msg}")
 
     def __str__(self):
         return f"{self.regex.pattern}"
