@@ -11,12 +11,12 @@ function cpufreq() {
 
     echo -n "cpufreq,cpu=$cpu_id,host=$hostname "
 
-    # Print the value of all the integer attributes
+    # Print the value of all the frequency attributes
     # NOTE: scaling_cur_freq is omitted because it takes waaaayyy to long to poll
     for attr in bios_limit cpuinfo_cur_freq cpuinfo_max_freq cpuinfo_min_freq scaling_max_freq scaling_min_freq; do
         local attr_path="$path/$attr"
         if test -f "$attr_path"; then
-            echo -n "$attr=$(<$attr_path)u,"
+            echo -n "$attr=$(<$attr_path)000u,"
         fi
     done
 
@@ -49,7 +49,7 @@ function amdgpu() {
     for attr in max_link_speed current_link_speed; do
         local attr_path="$path/$attr"
         if test -f "$attr_path"; then
-            echo -n "${attr}_GT/s=$(cat $attr_path | cut -d ' ' -f 1),"
+            echo -n "${attr}=$(cat $attr_path | cut -d '.' -f 1)000000u,"
         fi
     done
 
@@ -65,7 +65,7 @@ function amdgpu() {
     for attr in pp_dpm_mclk pp_dpm_sclk; do
         local attr_path="$path/$attr"
         if test -f "$attr_path"; then
-            echo -n "${attr}_MHz=$(cat $attr_path | grep '*' | cut -d ' ' -f 2 | egrep -o '[0-9.]+')u,"
+            echo -n "${attr}=$(cat $attr_path | grep '*' | cut -d ' ' -f 2 | egrep -o '[0-9.]+')000000u,"
         fi
     done
 
