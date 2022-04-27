@@ -814,4 +814,60 @@ spec:
         width: 3
         xPos: 9
         yPos: 7
+      - axes:
+          - base: "10"
+            name: x
+            scale: linear
+          - base: "2"
+            name: y
+            scale: linear
+            label: Frequency (Hz)
+          - base: "10"
+            name: y2
+            scale: linear
+            label: Frequency (Hz)
+        geom: line
+        height: 3
+        kind: Xy
+        name: CPU clocks
+        queries:
+          - query: |-
+                from(bucket: v.bucket)
+                  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)
+                  |> filter(fn: (r) => r["_measurement"] == "cpufreq")
+                  |> filter(fn: (r) => r["_field"] == "scaling_cur_freq")
+                  |> filter(fn: (r) => r["host"] == v.linux_host)
+                  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)
+                  |> yield(name: "mean")
+        width: 3
+        xPos: 0
+        yPos: 9
+      - axes:
+          - base: "10"
+            name: x
+            scale: linear
+          - base: "2"
+            name: y
+            scale: linear
+            label: Frequency (Hz)
+          - base: "10"
+            name: y2
+            scale: linear
+            label: Frequency (Hz)
+        geom: line
+        height: 3
+        kind: Xy
+        name: GPU clocks
+        queries:
+          - query: |-
+                from(bucket: v.bucket)
+                  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)
+                  |> filter(fn: (r) => r["_measurement"] == "amdgpu")
+                  |> filter(fn: (r) => r["_field"] == "pp_dpm_mclk" or r["_field"] == "pp_dpm_sclk" or r["_field"] == "current_link_speed")
+                  |> filter(fn: (r) => r["host"] == v.linux_host)
+                  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)
+                  |> yield(name: "mean")
+        width: 3
+        xPos: 6
+        yPos: 9
     description: A collection of useful visualizations for monitoring your Linux system
