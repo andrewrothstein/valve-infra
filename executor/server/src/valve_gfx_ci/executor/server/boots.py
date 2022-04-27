@@ -98,9 +98,8 @@ class Dnsmasq():
         self.options_file = os.path.join(config_paths['BOOTS_ROOT'], 'options.dhcp')
         self.hosts_file = os.path.join(config_paths['BOOTS_ROOT'], 'hosts.dhcp')
 
-        if not os.path.isfile(self.options_file):
-            with open(self.options_file, 'w') as f:
-                f.write("""
+        with open(self.options_file, 'w') as f:
+            f.write("""
 # Not tested, but interesting hook point for future DHCP options
 option:ntp-server,10.42.0.1
 """)
