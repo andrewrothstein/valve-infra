@@ -752,6 +752,7 @@ spec:
                   |> filter(fn: (r) => r._measurement == "sensors")
                   |> filter(fn: (r) => r._field == "temp_input")
                   |> filter(fn: (r) => r.host == v.linux_host)
+                  |> filter(fn: (r) => r.feature !~ /(auxtin|cputin)/)
                   |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)
                   |> yield(name: "mean")
         width: 3
