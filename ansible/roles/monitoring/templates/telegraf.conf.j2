@@ -103,7 +103,7 @@
   ##
   ## Multiple URLs can be specified for a single cluster, only ONE of the
   ## urls will be written to each interval.
-  urls = ["http://10.42.0.1:{{ influxdb_port }}"]
+  urls = ["http://localhost:{{ influxdb_port }}"]
 
   ## The target database for metrics; will be created as needed.
   ## For UDP url endpoint database needs to be configured on server side.
@@ -198,7 +198,7 @@
 ###############################################################################
 
 [[inputs.influxdb_v2_listener]]
-  service_address = "10.42.0.1:{{ telegraf_proxy_port }}"
+  service_address = ":{{ telegraf_proxy_port }}"
 
 # Read metrics about cpu usage
 [[inputs.cpu]]
