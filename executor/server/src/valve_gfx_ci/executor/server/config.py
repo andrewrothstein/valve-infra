@@ -33,8 +33,6 @@ configurables = {
     'MINIO_ROOT_USER': 'minioadmin',
     'MINIO_ROOT_PASSWORD': 'minio-root-password',
     'MINIO_ADMIN_ALIAS': 'local',
-    'FDO_PROXY_REGISTRY': '10.42.0.1:8002',
-    'LOCAL_REGISTRY': '10.42.0.1:8004',
     'PRIVATE_INTERFACE': 'private',
     'BOOTS_DEFAULT_KERNEL': 'http://10.42.0.1:9000/boot/default_kernel',
     'BOOTS_DEFAULT_INITRD': 'http://10.42.0.1:9000/boot/default_boot2container.cpio.xz',
@@ -56,8 +54,6 @@ def job_environment_vars() -> Dict[str, str]:  # pragma: nocover
 
     ret = {
         'MINIO_URL': globals()['MINIO_URL'],
-        'FDO_PROXY_REGISTRY': globals()['FDO_PROXY_REGISTRY'],
-        'LOCAL_REGISTRY': globals()['LOCAL_REGISTRY'],
     }
 
     for var, val in os.environ.items():
