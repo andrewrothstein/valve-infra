@@ -53,10 +53,15 @@ for config_option, default in configurables.items():
 def job_environment_vars() -> Dict[str, str]:  # pragma: nocover
     """Return environment variables useful for job submission as a
     dictionary."""
-    return {
-        k: globals()[k] for k in [
-            'MINIO_URL',
-            'FDO_PROXY_REGISTRY',
-            'LOCAL_REGISTRY',
-        ]
+
+    ret = {
+        'MINIO_URL': globals()['MINIO_URL'],
+        'FDO_PROXY_REGISTRY': globals()['FDO_PROXY_REGISTRY'],
+        'LOCAL_REGISTRY': globals()['LOCAL_REGISTRY'],
     }
+
+    for var, val in os.environ.items():
+        if var.startswith('EXECUTOR_JOB__'):
+            ret[var.lstrip('EXECUTOR_JOB__')] = val
+
+    return ret

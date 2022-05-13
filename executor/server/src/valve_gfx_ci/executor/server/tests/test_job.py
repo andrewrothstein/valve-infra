@@ -1,10 +1,13 @@
 from datetime import datetime, timedelta
 from freezegun import freeze_time
+from unittest import mock
 from unittest.mock import patch, MagicMock
+import os
 import re
 
 import pytest
 
+import server
 from server.job import Target, Timeout, Timeouts, ConsoleState, _multiline_string, Deployment, Job, Pattern, Watchdog
 
 # Target
@@ -723,3 +726,15 @@ deployment:
 
     # Test that getting the string does not explode
     str(job)
+
+
+# Job vars
+
+@mock.patch.dict(os.environ, {"EXECUTOR_JOB__FDO_PROXY_REGISTRY": "10.10.10.1:1234"})
+def test_server_config_job_environment_vars():
+    ret = server.config.job_environment_vars()
+
+    assert "MINIO_URL" in ret
+
+    assert "FDO_PROXY_REGISTRY" in ret
+    assert ret["FDO_PROXY_REGISTRY"] == "10.10.10.1:1234"
