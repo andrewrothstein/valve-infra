@@ -60,6 +60,8 @@ function amdgpu() {
         fi
     done
 
+    # TODO: Add power collection here: average_cpu_power / average_gfx_power
+
     # Print the clocks of the different clock domains
     for attr in pp_dpm_mclk pp_dpm_sclk; do
         local attr_path="$path/$attr"
