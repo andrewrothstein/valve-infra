@@ -30,20 +30,29 @@
 
     gitlab_runner_user_whitelist:
       - marge-bot
+      # CI devs
       - chturne
       - mupuf
       - craftyguy
       - tanty
+      # RADV devs
+      - airlied
       - bnieuwenhuizen
       - cwabbott0
       - daniel-schuermann
       - flightlessmango
-      - JoshuaAshton
       - pendingchaos
       - hakzsam
       - tarceri
       - Venemo
       - neobrain
+      - DadSchoorse
+      - ishitatsuyuki
+      # DXVK devs
+      - JoshuaAshton
+      # Trusted non-radv devs
+      - daniels
+      - alyssa
 
     gitlab_runner_namespace_whitelist:
       - mesa
