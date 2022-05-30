@@ -241,7 +241,7 @@ ipxe-dut-clients: $(IPXE_DIR)
 	echo
 
 	echo Dowloading the boot configuration...
-	chain http://10.42.0.1/boot/$${netX/mac}/boot.ipxe?platform=$${platform}&buildarch=$${buildarch} || goto retry
+	chain http://ci-gateway/boot/$${netX/mac}/boot.ipxe?platform=$${platform}&buildarch=$${buildarch} || goto retry
 
 	sleep 1
 	goto retry
