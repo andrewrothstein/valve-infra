@@ -24,6 +24,6 @@ deployment:
       url: '{{ minio_url }}/boot/default_kernel'
       cmdline:
         - b2c.container="-ti --tls-verify=false docker://{{ fdo_proxy_registry }}/mupuf/valve-infra/machine_registration:latest register"
-        - b2c.ntp_peer="10.42.0.1" b2c.cache_device=auto loglevel=6
+        - b2c.ntp_peer="ci-gateway" b2c.cache_device=auto loglevel=6
     initramfs:
       url: '{{ minio_url }}/boot/default_boot2container.cpio.xz'

@@ -581,7 +581,7 @@ class Executor(Thread):
             if self.minio.is_local_url(url):
                 logger.debug(f"Ignore caching {url} as it is already hosted by our minio cache")
                 return
-            self.remote_url_to_local_cache_mapping[url] = f"http://10.42.0.1:9000/boot/{artifact_prefix}-{suffix}"
+            self.remote_url_to_local_cache_mapping[url] = f"http://{config.MINIO_URL}/boot/{artifact_prefix}-{suffix}"
             self.log(f'Caching {url} into minio...\n')
             self.minio.save_boot_artifact(start_url, f"{artifact_prefix}-start")
 
