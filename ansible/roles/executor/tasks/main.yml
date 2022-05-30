@@ -57,12 +57,12 @@
       SERGENT_HARTMAN_QUALIFYING_BOOT_COUNT={{ sergent_hartman_qualifying_boot_count }}
       SERGENT_HARTMAN_REGISTRATION_RETRIAL_DELAY={{ sergent_hartman_registration_retrial_delay }}
       GITLAB_CONF_FILE=/mnt/tmp/gitlab-runner/config.toml
-      BOOTS_DEFAULT_KERNEL=http://{{ private_interface_ip }}:{{ minio_port }}/boot/default_kernel
-      BOOTS_DEFAULT_INITRD=http://{{ private_interface_ip }}:{{ minio_port }}/boot/default_boot2container.cpio.xz
-      BOOTS_DEFAULT_CMDLINE=b2c.container="-ti --tls-verify=false docker://{{ private_interface_ip }}:{{ fdo_proxy_registry_port }}/mupuf/valve-infra/machine_registration:latest register" b2c.ntp_peer="{{ private_interface_ip }}" b2c.cache_device=none loglevel=6
+      BOOTS_DEFAULT_KERNEL=http://ci-gateway:{{ minio_port }}/boot/default_kernel
+      BOOTS_DEFAULT_INITRD=http://ci-gateway:{{ minio_port }}/boot/default_boot2container.cpio.xz
+      BOOTS_DEFAULT_CMDLINE=b2c.container="-ti --tls-verify=false docker://ci-gateway:{{ fdo_proxy_registry_port }}/mupuf/valve-infra/machine_registration:latest register" b2c.ntp_peer="ci-gateway" b2c.cache_device=none loglevel=6
       MARS_DB_FILE=/mnt/permanent/mars_db.yaml
       # Variables with the "EXECUTOR_JOB__" prefix are shared by executor with
       # the job after removing the prefix and converting them to lower case
-      EXECUTOR_JOB__FDO_PROXY_REGISTRY={{ private_interface_ip }}:{{ fdo_proxy_registry_port }}
-      EXECUTOR_JOB__LOCAL_REGISTRY={{ private_interface_ip }}:{{ local_registry_port }}
+      EXECUTOR_JOB__FDO_PROXY_REGISTRY=ci-gateway:{{ fdo_proxy_registry_port }}
+      EXECUTOR_JOB__LOCAL_REGISTRY=ci-gateway:{{ local_registry_port }}
   notify: 'Restart executor'

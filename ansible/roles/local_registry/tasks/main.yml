@@ -27,4 +27,4 @@
     mode: '0644'
     marker: "# {mark} ANSIBLE MANAGED BLOCK {{ role_name }}"
     block: |
-      LOCAL_REGISTRY={{ private_interface_ip }}:{{ local_registry_port }}
+      LOCAL_REGISTRY=ci-gateway:{{ local_registry_port }}

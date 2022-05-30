@@ -36,4 +36,4 @@
     mode: '0644'
     marker: "# {mark} ANSIBLE MANAGED BLOCK {{ role_name }}"
     block: |
-      FDO_PROXY_REGISTRY={{ private_interface_ip }}:{{ fdo_proxy_registry_port }}
+      FDO_PROXY_REGISTRY=ci-gateway:{{ fdo_proxy_registry_port }}
