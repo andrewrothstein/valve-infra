@@ -99,6 +99,8 @@
       - gitlab.freedesktop.org
       - kernel.org
       - minio.io
+      - steamos.cloud
+      - storage.googleapis.com
 
       # others (cdn, etc)
       - amazonaws.com
@@ -110,8 +112,6 @@
       - pypi.org
       - pythonhosted.org
       - ripe.net
-      - steamos.cloud
-      - storage.googleapis.com
       - tedata.net
 
     ssh_authorized_keys:
