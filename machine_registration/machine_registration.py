@@ -183,6 +183,7 @@ if args.action == "register":
         r = requests.patch(f"http://{args.mars_host}/api/v1/machine/{mac_address}/", json=params)
 
     status = "complete" if r.status_code == 200 else "failed"
+    print(f"MaRS: Registration {status}\n")
     info.send_through_local_tty_device(f"MaRS: Registration {status}\n")
 
     sys.exit(0 if r.status_code == 200 else 1)
