@@ -129,6 +129,7 @@ class Dnsmasq():
             f.write(f"""
 # Not tested, but interesting hook point for future DHCP options
 option:ntp-server,{private_ip}
+option:dns-server,{private_ip}
 """)
         create_if_not_exists(self.hosts_file)
 
