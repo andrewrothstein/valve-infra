@@ -1,11 +1,14 @@
 from collections import namedtuple
 from dataclasses import dataclass
 from urllib.request import urlretrieve
+import fcntl
 import jinja2
 import os
 import re
 import shutil
 import signal
+import socket
+import struct
 import subprocess
 import sys
 import tempfile
@@ -74,6 +77,25 @@ def parse_dhcp_hosts(s):
     return hosts
 
 
+def get_ip4_addr(ifname):  # pragma: nocover
+    """" Returns the ipv4 address, or None if the iface is unavailable or has
+    no IP assigned."""
+
+    # Implementation from:
+    # https://code.activestate.com/recipes/439094-get-the-ip-address-associated-with-a-network-inter
+
+    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    try:
+        return socket.inet_ntop(socket.AF_INET, fcntl.ioctl(
+            s.fileno(),
+            0x8915,  # SIOCGIFADDR
+            struct.pack('256s', ifname[:15].encode('utf8'))
+        )[20:24])
+    except OSError:
+        # Iface doesn't exist, or no IP assigned
+        return None
+
+
 def provision_ipxe_dut_clients(tftp_dir):  # pragma: nocover
     ipxe_efi_path = os.path.join(tftp_dir, IPXE_EFI_FILENAME)
     ipxe_mbr_path = os.path.join(tftp_dir, IPXE_MBR_FILENAME)
@@ -98,10 +120,15 @@ class Dnsmasq():
         self.options_file = os.path.join(config_paths['BOOTS_ROOT'], 'options.dhcp')
         self.hosts_file = os.path.join(config_paths['BOOTS_ROOT'], 'hosts.dhcp')
 
+        private_ip = get_ip4_addr(config.PRIVATE_INTERFACE)
+        if not private_ip:
+            raise RuntimeError(f"No IP found for interface '{config.PRIVATE_INTERFACE}'. "
+                               "Is the interface up and assigned an IP address?")
+
         with open(self.options_file, 'w') as f:
-            f.write("""
+            f.write(f"""
 # Not tested, but interesting hook point for future DHCP options
-option:ntp-server,10.42.0.1
+option:ntp-server,{private_ip}
 """)
         create_if_not_exists(self.hosts_file)
 

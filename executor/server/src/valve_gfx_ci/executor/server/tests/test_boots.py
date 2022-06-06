@@ -64,12 +64,14 @@ def test_dnsmasq_no_binary(popen_mock, dnsmasq_waiter, tmp_path):
 
 @patch.object(server.boots.Dnsmasq, '_wait_for_dnsmasq_to_fork')
 @patch("subprocess.Popen")
+@patch.object(server.boots, 'get_ip4_addr')
 @patch.object(shutil, 'which', lambda _: True)
-def test_dnsmasq_launch(popen_mock, dnsmasq_waiter, tmp_path):
+def test_dnsmasq_launch(get_ip_mock, popen_mock, dnsmasq_waiter, tmp_path):
     paths = {
         'BOOTS_ROOT': tmp_path,
         'TFTP_DIR': f'{tmp_path}/tftp',
     }
+    get_ip_mock.return_value = "10.42.0.1"
     _ = Dnsmasq('br0', paths)
     dnsmasq_waiter.assert_called_once()
     popen_mock.assert_called_once_with(
@@ -95,13 +97,15 @@ def test_dnsmasq_launch(popen_mock, dnsmasq_waiter, tmp_path):
 @patch.object(server.boots.Dnsmasq, 'reload')
 @patch.object(server.boots.Dnsmasq, '_wait_for_dnsmasq_to_fork')
 @patch("subprocess.Popen")
+@patch.object(server.boots, 'get_ip4_addr')
 @patch.object(shutil, 'which', lambda _: True)
-def test_dnsmasq_add_static_address(popen_mock, dnsmasq_waiter,
+def test_dnsmasq_add_static_address(get_ip_mock, popen_mock, dnsmasq_waiter,
                                     dnsmasq_reloader, tmp_path):
     paths = {
         'BOOTS_ROOT': tmp_path,
         'TFTP_DIR': f'{tmp_path}/tftp',
     }
+    get_ip_mock.return_value = "10.42.0.1"
     dnsmasq = Dnsmasq('br0', paths)
     dnsmasq.add_static_address('00:11:22:33:44:55',
                                '1.2.3.4',
