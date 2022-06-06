@@ -25,3 +25,6 @@ ip addr add {{private_interface_ip}}/24 dev private
 ip link set private up
 
 echo 1 > /proc/sys/net/ipv4/ip_forward
+
+# name sure ci-gateway hostname can resolve on the gateway
+printf "127.0.0.1\tci-gateway" >> /etc/hosts
