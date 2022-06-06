@@ -25,6 +25,7 @@ configurables = {
     'GITLAB_CONF_TEMPLATE_FILE': template('gitlab_runner_config.toml.j2'),
     'FARM_NAME': None,
     'MARS_DB_FILE': '/app/config/mars.yaml',
+    'SALAD_URL': 'http://10.42.0.1:8005',
     'BOOTS_ROOT': '/mnt/tmp/boots',
     'BOOTS_TFTP_ROOT': '/mnt/tmp/boots/tftp',
     'BOOTS_DISABLE_DNSMASQ': None,
