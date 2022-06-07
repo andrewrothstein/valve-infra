@@ -63,6 +63,30 @@ def test_dnsmasq_no_binary(popen_mock, dnsmasq_waiter, tmp_path):
 
 
 @patch.object(server.boots.Dnsmasq, '_wait_for_dnsmasq_to_fork')
+@patch.object(server.boots, 'get_ip4_addr', lambda _: "10.42.0.50")
+@patch.object(shutil, 'which', lambda _: True)
+def test_dnsmasq_private_ip_dhcp_conflict(dnsmasq_waiter, tmp_path):
+    paths = {
+        'BOOTS_ROOT': tmp_path,
+        'TFTP_DIR': f'{tmp_path}/tftp',
+    }
+    with pytest.raises(RuntimeError):
+        _ = Dnsmasq('br0', paths)
+
+
+@patch.object(server.boots.Dnsmasq, '_wait_for_dnsmasq_to_fork')
+@patch.object(server.boots, 'get_ip4_addr', lambda _: None)
+@patch.object(shutil, 'which', lambda _: True)
+def test_dnsmasq_no_private_ip(dnsmasq_waiter, tmp_path):
+    paths = {
+        'BOOTS_ROOT': tmp_path,
+        'TFTP_DIR': f'{tmp_path}/tftp',
+    }
+    with pytest.raises(RuntimeError):
+        _ = Dnsmasq('br0', paths)
+
+
+@patch.object(server.boots.Dnsmasq, '_wait_for_dnsmasq_to_fork')
 @patch("subprocess.Popen")
 @patch.object(server.boots, 'get_ip4_addr')
 @patch.object(shutil, 'which', lambda _: True)

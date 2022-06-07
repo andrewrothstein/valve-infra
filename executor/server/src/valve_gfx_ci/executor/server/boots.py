@@ -125,6 +125,15 @@ class Dnsmasq():
             raise RuntimeError(f"No IP found for interface '{config.PRIVATE_INTERFACE}'. "
                                "Is the interface up and assigned an IP address?")
 
+        octets = private_ip.split(".")
+        # strip off last octet and use the leading 24 bits as a basis for the
+        # dhcp range
+        private_net = '.'.join(octets[:-1])
+        private_dhcp_range = f"{private_net}.10,{private_net}.100"
+        if 10 <= int(octets[-1]) <= 100:
+            raise RuntimeError(f"IP address '{private_ip}' is within the desired DHCP "
+                               f"range: {private_dhcp_range}'")
+
         with open(self.options_file, 'w') as f:
             f.write(f"""
 # Not tested, but interesting hook point for future DHCP options
@@ -145,7 +154,7 @@ option:dns-server,{private_ip}
                     '--dhcp-match=set:efi-x86_64,option:client-arch,7',
                     f'--dhcp-boot=tag:efi-x86_64,{IPXE_EFI_FILENAME}',
                     f'--dhcp-boot={IPXE_MBR_FILENAME}',
-                    '--dhcp-range=10.42.0.10,10.42.0.100',
+                    f'--dhcp-range={private_dhcp_range}',
                     '--dhcp-script=/bin/echo',
                     f'--enable-tftp={private_interface}',
                     f'--tftp-root={config_paths["TFTP_DIR"]}',
