@@ -18,7 +18,7 @@ build() {
     # https://gitlab.com/gitlab-org/gitlab-runner/-/issues/4187
     $buildah_run $buildcntr chmod -R o-w /app/valve-infra/ansible
     $buildah_run $buildcntr ansible-lint --version
-    $buildah_run $buildcntr ansible-lint -f plain
+    $buildah_run $buildcntr ansible-lint -f plain -x yaml[line-length] -x yaml[commas]
     $buildah_run $buildcntr ansible-galaxy collection install -r requirements.yml
     $buildah_run $buildcntr ansible-playbook --syntax-check gateway.yml
     $buildah_run $buildcntr ansible-playbook $ANSIBLE_EXTRA_ARGS ./gateway.yml -l localhost

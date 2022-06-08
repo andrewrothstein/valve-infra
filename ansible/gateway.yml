@@ -131,7 +131,6 @@
     # depend on them but we don't want to set "dependencies:" for every role
     # that does
     - {role: pid1,                tags: always}
-
     - {role: base,                tags: base}
     - {role: containers,          tags: containers}
     - {role: network_setup,       tags: network_setup}
