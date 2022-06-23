@@ -125,6 +125,20 @@ boot2container will download the container we built and boot into it.
 When this is done, you should now see a dashboard which looks mostly green.
 The same dashboard should also be present in the terminal you used to connect.
 
+
+If you're running Debian and instead of a QEMU window you get an error message
+like this one:
+
+    failed to create tun device: Operation not permitted
+    qemu-system-x86_64: -nic bridge,br=vivianbr0,mac=DE:AD:BE:EF:00:12,model=virtio-net-pci: bridge helper failed
+
+
+Re-try after enforcing the user ownership on `/usr/lib/qemu/qemu-bridge-helper`
+on your test system:
+
+    # chmod u+s /usr/lib/qemu/qemu-bridge-helper
+
+
 To get a shell on the gateway you can either create one from the dashboard
 by pressing `Ctrl-b c`, or connect via SSH using `make vivian-connect`.
 
