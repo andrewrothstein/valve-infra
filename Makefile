@@ -265,3 +265,8 @@ ipxe-dut-clients: $(IPXE_DIR)
 .PHONY: clean
 clean:
 	-rm -rf tmp $(TMP_DIR) vpdu_tmp container_build.log
+	# Stop registry container if it's running
+	container=$(shell podman ps -a --format '{{.Names}}' | grep ^registry)
+	if [ ! -z "$$container" ]; then
+		podman stop registry
+	fi
