@@ -36,8 +36,11 @@ tmp/ipxe-disk.img tmp/disk.img:
 
 .PHONY: local-registry
 local-registry:
-	-podman rm registry || true  # Try removing the container. This will fail if the container is running, which is good!
-	-podman run --rm -d -p 8088:5000 --name registry docker.io/library/registry:2
+	# Start registry if it isn't running
+	container=$(shell podman ps -a --format '{{.Names}}' | grep ^registry)
+	if [ -z "$$container" ]; then
+		podman run --rm -d -p 8088:5000 --name registry docker.io/library/registry:2
+	fi
 
 .PHONY: valve-infra-container
 valve-infra-container: BASE_IMAGE ?= "registry.freedesktop.org/mupuf/valve-infra/valve-infra-base-container:latest"
