@@ -43,13 +43,19 @@ The container image is provisioned using Ansible recipes (see the
 need to provide your own public key. Make sure to add yours at
 [ansible/gateway.yml](ansible/gateway.yml).
 
-The following is a (likely incomplete) list of dependencies:
+The following is a (likely incomplete) list of dependencies for a system running Debian/Ubuntu:
 
-    - buildah
-    - jq
-    - make
-    - podman
-    - skopeo
+ - buildah
+ - git
+ - jq
+ - make
+ - podman
+ - python
+ - qemu-utils
+ - qemu-system
+ - skopeo
+ - socat
+ - wget
 
 Before building the container, we first need to start a local registry to
 host it, as this will save round-trips to an external registry:
