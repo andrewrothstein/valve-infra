@@ -36,7 +36,7 @@ tmp/ipxe-disk.img tmp/disk.img:
 
 .PHONY: local-registry
 local-registry:
-	-podman rm registry || true  # Try removing the container. This will fail if the conainer is running, which is good!
+	-podman rm registry || true  # Try removing the container. This will fail if the container is running, which is good!
 	-podman run --rm -d -p 8088:5000 --name registry docker.io/library/registry:2
 
 .PHONY: valve-infra-container
@@ -240,7 +240,7 @@ ipxe-dut-clients: $(IPXE_DIR)
 
 	echo
 
-	echo Dowloading the boot configuration...
+	echo Downloading the boot configuration...
 	chain http://ci-gateway/boot/$${netX/mac}/boot.ipxe?platform=$${platform}&buildarch=$${buildarch} || goto retry
 
 	sleep 1
