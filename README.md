@@ -225,6 +225,8 @@ environment variables,
   If you change this, make sure you pass the right mount point into the container.
 * PRIVATE_INTERFACE: The name of the network interface connected to private
   network. Defaults to `private`.
+* PRIVATE_NETWORK_ADDR: The IPv4 address of the private network. Defaults to
+  `10.42.0.1`.
 * FARM_NAME: A name unique to your farm installation. I recommend your IRC nick for now if you are running a local farm. Charlie's farm is `tchar`, Martin's is `mupuf`, and so on. The production farms will be named after the company hosting them, e.g. `igalia` or `valve`.
 * VALVE_INFRA_NO_PULL: When this variable is set, the infra will not pull containers from the Gitlab CI, recommended for development. See the notes below on the development process. The default is to pull new changes automatically.
 

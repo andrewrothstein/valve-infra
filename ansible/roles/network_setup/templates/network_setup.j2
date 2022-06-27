@@ -5,6 +5,10 @@ set -u
 set -o pipefail
 set -x
 
+[ -f "{{ config_env_file }}" ] && . "{{ config_env_file }}"
+
+priv_addr="${PRIVATE_NETWORK_ADDR:-{{ private_interface_ip }}}"
+
 find_nic --wait
 
 # HACK: Give a little bit of time to QEmu to bring up the interface
@@ -21,7 +25,7 @@ PUBLIC=`find_nic -r public`
 # Only rename the private interface, since the public one
 ip link set $PRIVATE down
 ip link set $PRIVATE name private
-ip addr add {{private_interface_ip}}/24 dev private
+ip addr add "${priv_addr}"/24 dev private
 ip link set private up
 
 echo 1 > /proc/sys/net/ipv4/ip_forward

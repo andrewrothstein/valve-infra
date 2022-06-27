@@ -6,6 +6,9 @@
     base_config_env_file: "/etc/base_config.env"
     config_env_file: "{{ perm_mount }}/config.env"
     registry_mount: "{{ tmp_mount }}/registry"
+
+    # default private iface IP, can be overridden by setting
+    # PRIVATE_NETWORK_ADDR in the file @ `config_env_file`
     private_interface_ip: "10.42.0.1"
 
     valve_infra_root: "/app/valve-infra"
