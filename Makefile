@@ -36,11 +36,16 @@ tmp/ipxe-disk.img tmp/disk.img:
 
 .PHONY: local-registry
 local-registry:
-	# Start registry if it isn't running
-	container=$(shell podman ps -a --format '{{.Names}}' | grep ^registry)
-	if [ -z "$$container" ]; then
-		podman run --rm -d -p 8088:5000 --name registry docker.io/library/registry:2
-	fi
+	@case "$(shell podman ps -a --format '{{.Status}}' --filter name=registry)" in
+		Up*)
+			echo "registry container already started"
+			;;
+		*)
+			# clean up any existing version of the container and (re)create it
+			@podman rm -fi registry
+			@podman run --rm -d -p 8088:5000 --replace --name registry docker.io/library/registry:2
+			;;
+	esac
 
 .PHONY: valve-infra-container
 valve-infra-container: BASE_IMAGE ?= "registry.freedesktop.org/mupuf/valve-infra/valve-infra-base-container:latest"
