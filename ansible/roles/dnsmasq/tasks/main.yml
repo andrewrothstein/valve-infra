@@ -26,6 +26,16 @@
     mode: 0644
   notify: 'Restart dnsmasq'
 
+- name: Creating dnsmasq.d conf dir
+  become: true
+  ansible.builtin.file:
+    path: /etc/dnsmasq.d
+    state: directory
+    mode: 0755
+    owner: root
+    group: root
+  notify: 'Restart dnsmasq'
+
 - name: Installing dnsmasq nftables rules
   become: true
   ansible.builtin.copy:

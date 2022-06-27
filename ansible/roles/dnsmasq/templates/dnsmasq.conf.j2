@@ -8,6 +8,8 @@ interface=private
 # useful for debug
 log-queries
 
+conf-dir=/etc/dnsmasq.d
+
 {% for pair in dnsmasq_dns_hosts %}
 address=/{{ pair["host"] }}/{{ pair["address"] }}
 {% endfor %}
