@@ -89,10 +89,6 @@
     sergent_hartman_qualifying_boot_count: 19
     sergent_hartman_registration_retrial_delay: 120
 
-    dnsmasq_dns_hosts:
-      - address: "{{ private_interface_ip }}"
-        host: ci-gateway
-
     avahi_allow_interfaces:
       - wg0
       # not strictly needed for the CI to function, but can be helpful for
