@@ -230,7 +230,15 @@ provision_infra() {
     ssh $__ssh_options root@localhost chmod -v 755 /mnt/tmp
 
     # Set the farm name
-    echo FARM_NAME=${FARM_NAME} | ssh $__ssh_options root@localhost tee /mnt/permanent/config.env
+	# This deletes any previous definition of the var then adds the new
+	# definition to the file, and properly handles cases where the config is
+	# empty or doesn't exist.
+	# Heredoc is used so that the FARM_NAME var is expanded properly without
+	# having to dive into quote hell.
+	ssh $__ssh_options root@localhost <<ENDSSH
+		[ -f /mnt/permanent/config.env ] && sed -i '/^FARM_NAME=.*/d' /mnt/permanent/config.env
+		echo "FARM_NAME=$FARM_NAME" >> /mnt/permanent/config.env
+ENDSSH
 
     ## Executor configuration
     wait_for_endpoint "$__executor_port" "api/v1/machine"
