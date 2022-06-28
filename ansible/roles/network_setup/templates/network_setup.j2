@@ -35,3 +35,6 @@ printf "127.0.0.1\tci-gateway" >> /etc/hosts
 
 # configure dnsmasq to use the right IP when doing lookups for DUTs
 printf "address=/ci-gateway/%s" "$priv_addr" > /etc/dnsmasq.d/00-private-address.conf
+
+# notify systemd that script is done
+systemd-notify --ready

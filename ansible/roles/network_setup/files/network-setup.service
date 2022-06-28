@@ -6,7 +6,7 @@ Before=dhcpcd.service
 Before=dnsmasq.service
 
 [Service]
-Type=simple
+Type=notify
 ExecStart=/usr/bin/network_setup
 
 [Install]
