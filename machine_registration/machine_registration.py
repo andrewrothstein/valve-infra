@@ -164,7 +164,7 @@ def serial_console_works():
 
 
 parser = argparse.ArgumentParser()
-parser.add_argument('-m', '--mars_host', dest='mars_host', default="10.42.0.1",
+parser.add_argument('-m', '--mars_host', dest='mars_host', default="ci-gateway",
                     help='URL to the machine registration service MaRS')
 parser.add_argument('--no-tty', dest="no_tty", action="store_true",
                     help="Do not discover/check the existence of a serial connection to SALAD")
