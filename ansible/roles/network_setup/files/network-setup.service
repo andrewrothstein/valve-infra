@@ -3,6 +3,7 @@ Description=Get an address from the DHCP on the public interface
 Wants=network.target
 Before=network.target
 Before=dhcpcd.service
+Before=dnsmasq.service
 
 [Service]
 Type=simple
