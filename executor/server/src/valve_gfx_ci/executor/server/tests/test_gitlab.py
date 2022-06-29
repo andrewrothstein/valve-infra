@@ -145,6 +145,7 @@ def test_gitlab_runner_config_template():
         "ram_total_MB": 4096
     }
     config_toml = str(Template(template).render(**params))
+    assert 'limit = 1' in config_toml
     assert 'cpus = 4  # Gateway runner CPU allocation'
     assert 'memory = "2048 MB" # Gateway runner memory allocation' in config_toml
     assert 'memory_swap = "2457 MB" # Gateway runner memory hard limit' in config_toml
@@ -158,6 +159,7 @@ def test_gitlab_runner_config_template():
         "ram_total_MB": 16384
     }
     config_toml = str(Template(template).render(**params))
+    assert 'limit = 1' in config_toml
     assert 'cpus = 8  # Gateway runner CPU allocation'
     assert 'memory = "12288 MB" # Gateway runner memory allocation' in config_toml
     assert 'memory_swap = "14745 MB" # Gateway runner memory hard limit' in config_toml
@@ -171,6 +173,7 @@ def test_gitlab_runner_config_template():
         "ram_total_MB": 131072
     }
     config_toml = str(Template(template).render(**params))
+    assert 'limit = 4' in config_toml
     assert 'cpus = 32  # Gateway runner CPU allocation'
     assert 'memory = "126976 MB" # Gateway runner memory allocation' in config_toml
     assert 'memory_swap = "152371 MB" # Gateway runner memory hard limit' in config_toml

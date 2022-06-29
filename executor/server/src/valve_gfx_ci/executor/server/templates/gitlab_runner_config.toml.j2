@@ -6,7 +6,8 @@ listen_address = "0.0.0.0:9252"
 {% for gl in mars_db.gitlab.values() if gl.should_expose_gateway_runner %}
 [[runners]]
 name = "{{config.FARM_NAME}}-gateway"
-limit = 1
+{% set limit = cpu_count / 8 | int %}
+limit = {{[1, limit] | max}}
 url = "{{gl.url}}"
 token = "{{gl.gateway_runner.token}}"
 executor = "docker"
