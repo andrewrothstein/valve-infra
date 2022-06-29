@@ -44,12 +44,20 @@ def register_runner(gitlab_url: str, registration_token: str,
 
 
 def unregister_runner(gitlab_url: str, token: str):
-    requests.delete(f"{gitlab_url}/api/v4/runners", params={"token": token})
+    r = requests.delete(f"{gitlab_url}/api/v4/runners", params={"token": token})
+    return r.status_code == 204
 
 
 def verify_runner_token(gitlab_url: str, token: str):
+    # WARNING: The interface for this function is so that we will return
+    # False *ONLY* when Gitlab tells us the token is invalid.
+    # If Gitlab is unreachable, we will return True.
+    #
+    # This is a conscious decision, as we never want to throw away a perfectly-good
+    # token, just because of a network outtage.
+
     r = requests.post(f"{gitlab_url}/api/v4/runners/verify", params={"token": token})
-    return r.status_code == 200
+    return not r.status_code == 403
 
 
 def generate_runner_config(mars_db):

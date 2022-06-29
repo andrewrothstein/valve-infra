@@ -48,18 +48,24 @@ def test_unregister_runner():
     url = "my url"
     runner_token = "my token"
 
-    with patch("server.gitlab.requests.delete") as delete_mock:
-        unregister_runner(gitlab_url=url, token=runner_token)
+    with patch("server.gitlab.requests.delete", return_value=MagicMock(status_code=204)) as delete_mock:
+        assert unregister_runner(gitlab_url=url, token=runner_token)
         delete_mock.assert_called_with(f"{url}/api/v4/runners", params={"token": runner_token})
+
+    with patch("server.gitlab.requests.delete", return_value=MagicMock(status_code=200)) as delete_mock:
+        assert not unregister_runner(gitlab_url=url, token=runner_token)
 
 
 def test_verify_runner_token():
     url = "my url"
     runner_token = "my token"
 
-    with patch("server.gitlab.requests.post", return_value=MagicMock(status_code=403)) as post_mock:
-        verify_runner_token(gitlab_url=url, token=runner_token)
+    with patch("server.gitlab.requests.post", return_value=MagicMock(status_code=200)) as post_mock:
+        assert verify_runner_token(gitlab_url=url, token=runner_token)
         post_mock.assert_called_with(f"{url}/api/v4/runners/verify", params={"token": runner_token})
+
+    with patch("server.gitlab.requests.post", return_value=MagicMock(status_code=403)) as post_mock:
+        assert not verify_runner_token(gitlab_url=url, token=runner_token)
 
 
 def test_generate_runner_config():
