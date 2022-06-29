@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 from jinja2 import Template
 import requests
+import psutil
 
 from .logger import logger
 from . import config
@@ -63,7 +64,13 @@ def verify_runner_token(gitlab_url: str, token: str):
 def generate_runner_config(mars_db):
     logger.info("Generate the GitLab runner configuration")
     with open(config.GITLAB_CONF_TEMPLATE_FILE) as f:
-        config_toml = Template(f.read()).render(config=config, mars_db=mars_db)
+        params = {
+            "config": config,
+            "mars_db": mars_db,
+            "cpu_count": psutil.cpu_count(),
+            "ram_total_MB": psutil.virtual_memory().total / 1e6
+        }
+        config_toml = Template(f.read()).render(**params)
 
     with open(config.GITLAB_CONF_FILE, 'w') as f:
         f.write(config_toml)

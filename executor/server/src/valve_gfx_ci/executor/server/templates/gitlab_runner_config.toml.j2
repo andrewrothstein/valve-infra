@@ -24,10 +24,11 @@ disable_cache = false
 volumes = [ "local-container-volume:/var/lib/containers", "/var/run/docker.sock:/var/run/docker.sock", "/cache", "/usr/local/bin/gitlab_runner_prebuild.sh:/usr/local/bin/gitlab_runner_prebuild.sh" ]
 network_mode = "host"
 shm_size = 0
-cpus = "4"
-memory = "4GB"
-memory_swap = "8GB"
-memory_reservation = "2GB"
+cpus = {{cpu_count}}  # Gateway runner CPU allocation
+{% set memory = [ram_total_MB / 2, ram_total_MB - 4096] | max | int %}
+memory = "{{memory}} MB" # Gateway runner memory allocation
+memory_swap = "{{(memory * 1.2) | int}} MB" # Gateway runner memory hard limit
+memory_reservation = "{{(memory / 2) | int}} MB" # Gateway runner memory soft limit
 {% endfor %}
 
 # DUTs
