@@ -251,7 +251,7 @@ ipxe-dut-clients: $(IPXE_DIR)
 	EOF
 
 	@# Compile the binaries
-	make -C $(IPXE_DIR)/src -j`nproc` EMBED=$(IPXE_DIR)/boot.ipxe bin-x86_64-efi/ipxe.efi bin/undionly.kpxe || exit 1
+	make -C $(IPXE_DIR)/src -j`nproc` EMBED=$(IPXE_DIR)/boot.ipxe bin-x86_64-efi/ipxe.efi bin/undionly.kpxe NO_WERROR=1 || exit 1
 
 	echo
 	echo "########################################################################"
