@@ -46,7 +46,9 @@ class ConfigGitlabRunner:
             logger.warning(f"{log_prefix}: The token {self.token} is invalid. "
                            "Starting the renewal process...")
 
-            self.remove(gl)
+            if not self.remove(gl):
+                logger.error(f"{log_prefix}: Could not unregister the runner on {gl.name}")
+                return
 
             if gl.has_valid_looking_registration_token:
                 runner = gitlab.register_runner(gitlab_url=gl.url,
@@ -63,11 +65,16 @@ class ConfigGitlabRunner:
                 logger.error(f"{log_prefix}: No registration tokens specified. Aborting...")
 
     def remove(self, gl):
-        if self.token != "<invalid default>":
-            print(f"Unregister {gl.name}'s runner {self.token}")
+        if self.token == "<invalid default>":
+            return True
 
-        gitlab.unregister_runner(gitlab_url=gl.url, token=self.token)
+        print(f"Unregister {gl.name}'s runner {self.token}")
+        if not gitlab.unregister_runner(gitlab_url=gl.url, token=self.token):
+            return False
+
         self.token = "<invalid default>"
+
+        return True
 
 
 @dataclass
