@@ -16,6 +16,7 @@ be reflected instantly in the executor.
 
 New machines will be added automatically when POSTing or PUTing to the
 `/api/v1/machine/` REST endpoint, but they won't be useable until
+they get associated to a PDU and a PDU port.
 
 Here is an annotated sample file, where `AUTO` means you should not be
 modifying this value (and all children of it) while `MANUAL` means that
