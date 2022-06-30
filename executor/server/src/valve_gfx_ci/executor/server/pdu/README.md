@@ -96,7 +96,7 @@ the following mapping:
 Try these values, and change them accordingly!
 
 Once you have collected all this information, feel free to
-[open an issue](https://gitlab.freedesktop.org/mupuf/pdu-gateway/-/issues/new)
+[open an issue](https://gitlab.freedesktop.org/mupuf/valve-infra/-/issues/new)
 to ask us to add this information to the list of drivers. Make sure to include
 the curl command line you used to register your PDU!
 
@@ -107,7 +107,7 @@ the curl command line you used to register your PDU!
 We initially wanted to use [pdudaemon](https://github.com/pdudaemon/pdudaemon),
 but since it does not allow reading back the state from the PDU, it isn't
 possible to make sure that the communication with the PDU is working which
-reduces the reliability and debugeability of the system.
+reduces the reliability and debuggability of the system.
 
 Additionally, pdudaemon requires a configuration file, which is contrary to the
 objective of the project to be as stateless as possible and leave configuration
