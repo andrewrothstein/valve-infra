@@ -13,6 +13,7 @@ from .minioclient import MinioClient
 from .boots import BootService
 from .message import JobStatus
 from .job import Job, Target
+from .pdu import PDU, PDUPort
 from . import config
 
 
@@ -42,6 +43,17 @@ class CustomJSONEncoder(flask.json.JSONEncoder):
                 "mac_address": obj.mac_address,
                 "ip_address": obj.ip_address,
                 "training": obj.executor.sergent_hartman
+            }
+        elif isinstance(obj, PDU):
+            return {
+                "ports": {p.port_id: p for p in obj.ports}
+
+            }
+        elif isinstance(obj, PDUPort):
+            return {
+                "label": obj.label,
+                "min_off_time": obj.min_off_time,
+                "state": obj.state
             }
 
         return super().default(obj)
@@ -99,6 +111,22 @@ def machine_ipxe_boot_script(machine_id):
     machine = mars.get_machine_by_id(machine_id)
     args = flask.request.args
     return mars.boots.ipxe_boot_script(machine, platform=args.get("platform"), buildarch=args.get("buildarch"))
+
+
+@app.route('/api/v1/pdus', methods=['GET'])
+def get_pdus_list():
+    pdus = {}
+
+    with app.app_context():
+        mars = flask.current_app.mars
+
+        for name, pdu_cfg in mars.mars_db.pdus.items():
+            pdu = PDU.create(pdu_cfg.driver, pdu_cfg.name, pdu_cfg.config)
+            pdus[name] = pdu
+
+    return {
+        "pdus": pdus
+    }
 
 
 @dataclass
