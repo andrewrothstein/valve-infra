@@ -52,9 +52,14 @@
     masked: true
     enabled: false
 
-- name: Start/enable service
+- name: Enable the service
   become: true
   ansible.builtin.service:
     name: avahi-daemon
-    state: started
     enabled: true
+
+- name: Restart Avahi
+  ansible.builtin.systemd:
+    name: 'avahi-daemon'
+    state: restarted
+  when: pid_1_name == "systemd"
