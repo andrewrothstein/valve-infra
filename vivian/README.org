@@ -58,7 +58,7 @@ List all registered machines and their executor status,
 
 List all registered PDUs
 
-: watch -n10 curl -sL localhost:8081/api/v1/pdu | jq
+: curl -sL localhost:8000/api/v1/pdus | jq
 
 Query the virtual PDUs port from the host machine,
 
