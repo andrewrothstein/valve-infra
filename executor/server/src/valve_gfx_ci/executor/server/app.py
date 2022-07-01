@@ -113,6 +113,26 @@ def machine_ipxe_boot_script(machine_id):
     return mars.boots.ipxe_boot_script(machine, platform=args.get("platform"), buildarch=args.get("buildarch"))
 
 
+def find_pdu(pdu_name):
+    with app.app_context():
+        mars = flask.current_app.mars
+        for name, pdu_cfg in mars.mars_db.pdus.items():
+            if name == pdu_name:
+                return PDU.create(pdu_cfg.driver, pdu_cfg.name, pdu_cfg.config)
+
+    raise ValueError(f"The PDU named {pdu_name} does not exist")
+
+
+def find_pdu_port(pdu_name, port_id):
+    pdu = find_pdu(pdu_name)
+
+    for port in pdu.ports:
+        if str(port.port_id) == str(port_id):
+            return port
+
+    raise ValueError(f"The PDU named {pdu_name} does not have a port ID {port_id}")
+
+
 @app.route('/api/v1/pdus', methods=['GET'])
 def get_pdus_list():
     pdus = {}
@@ -127,6 +147,18 @@ def get_pdus_list():
     return {
         "pdus": pdus
     }
+
+
+@app.route('/api/v1/pdu/<pdu_name>', methods=['GET'])
+def get_pdu(pdu_name):
+    pdu = find_pdu(pdu_name)
+    return flask.jsonify(pdu)
+
+
+@app.route('/api/v1/pdu/<pdu_name>/port/<port_id>', methods=['GET'])
+def get_pdu_port(pdu_name, port_id):
+    port = find_pdu_port(pdu_name, port_id)
+    return flask.jsonify(port)
 
 
 @dataclass
