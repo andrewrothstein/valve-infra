@@ -33,11 +33,6 @@ class ConfigGitlabRunner:
     exposed: bool = True
 
     def verify_or_renew_token(self, gl, description, tags):
-        # Remove the runner when not exposed
-        if not self.exposed:
-            self.remove(gl)
-            return
-
         log_prefix = f"{description}'s {gl.name} runner"
 
         logger.debug(f"{log_prefix}: Verifying the token {self.token}")
@@ -120,11 +115,9 @@ class ConfigDUT:
         if self.available:
             for gl in self.mars_db.gitlab.values():
                 local_cfg = self.gitlab.get(gl.name)
-                if gl.expose_runners:
+                if gl.expose_runners and local_cfg.exposed:
                     local_cfg.verify_or_renew_token(gl, description=self.full_name, tags=self.tags)
-                else:
-                    local_cfg.remove(gl)
-        else:
+        elif self.is_retired:
             # Un-register every associated runner
             for gl_name, local_cfg in self.gitlab.items():
                 if gl := self.mars_db.gitlab.get(gl_name):
@@ -386,8 +379,6 @@ class Mars(Thread):
                 gl.gateway_runner.verify_or_renew_token(gl,
                                                         description=f"{config.FARM_NAME}-gateway",
                                                         tags=[f"{config.FARM_NAME}-gateway", 'CI-gateway'])
-            else:
-                gl.gateway_runner.remove(gl)
 
         # Expose the DUTs on all the forges
         for m in self.mars_db.duts.values():
