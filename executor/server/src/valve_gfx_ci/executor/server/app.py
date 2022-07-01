@@ -53,7 +53,7 @@ class CustomJSONEncoder(flask.json.JSONEncoder):
             return {
                 "label": obj.label,
                 "min_off_time": obj.min_off_time,
-                "state": obj.state
+                "state": obj.state.name
             }
 
         return super().default(obj)
