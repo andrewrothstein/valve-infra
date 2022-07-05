@@ -9,7 +9,7 @@ import struct
 import subprocess
 import sys
 
-BRIDGE = 'vivianbr0'
+BRIDGE = 'virbr0'
 SALAD_TCP_CONSOLE_PORT = os.getenv("SALAD_TCPCONSOLE_PORT", 8100)
 NUM_PORTS = 16
 DUT_DISK_SIZE = '32G'
@@ -92,7 +92,7 @@ class DUT:
             '-hda', disk,
             '-vga', 'virtio',
             '-boot', 'n',
-            '-nic', f'bridge,br=vivianbr0,mac={mac},model=virtio-net-pci',
+            '-nic', f'bridge,br={BRIDGE},mac={mac},model=virtio-net-pci',
             # Not decided if I want this feature, can be handy though!
             # '-serial', 'mon:telnet::4444,server=on,wait=off',
             '-chardev', f'socket,id=saladtcp,host=localhost,port={SALAD_TCP_CONSOLE_PORT},server=off,logfile={log_name}',
