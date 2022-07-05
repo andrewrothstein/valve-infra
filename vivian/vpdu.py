@@ -13,7 +13,7 @@ BRIDGE = 'vivianbr0'
 SALAD_TCP_CONSOLE_PORT = os.getenv("SALAD_TCPCONSOLE_PORT", 8100)
 NUM_PORTS = 16
 DUT_DISK_SIZE = '32G'
-VPDU_DIR = './tmp_vpdu'
+VPDU_DIR = os.getenv("VPDU_DIR", "./tmp_vpdu")
 os.makedirs(VPDU_DIR, exist_ok=True)
 OUTLETS = []
 
