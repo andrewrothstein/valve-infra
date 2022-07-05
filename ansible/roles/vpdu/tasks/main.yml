@@ -1,0 +1,36 @@
+---
+- name: Installing requirements
+  become: true
+  ansible.builtin.package:
+    name:
+      - qemu
+
+- name: Installing programs
+  become: true
+  ansible.builtin.copy:
+    src: "{{ item }}"
+    # Note: this strips the extension, since it's not important at runtime
+    dest: "/usr/local/bin/{{ item | splitext | first }}"
+    owner: root
+    group: root
+    mode: 0755
+  loop:
+    - vpdu.py
+    - vpdu-client.py
+  notify: 'Restart vpdu'
+
+- name: Installing systemd service
+  become: true
+  ansible.builtin.copy:
+    src: vpdu.service
+    dest: /etc/systemd/system/vpdu.service
+    owner: root
+    group: root
+    mode: 0644
+  notify: 'Restart vpdu'
+
+- name: Enable vpdu service
+  become: true
+  ansible.builtin.systemd:
+    name: vpdu
+    enabled: true

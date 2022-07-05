@@ -1,0 +1,6 @@
+---
+- name: Restart vpdu
+  ansible.builtin.systemd:
+    name: 'vpdu'
+    state: restarted
+  when: pid_1_name == "systemd"

@@ -1,0 +1,11 @@
+[Unit]
+Description=virtual PDU service
+Wants=network.target
+
+[Service]
+Type=simple
+Environment=VPDU_DIR=/mnt/tmp/vpdu PYTHONUNBUFFERED=1
+ExecStart=/usr/local/bin/vpdu
+
+[Install]
+WantedBy=multi-user.target

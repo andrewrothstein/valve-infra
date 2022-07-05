@@ -79,6 +79,7 @@
       - influxdb_configure
       - telegraf
       - nftables:inactive
+      - vpdu
 
     # Default boot files for DUTs.
     b2c_release: v0.9.5
@@ -159,3 +160,4 @@
     - {role: infra,               tags: infra}
     - {role: monitoring,          tags: monitoring}
     - {role: avahi,               tags: avahi}
+    - {role: vpdu,                tags: vpdu}
