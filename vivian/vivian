@@ -193,6 +193,7 @@ start_gateway() {
 	$__qemu_mount_opts \
         -append "$__kernel_append" \
         -m 4G \
+        -cpu host \
         -enable-kvm -smp 4
 
     echo "Started gateway VM"
