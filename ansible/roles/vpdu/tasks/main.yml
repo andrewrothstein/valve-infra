@@ -19,6 +19,16 @@
     - vpdu-client.py
   notify: 'Restart vpdu'
 
+- name: Configuring qemu to allow the bridge
+  become: true
+  ansible.builtin.lineinfile:
+    path: /etc/qemu/bridge.conf
+    line: "allow {{ vpdu_bridge }}"
+    mode: 0640
+    owner: root
+    group: root
+    create: true
+
 - name: Installing systemd service
   become: true
   ansible.builtin.template:
