@@ -22,13 +22,19 @@ done
 PRIVATE=`find_nic -r private`
 PUBLIC=`find_nic -r public`
 
+echo 1 > /proc/sys/net/ipv4/ip_forward
+
 # Only rename the private interface, since the public one
 ip link set $PRIVATE down
-ip link set $PRIVATE name private
-ip addr add "${priv_addr}"/24 dev private
-ip link set private up
+ip link set $PRIVATE name privateif
 
-echo 1 > /proc/sys/net/ipv4/ip_forward
+# create bridge for vpdu VMs
+ip link add private type bridge
+ip addr add dev private "${priv_addr}"/24
+ip link set privateif master private
+
+ip link set privateif up
+ip link set private up
 
 # name sure ci-gateway hostname can resolve on the gateway
 printf "127.0.0.1\tci-gateway" >> /etc/hosts
