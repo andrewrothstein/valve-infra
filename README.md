@@ -91,6 +91,24 @@ bandwidth (the valve-infra container is quite big).
 
 ### Running the infrastructure
 
+While not strictly required, enabling nested KVM on the host will dramatically
+improve the performance of a DUT VM booted from the VPDU. It can be enabled by
+configuring the relevant module parameter:
+
+```
+$ cat /etc/modprobe.d/kvm.conf
+options kvm-intel nested=Y
+options kvm-amd nested=1
+```
+
+Nested KVM support can be verified on the host by reading the following
+parameter from sysfs, replacing 'intel' with 'amd' if appropriate:
+
+```
+$ cat /sys/module/kvm_intel/parameters/nested
+Y
+```
+
 Now that we have built our container, we need to start another component: a
 virtual PDU that will spawn a virtual machine every time its virtual port turns
 on. This can be done by running this simple command:
