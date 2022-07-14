@@ -277,7 +277,7 @@ class JobConsole(Thread):
                         if self.console_patterns.session_has_ended:
                             self.set_state(JobConsoleState.DUT_DONE)
 
-                    elif fd == self.client_sock.fileno():
+                    elif self.client_sock and fd == self.client_sock.fileno():
                         # DUT's stdin: Client -> Salad
                         if self.client_version == 0:
                             buf = self.client_sock.recv(8192)
