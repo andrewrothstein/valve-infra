@@ -3,7 +3,6 @@ SHELL := /bin/bash
 
 # TODO: Integrate Vivian as a standard part of the container build process, rather than as a side-project.
 VIVIAN := ./vivian/vivian
-VPDU_PORT ?= 9191
 HOST ?= localhost
 ifeq ($(HOST), localhost)
 	SSH_PORT ?= 60022
@@ -105,7 +104,7 @@ vivian: tmp/boot2container-$(B2C_VERSION)-linux_amd64.cpio.xz tmp/linux-b2c-$(B2
 	   FARM_NAME=$(FARM_NAME) \
 	   GITLAB_URL=$(GITLAB_URL) \
 	   GITLAB_REGISTRATION_TOKEN=$(GITLAB_REGISTRATION_TOKEN) \
-	   $(VIVIAN) $(VIVIAN_OPTS) $(VIVIAN_SSH_KEY_OPT) --vpdu-port=$(VPDU_PORT) --kernel-img=tmp/linux-b2c-$(B2C_VERSION) --ramdisk=tmp/boot2container-$(B2C_VERSION)-linux_amd64.cpio.xz --gateway-disk-img=tmp/disk.img --kernel-append='b2c.volume="tmp" b2c.volume="perm" b2c.hostname=vivian b2c.container="-ti --dns=none -v tmp:/mnt/tmp -v perm:/mnt/permanent --tls-verify=false --entrypoint=/bin/init docker://10.0.2.2:8088/valve-infra/valve-infra-container:latest" b2c.ntp_peer=auto b2c.pipefail b2c.cache_device=auto net.ifnames=0 quiet' start
+	   $(VIVIAN) $(VIVIAN_OPTS) $(VIVIAN_SSH_KEY_OPT) --kernel-img=tmp/linux-b2c-$(B2C_VERSION) --ramdisk=tmp/boot2container-$(B2C_VERSION)-linux_amd64.cpio.xz --gateway-disk-img=tmp/disk.img --kernel-append='b2c.volume="tmp" b2c.volume="perm" b2c.hostname=vivian b2c.container="-ti --dns=none -v tmp:/mnt/tmp -v perm:/mnt/permanent --tls-verify=false --entrypoint=/bin/init docker://10.0.2.2:8088/valve-infra/valve-infra-container:latest" b2c.ntp_peer=auto b2c.pipefail b2c.cache_device=auto net.ifnames=0 quiet' start
 
 # Start a production test of the virtual gateway. It will retrieve
 # boot configuration from an external PXE server, booting from the
@@ -144,11 +143,6 @@ endif
 	if [ -n "$(TAGS)" ]; then _TAGS="-t $(TAGS)" ; else _TAGS="" ; fi
 	cd ansible
 	ansible-playbook gateway.yml $(ANSIBLE_SSH_KEY_OPT) $$_TAGS -e valve_infra_root=$(CURDIR) -e target=$(TARGET) -l live
-
-.PHONY: vpdu
-vpdu:
-	./vivian/vpdu.py --port $(VPDU_PORT)
-
 
 TMP_DIR := $(PWD)/tmp
 IPXE_DIR := $(TMP_DIR)/ipxe
@@ -274,7 +268,7 @@ ipxe-dut-clients: $(IPXE_DIR)
 
 .PHONY: clean
 clean:
-	-rm -rf tmp $(TMP_DIR) tmp_vpdu container_build.log
+	-rm -rf tmp $(TMP_DIR) container_build.log
 	# Stop registry container if it's running
 	container=$(shell podman ps -a --format '{{.Names}}' | grep ^registry)
 	if [ ! -z "$$container" ]; then
