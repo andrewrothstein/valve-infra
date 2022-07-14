@@ -20,7 +20,6 @@ __salad_port=8100
 __minio_port=9000
 __ssh_port=60022
 __ssh_id=
-__vpdu_port=9191
 
 __disk_img=
 
@@ -101,9 +100,6 @@ while test -n "$1"; do
             ;;
         --initial-fleet-size=*)
             __initial_fleet_size="${1#--initial-fleet-size=}"
-            ;;
-        --vpdu-port=*)
-            __vpdu_port="${1#--vpdu-port=}"
             ;;
         --boot-mode=*)
                 mode="${1#--boot-mode=}"
@@ -257,7 +253,7 @@ pdus:
   VPDU:
     driver: vpdu
     config:
-      hostname: 10.0.2.2:$__vpdu_port
+      hostname: localhost:9191
 
 gitlab:
   freedesktop:
