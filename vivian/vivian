@@ -201,7 +201,11 @@ start_gateway() {
 wait_for_ssh() {
     echo "Waiting for SSH to respond..."
     { local prev_shell_config=$-; set +x; } 2>/dev/null
-    __ssh_options="$__ssh_options -o BatchMode=yes -o ConnectionAttempts=1"
+    __ssh_options="$__ssh_options -o ConnectionAttempts=1"
+    if -z "$__ssh_id"; then
+        # no need to prompt for a key passphrase if there is no key set
+        __ssh_options="$__ssh_options -o BatchMode=yes"
+    fi
     while ! ssh $__ssh_options root@localhost true; do
     sleep 0.2
     done >/dev/null 2>&1
