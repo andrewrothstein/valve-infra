@@ -249,12 +249,6 @@ ENDSSH
         EXPOSE_RUNNERS=false
         [ -n "${GITLAB_URL}" ] && [ -n "${GITLAB_REGISTRATION_TOKEN}" ] && EXPOSE_RUNNERS=true
         cat << EOF > vivian/__mars_db.yaml
-pdus:
-  VPDU:
-    driver: vpdu
-    config:
-      hostname: localhost:9191
-
 gitlab:
   freedesktop:
     url: ${GITLAB_URL}
