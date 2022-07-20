@@ -17,6 +17,7 @@ configurables = {
     'EXECUTOR_PORT': 80,
     'EXECUTOR_REGISTRATION_JOB': job_template('register.yml.j2'),
     'EXECUTOR_BOOTLOOP_JOB': job_template('bootloop.yml.j2'),
+    'EXECUTOR_VPDU_ENDPOINT': None,
     'SERGENT_HARTMAN_BOOT_COUNT': '100',
     'SERGENT_HARTMAN_QUALIFYING_BOOT_COUNT': '100',
     'SERGENT_HARTMAN_REGISTRATION_RETRIAL_DELAY': '120',

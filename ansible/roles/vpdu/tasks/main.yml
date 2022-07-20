@@ -44,3 +44,14 @@
   ansible.builtin.systemd:
     name: vpdu
     enabled: true
+
+- name: setting vpdu endpoint for executor
+  become: true
+  ansible.builtin.blockinfile:
+    create: true
+    path: "{{ base_config_env_file }}"
+    mode: '0644'
+    marker: "# {mark} ANSIBLE MANAGED BLOCK {{ role_name }}"
+    block: |
+      EXECUTOR_VPDU_ENDPOINT="localhost:9191"
+  notify: 'Restart executor'

@@ -181,6 +181,17 @@ class MarsDB:
     # Function called once all the objects have been converted from dict
     # to their dataclass equivalent
     def __post_init_post_parse__(self):
+
+        # Always ensure that the VPDU config is in the mars db if the config
+        # param is set. This protects against other things that might
+        # externally modify (or generate) the mars db (e.g. vivian from the
+        # valve-infra project.)
+        if config.EXECUTOR_VPDU_ENDPOINT:
+            self.pdus["VPDU"] = ConfigPDU(
+                driver="vpdu",
+                config={"hostname": config.EXECUTOR_VPDU_ENDPOINT}
+            )
+
         # Since we do not want to repeat ourselves in the config file, the name
         # of objects is set in the parent dict. However, it is quite useful for
         # objects to know their names and have access to the DB. This function
