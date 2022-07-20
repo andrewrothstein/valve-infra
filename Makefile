@@ -3,7 +3,6 @@ SHELL := /bin/bash
 
 # TODO: Integrate Vivian as a standard part of the container build process, rather than as a side-project.
 VIVIAN := ./vivian/vivian
-PYTHON := $(shell command -v python3)
 VPDU_PORT ?= 9191
 HOST ?= localhost
 ifeq ($(HOST), localhost)
@@ -145,7 +144,7 @@ endif
 
 .PHONY: vpdu
 vpdu:
-	$(PYTHON) ./vivian/vpdu.py --port $(VPDU_PORT)
+	./vivian/vpdu.py --port $(VPDU_PORT)
 
 
 TMP_DIR := $(PWD)/tmp
