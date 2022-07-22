@@ -223,7 +223,7 @@ ipxe-dut-clients: $(IPXE_DIR)
 
 	#include <config/defaults.h>
 
-	#define	CONSOLE_SERIAL		/* Serial port console */
+	#undef	CONSOLE_SERIAL		/* Serial port console */
 	#define	CONSOLE_SYSLOG		/* Syslog console */
 	#define	KEYBOARD_MAP	us
 	#define	LOG_LEVEL	LOG_ALL
