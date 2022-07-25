@@ -23,6 +23,7 @@ show_status() {
 		__color=$yellow
 	elif [ "$__status" = "$__expected" ]; then
 		__color=$green
+		__status="OK"
 	else
 		__color=$red
 	fi
