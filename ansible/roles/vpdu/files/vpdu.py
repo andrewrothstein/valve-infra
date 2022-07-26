@@ -95,11 +95,17 @@ class DUT:
         ]
         log('starting DUT: %s', ' '.join(cmd))
         self.qemu = subprocess.Popen(cmd)
+        # -d: do not select window
+        # -a: insert after target window
+        # -t: target window
+        # -n: window name
+        subprocess.Popen(['tmux', 'new-window', '-d', '-a', '-t', 'dashboard', '-n', f'dut-{self.id}' , 'tail', '-F', log_name])
 
     def stop(self):
         # TODO, graceful, like the gateway code.
         self.qemu.terminate()
         self.qemu.wait()
+        subprocess.Popen(['tmux', 'kill-window', '-t', f'dut-{self.id}'])
 
 
 def gen_mac(index):
