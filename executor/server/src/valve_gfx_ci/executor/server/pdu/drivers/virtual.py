@@ -37,14 +37,14 @@ class VirtualPDU(PDU):  # pragma: nocover
             cmd = (port_id << 2) | 0x02
             with self.conn() as s:
                 s.sendall(cmd.to_bytes(4, byteorder='big'))
-                assert(s.recv(1)[0] == 0x01)
+                assert (s.recv(1)[0] == 0x01)
         if self.state_transition_delay_seconds:
             time.sleep(self.state_transition_delay_seconds)
         if state == PDUState.ON or state == PDUState.REBOOT:
             cmd = (port_id << 2) | 0x01
             with self.conn() as s:
                 s.sendall(cmd.to_bytes(4, byteorder='big'))
-                assert(s.recv(1)[0] == 0x01)
+                assert (s.recv(1)[0] == 0x01)
         if self.state_transition_delay_seconds:
             time.sleep(self.state_transition_delay_seconds)
 
@@ -61,4 +61,4 @@ class VirtualPDU(PDU):  # pragma: nocover
             elif state == 0x05:
                 return PDUState.UNKNOWN
             else:
-                assert(False)
+                assert (False)
