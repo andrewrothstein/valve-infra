@@ -4,6 +4,7 @@ import argparse
 from datetime import datetime
 import enum
 import os
+import re
 import socketserver
 import struct
 import subprocess
@@ -20,6 +21,13 @@ OUTLETS = []
 
 def log(msg, *args):
     print(msg % args)
+
+
+# Returns True if the CPU supports virtualization, else False
+def has_vt():
+    p = re.compile("vmx|svm")
+    with open("/proc/cpuinfo", "r") as f:
+        return p.search(f.read()) is not None
 
 
 class PowerState(enum.IntEnum):
@@ -78,7 +86,6 @@ class DUT:
         log_name = datetime.now().strftime(f'{VPDU_DIR}/dut-log-{self.id}-%H%M%S-%d%m%Y.log')
         cmd = [
             'qemu-system-x86_64',
-            '-machine', 'q35,accel=kvm',
             '-m', '2048',
             '-smp', '2,sockets=2,cores=1,threads=1',
             '-hda', disk,
@@ -93,6 +100,12 @@ class DUT:
             '-device', 'pci-serial,chardev=saladtcp',
             '-serial', 'chardev:saladtcp',
         ]
+        if has_vt():
+            cmd += ['-machine', 'q35,accel=kvm']
+        else:
+            log('WARN: CPU VT support *not* detected... the DUT VM '
+                'performance will suffer!')
+
         log('starting DUT: %s', ' '.join(cmd))
         self.qemu = subprocess.Popen(cmd)
         # -d: do not select window
