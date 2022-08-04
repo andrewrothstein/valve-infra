@@ -57,7 +57,7 @@ valve-infra-container: local-registry
 	   buildah unshare -- .gitlab-ci/valve-infra-container-build.sh
 
 .PHONY: valve-infra-base-container
-valve-infra-base-container: BASE_IMAGE ?= "archlinux:base-devel-20220130.0.46058"
+valve-infra-base-container: BASE_IMAGE ?= "archlinux:base-devel-20220731.0.71623"
 valve-infra-base-container:
 ifndef IMAGE_NAME
 	$(error "IMAGE_NAME is a required parameter (e.g. localhost:8088/mupuf/valve-infra/valve-infra-base-container:latest)")
