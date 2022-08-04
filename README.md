@@ -109,17 +109,6 @@ $ cat /sys/module/kvm_intel/parameters/nested
 Y
 ```
 
-Now that we have built our container, we need to start another component: a
-virtual PDU that will spawn a virtual machine every time its virtual port turns
-on. This can be done by running this simple command:
-
-	make vpdu
-
-*TODO:* This might make more sense to be pre-configured inside the
-container, but then you need to bundle QEMU (not a huge deal), and
-worry about X11 forwarding from QEMU to the host if you wish to see a
-graphical QEMU window, which can be handy. WIP.
-
 We are now ready to start our virtual gateway machine, which will boot
 directly into the container we built in the previous section:
 
@@ -128,6 +117,10 @@ directly into the container we built in the previous section:
 Note: options to vivian can be passed by setting `VIVIAN_OPTS`, for example:
 
 	make VIVIAN_OPTS="--ssh-port=50022" ... vivian
+
+
+For information on starting virtual DUTs in the VM, see the section on
+"Spawning virtual DUTs" below.
 
 The virtual testing recipes will fetch a Linux kernel and a
 boot2container ramdisk, and start the system. After the kernel boots
@@ -168,11 +161,17 @@ dependencies directly into the container image.
 Right now, our gateway has no idea about any potential machine connected
 to its private network interface. Let's boot one!
 
-    python3 vivian/client.py --outlet 1 --on
+If the gateway is running in vivian, then virtual DUTs can be booted by using
+the `vivian-dut` make target. The `OUTLET` variable can be set to select the
+outlet on the VPDU:
 
-This will open a new QEMU window, where the machine will get an IP from
-the gateway, download iPXE then boot the kernel/initramfs which will in
-turn register the machine using the machine_registration container.
+    make OUTLET=4 vivian-add-dut
+
+Once a DUT VM has started, output from it is redirected into a log file located
+at `/mnt/tmp/vpdu/dut-log-<mac address>-<date and time stamp>.log`.
+
+This log file is also tail'd in a new tmux window on the gateway's console
+dashboard (CTRL + B then 0..n to select the window by ID).
 
 If all went well, you should now see a machine appear in the "Machines"
 column of the dashboard, with the state `WAIT_FOR_CONFIG`. This indicates
