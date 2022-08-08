@@ -125,6 +125,9 @@ vivian-dut:
 # Connect to a locally running virtual gateway.
 .PHONY: vivian-connect
 vivian-connect:
+ifndef SSH_KEY_OPT
+	$(warning "You might find helpful to define SSH_KEY_OPT (or SSH_ID_KEY) for this target.")
+endif
 	ssh root@$(HOST) $(SSH_KEY_OPT) -p $(SSH_PORT) -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null
 
 .PHONY: vivian-provision
