@@ -303,6 +303,7 @@ class Mars(Thread):
         self.mars_db = None
 
         self._machines = {}
+        self.discover_data = {}
 
         self.stop_event = Event()
 
