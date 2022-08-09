@@ -51,7 +51,7 @@ def main():
                     status = Yellow(machine["state"])
             else:
                 status = Green(machine["state"])
-            label = f"{machine['base_name']} ({machine['ip_address']})"
+            label = f"{machine['base_name']} ({machine['ip_address']}) ({machine['pdu']['name']}/{machine['pdu']['port_id']})"
             print(f"{label:<30}{status}")
 
         time.sleep(2)
