@@ -42,7 +42,11 @@ class CustomJSONEncoder(flask.json.JSONEncoder):
                 "base_name": obj.base_name,
                 "mac_address": obj.mac_address,
                 "ip_address": obj.ip_address,
-                "training": obj.executor.sergent_hartman
+                "training": obj.executor.sergent_hartman,
+                "pdu": {
+                    "name": obj.pdu,
+                    "port_id": obj.pdu_port_id
+                }
             }
         elif isinstance(obj, PDU):
             return {
