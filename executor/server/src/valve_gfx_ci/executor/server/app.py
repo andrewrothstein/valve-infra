@@ -13,7 +13,7 @@ from .minioclient import MinioClient
 from .boots import BootService
 from .message import JobStatus
 from .job import Job, Target
-from .pdu import PDU, PDUPort
+from .pdu import PDU, PDUPort, PDUState
 from . import config
 
 
@@ -159,6 +159,63 @@ def get_pdu(pdu_name):
 def get_pdu_port(pdu_name, port_id):
     port = find_pdu_port(pdu_name, port_id)
     return flask.jsonify(port)
+
+
+# When the request is made with a POST including a PDU and a port_id,
+# it'll start a discovery process powering and updating the mars.discover_data
+# with this information
+# For request with a GET, it'll give the information in mars.discover_data
+# so the user can see if there is a discovery process ongoing and since when.
+# Finally if the method used is DELETE, discover_data will be deleted
+@app.route('/api/v1/machine/discover', methods=['POST', 'GET', 'DELETE'])
+def discover_machine():
+
+    with app.app_context():
+        mars = flask.current_app.mars
+
+    # show if there is a discovery in progress
+    if flask.request.method in ['GET']:
+        return flask.jsonify(mars.discover_data)
+
+    # discover_data will be erased
+    if flask.request.method in ['DELETE']:
+        mars.discover_data = {}
+        return flask.jsonify(mars.discover_data)
+
+    data = flask.request.get_json()
+
+    for key in data:
+        if key not in {"pdu", "port_id"}:
+            raise ValueError(f"The field {key} is invalid")
+
+    if not all(['port_id' in data, 'pdu' in data]):
+        raise ValueError("You're missing at least one of the two required fields: pdu and port_id")
+
+    pdu_port = find_pdu_port(data['pdu'], data['port_id'])
+
+    if mars.discover_data:
+        raise ValueError("There is a discovery process running already.")
+
+    for machine in mars.mars_db.duts.values():
+        # port_id is a string but user could enter an integer and we can make it work
+        if machine.pdu == data['pdu'] and str(machine.pdu_port_id) == str(data['port_id']):
+            raise ValueError(f"Port {data['port_id']} from PDU {data['pdu']} is already assigned.")
+
+    if pdu_port.state == PDUState.ON:
+        raise ValueError(f"The port {data['port_id']} from the PDU {data['pdu']} is already on use!")
+
+    # Launch discovery... the machine behind the PDU port should start
+    pdu_port.set(PDUState.ON)
+
+    if pdu_port.state == PDUState.ON:
+        mars.discover_data = {
+            "pdu": data['pdu'],
+            "port_id": data['port_id'],
+            "date": datetime.now(),
+        }
+        return flask.make_response(f"Booting machine behind port {data['port_id']} from PDU {data['pdu']}\n", 200)
+    else:
+        raise ValueError(f"Failed to turn on the port {data['port_id']} from PDU {data['pdu']}")
 
 
 @dataclass
