@@ -258,15 +258,7 @@ class Machine:
         if self.db_dut.ready_for_service == val:
             return
 
-        self.db_dut.ready_for_service = val
-
-        # Make sure the updates are reflected in the runner's state
-        self.update_config()
-
-        # Make sure the update gets written to disk.
-        # HACK: This will force a reload of the configuration and thus
-        # update the gitlab runner config
-        self.db_dut.mars_db.save(config.MARS_DB_FILE)
+        self.update_fields({"ready_for_service": val})
 
     def _create_pdu_port(self):
         config_pdu = self.mars_db.pdus.get(self.db_dut.pdu)
@@ -293,6 +285,19 @@ class Machine:
         self.boots.write_network_config(self.mac_address,
                                         self.db_dut.ip_address,
                                         self.full_name)
+
+    def update_fields(self, fields):
+
+        for k, v in fields.items():
+            setattr(self.db_dut, k, v)
+
+        # Make sure the updates are reflected in the runner's state
+        self.update_config()
+
+        # Make sure the update gets written to disk.
+        # HACK: This will force a reload of the configuration and thus
+        # update the gitlab runner config
+        self.db_dut.mars_db.save(config.MARS_DB_FILE)
 
 
 class Mars(Thread):
