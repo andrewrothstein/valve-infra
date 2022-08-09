@@ -42,6 +42,7 @@ class CustomJSONEncoder(flask.json.JSONEncoder):
                 "base_name": obj.base_name,
                 "mac_address": obj.mac_address,
                 "ip_address": obj.ip_address,
+                "is_retired": obj.is_retired,
                 "training": obj.executor.sergent_hartman,
                 "pdu": {
                     "name": obj.pdu,
@@ -228,6 +229,40 @@ def discover_machine():
         return flask.make_response(f"Booting machine behind port {data['port_id']} from PDU {data['pdu']}\n", 200)
     else:
         raise ValueError(f"Failed to turn on the port {data['port_id']} from PDU {data['pdu']}")
+
+
+def retire_activate_machine(machine_id, action):
+
+    with app.app_context():
+        mars = flask.current_app.mars
+
+    m = mars.get_machine_by_id(machine_id, raise_if_missing=True)
+
+    if action == "retire":
+        if m.is_retired:
+            raise ValueError("Machine is already retired from service.")
+        else:
+            m.update_fields({"is_retired": True})
+            return flask.make_response(f"Retired machine {m.ip_address} in "
+                                       f"PDU/port_id: {m.pdu} / {m.pdu_port_id} \n", 200)
+
+    if action == "activate":
+        if not m.is_retired:
+            raise ValueError("Machine is already active.")
+        else:
+            m.update_fields({"is_retired": False})
+            return flask.make_response(f"Activated machine {m.ip_address} in "
+                                       f"PDU/port_id: {m.pdu} / {m.pdu_port_id} \n", 200)
+
+
+@app.route('/api/v1/machine/<machine_id>/retire', methods=['POST'])
+def retire_machine(machine_id):
+    return retire_activate_machine(machine_id, "retire")
+
+
+@app.route('/api/v1/machine/<machine_id>/activate', methods=['POST'])
+def activate_machine(machine_id):
+    return retire_activate_machine(machine_id, "activate")
 
 
 @dataclass
