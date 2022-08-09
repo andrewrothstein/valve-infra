@@ -86,11 +86,19 @@ def machine_add_or_update():
     with app.app_context():
         mars = flask.current_app.mars
 
-    for key in flask.request.json:
+    data = flask.request.json
+
+    for key in data:
         if key not in {"base_name", "tags", "mac_address", "ip_address", "local_tty_device"}:
             raise ValueError(f"The field {key} cannot be set/modified")
 
-    machine = mars.add_or_update_machine(flask.request.json)
+    if mars.discover_data:
+        data["pdu_port_id"] = mars.discover_data['port_id']
+        data["pdu"] = mars.discover_data['pdu']
+        # And we empty mars.discover_data
+        mars.discover_data = {}
+
+    machine = mars.add_or_update_machine(data)
     return CustomJSONEncoder().default(machine)
 
 
