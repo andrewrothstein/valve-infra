@@ -16,7 +16,8 @@ be reflected instantly in the executor.
 
 New machines will be added automatically when POSTing or PUTing to the
 `/api/v1/machine/` REST endpoint, but they won't be useable until
-they get associated to a PDU and a PDU port.
+they get associated to a PDU and a PDU port. You can make this association
+automatically POSTing to the endpoint `/api/v1/machine/discover`
 
 Here is an annotated sample file, where `AUTO` means you should not be
 modifying this value (and all children of it) while `MANUAL` means that
@@ -83,3 +84,117 @@ runners to the new project:
  1. Save and exit your text editor
 
 That's it!
+
+## REST API
+
+The executor includes a REST API with various endpoints available.
+
+### Endpoint /machines
+
+Method: GET
+
+Lists the available machines and their information (IP address, tags, ...)
+
+    curl -sL localhost:8000/api/v1/machines
+
+### Endpoint /machine/
+
+Method: POST, PUT
+
+Adds a new machine to `MARS_DB_FILE`, if there is a discovery process on-going
+it'll use this data to set the PDU and port_id.
+
+This endpoint is used from the `machine_registration.py` script.
+
+### Endpoint /machine/<machine_id>
+
+Method: GET
+
+Lists all the information of a selected machine. machine_id is the MAC Address.
+
+    curl -sL localhost:8000/api/v1/machine/<machine_id>
+    curl -sL localhost:8000/api/v1/machine/52:54:00:11:22:0a
+
+### Endpoint /machines/<machine_id>/boot.ipxe
+
+Method: GET
+
+To be documented.
+
+
+### Endpoint /machine/discover
+
+Method: GET
+
+Shows if there is a discovery process on-going and the data of
+this discovery: pdu, port_id and start date.
+
+    curl -sL localhost:8000/api/v1/machine/discover
+
+Method: POST
+
+Launchs a discovery process, it will boot the machine behind
+a given PDU/port_id and will put this data in discover_data to
+be used by the `machine_registration.py` script.
+
+    curl -X POST localhost:8000/api/v1/machine/discover \
+        -H 'Content-Type: application/json' \
+        -d '{"pdu": "VPDU", "port_id": '10'}'
+
+Method: DELETE
+
+Erases all the discovery data, discover_data will be emptied.
+
+    curl -X DELETE localhost:8000/api/v1/machine/discover
+
+### Endpoint /machine/<machine_id>/retire
+
+Method: POST
+
+Marks as retired a machine. machine_id is the MAC Address.
+
+
+    curl -X POST localhost:8000/api/v1/machine/<machine_id>/retire
+    curl -X POST localhost:8000/api/v1/machine/52:54:00:11:22:0a/retire
+
+### Endpoint /machine/<machine_id>/activate
+
+Method: POST
+
+Unmarks as retired a machine. machine_id is the MAC Address.
+
+
+    curl -X POST localhost:8000/api/v1/machine/<machine_id>/activate
+    curl -X POST localhost:8000/api/v1/machine/52:54:00:11:22:0a/activate
+
+### Endpoint /pdus
+
+Method: GET
+
+Lists the available PDUS and the list of their port_ids with some information such as label or state.
+
+    curl -sL localhost:8000/api/v1/pdus
+
+### Endpoint /pdu/<pdu_name>
+
+Method: GET
+
+Lists all the information of a selected PDU
+
+    curl -sL localhost:8000/api/v1/pdu/<pdu_name>
+    curl -sL localhost:8000/api/v1/pdu/VPDU
+
+### Endpoint /pdu/<pdu_name>/port/<port_id>
+
+Method: GET
+
+Lists the information of a port_id: label, min_off_time and state
+
+    curl -sL localhost:8000/api/v1/pdu/<pdu_name>/port/<port_id>
+    curl -sL localhost:8000/api/v1/pdu/VPDU/port/10
+
+### Endpoint /jobs
+
+Method: POST
+
+Used to submit jobs. To be documented.
