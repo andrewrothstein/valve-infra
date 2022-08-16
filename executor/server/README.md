@@ -167,6 +167,16 @@ Unmarks as retired a machine. machine_id is the MAC Address.
     curl -X POST localhost:8000/api/v1/machine/<machine_id>/activate
     curl -X POST localhost:8000/api/v1/machine/52:54:00:11:22:0a/activate
 
+### Endpoint /machine/<machine_id>/cancel_job
+
+Method: POST
+
+Cancel the jobs running in a machine. machine_id is the MAC Address.
+
+
+    curl -X POST localhost:8000/api/v1/machine/<machine_id>/cancel_job
+    curl -X POST localhost:8000/api/v1/machine/52:54:00:11:22:0a/cancel_job
+
 ### Endpoint /pdus
 
 Method: GET

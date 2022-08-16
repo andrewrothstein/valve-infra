@@ -265,6 +265,22 @@ def activate_machine(machine_id):
     return retire_activate_machine(machine_id, "activate")
 
 
+@app.route('/api/v1/machine/<machine_id>/cancel_job', methods=['POST'])
+def cancel_job_machine(machine_id):
+
+    with app.app_context():
+        mars = flask.current_app.mars
+
+    m = mars.get_machine_by_id(machine_id, raise_if_missing=True)
+
+    if m.executor.state != MachineState.RUNNING:
+        raise ValueError(f"The machine {machine_id} isn't running a job. "
+                         f"Current state is {m.executor.state.name}")
+    else:
+        m.executor.cancel_job.set()
+        return flask.make_response(f"Canceling job in machine {m.ip_address}\n", 200)
+
+
 @dataclass
 class MinIOCredentials:
     access_key: str
