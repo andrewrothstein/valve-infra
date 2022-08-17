@@ -521,6 +521,7 @@ class Executor(Thread):
         self.job_console = None
         self.job_bucket = None
         self.boot_config = None
+        self.cancel_job = Event()
 
         # Remote artifacts (typically over HTTPS) are stored in our
         # local minio instance which is exposed over HTTP to the
@@ -629,6 +630,7 @@ class Executor(Thread):
                 if not self.job_ready.wait(1):
                     return False
                 self.job_ready.clear()
+                self.cancel_job.clear()
 
                 self.state = MachineState.RUNNING
 
@@ -688,7 +690,9 @@ class Executor(Thread):
 
             # Keep on resuming until success, timeouts' retry limits is hit, or the entire executor is going down
             deployment = self.job_config.deployment_start
-            while (not self.stop_event.is_set() and not timeouts.overall.has_expired and
+            while (not self.stop_event.is_set() and
+                   not self.cancel_job.is_set() and
+                   not timeouts.overall.has_expired and
                    self.job_console.state < JobConsoleState.DUT_DONE):
                 self.job_console.reset_per_boot_state()
 
@@ -717,7 +721,9 @@ class Executor(Thread):
 
                 while (self.job_console.state < JobConsoleState.DUT_DONE and
                        not self.job_console.needs_reboot and
-                       not self.stop_event.is_set() and not timeouts.has_expired):
+                       not self.stop_event.is_set() and
+                       not self.cancel_job.is_set() and
+                       not timeouts.has_expired):
                     # Update the activity timeouts, based on when was the
                     # last time we sent it data
                     if self.job_console.last_activity_from_machine is not None:
@@ -760,7 +766,7 @@ class Executor(Thread):
                     deployment = self.job_config.deployment_continue
 
             # We either reached the end of the job, or the client got disconnected
-            if self.job_console.state == JobConsoleState.DUT_DONE:
+            if self.job_console.state == JobConsoleState.DUT_DONE and not self.cancel_job.is_set():
                 # Mark the machine as unfit for service
                 if self.job_console.machine_unfit_for_service:
                     self.log("The machine has been marked as unfit for service\n")
@@ -781,6 +787,7 @@ class Executor(Thread):
                 # Wait for the client to close the connection
                 self.log("Waiting for the client to download the job bucket\n")
                 while (self.job_console.state < JobConsoleState.OVER and
+                       not self.cancel_job.is_set() and
                        not self.stop_event.is_set() and
                        not timeouts.infra_teardown.has_expired):
                     # Wait a little bit before checking again
