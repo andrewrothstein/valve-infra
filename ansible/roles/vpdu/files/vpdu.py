@@ -83,7 +83,12 @@ class PowerState(enum.IntEnum):
 class DUT:
     def __init__(self, mac, disk):
         self.disk = disk
-        log_name = datetime.now().strftime(f'{VPDU_DIR}/dut-log-{mac.replace(":", "")}-%H%M%S-%d%m%Y.log')
+        self.id = mac.replace(":", "")
+        self.fifo = f"{VPDU_DIR}/dut-{self.id}"
+        for direction in ['in', 'out']:
+            if not os.path.exists(f"{self.fifo}.{direction}"):
+                os.mkfifo(f"{VPDU_DIR}/dut-{self.id}.{direction}")
+        log_name = datetime.now().strftime(f'{VPDU_DIR}/dut-log-{self.id}-%H%M%S-%d%m%Y.log')
         cmd = [
             'qemu-system-x86_64',
             '-machine', 'q35,accel=kvm',
@@ -93,6 +98,9 @@ class DUT:
             '-vga', 'virtio',
             '-boot', 'n',
             '-nic', f'bridge,br={BRIDGE},mac={mac},model=virtio-net-pci',
+            '-nographic',
+            '-serial', f'pipe:{self.fifo}',
+
             # Not decided if I want this feature, can be handy though!
             # '-serial', 'mon:telnet::4444,server=on,wait=off',
             '-chardev', f'socket,id=saladtcp,host=localhost,port={SALAD_TCP_CONSOLE_PORT},server=off,logfile={log_name}',
