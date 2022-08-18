@@ -21,15 +21,6 @@ OUTLETS = []
 def log(msg, *args):
     print(msg % args)
 
-def check_bridge():
-    global BRIDGE
-    try:
-        subprocess.check_call(['ip', 'link', 'show', BRIDGE])
-    except:
-        subprocess.check_call(['ip', 'link', 'add', 'name', BRIDGE, 'type', 'bridge'])
-        subprocess.check_call(['ip', 'addr', 'add', '10.42.0.1/24', 'dev', BRIDGE])
-        subprocess.check_call(['ip', 'link', 'set', BRIDGE, 'up'])
-
 
 class PowerState(enum.IntEnum):
     ON = 3
@@ -203,11 +194,13 @@ if __name__ == "__main__":
     parser.add_argument('--salad-console-port', default=8100, type=int)
     parser.add_argument('--dut-disk-size', default='32G', type=str,
                         help='In the format expected by qemu-img. Default 32G')
+    parser.add_argument('--bridge', default=BRIDGE)
 
     args = parser.parse_args()
 
     SALAD_TCP_CONSOLE_PORT = args.salad_console_port
     DUT_DISK_SIZE = args.dut_disk_size
+    BRIDGE = args.bridge
 
     OUTLETS = [
         {'mac': gen_mac(i),

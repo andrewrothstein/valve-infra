@@ -5,7 +5,7 @@ Wants=network.target
 [Service]
 Type=simple
 Environment=VPDU_DIR=/mnt/tmp/vpdu PYTHONUNBUFFERED=1
-ExecStart=/usr/local/bin/vpdu
+ExecStart=/usr/local/bin/vpdu --bridge {{ vpdu_bridge }}
 
 [Install]
 WantedBy=multi-user.target

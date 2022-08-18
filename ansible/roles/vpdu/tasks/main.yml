@@ -21,8 +21,8 @@
 
 - name: Installing systemd service
   become: true
-  ansible.builtin.copy:
-    src: vpdu.service
+  ansible.builtin.template:
+    src: vpdu.service.j2
     dest: /etc/systemd/system/vpdu.service
     owner: root
     group: root
