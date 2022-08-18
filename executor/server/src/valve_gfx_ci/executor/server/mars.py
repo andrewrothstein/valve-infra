@@ -308,9 +308,22 @@ class Mars(Thread):
         self.mars_db = None
 
         self._machines = {}
-        self.discover_data = {}
+        self._discover_data = {}
 
         self.stop_event = Event()
+
+    @property
+    def discover_data(self):
+        if self._discover_data:
+            delta = time.monotonic() - self._discover_data.get('started_at')
+            if delta >= self._discover_data.get('timeout'):
+                self._discover_data = {}
+
+        return self._discover_data
+
+    @discover_data.setter
+    def discover_data(self, value):
+        self._discover_data = value
 
     @property
     def known_machines(self):

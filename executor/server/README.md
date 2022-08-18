@@ -134,12 +134,20 @@ this discovery: pdu, port_id and start date.
 Method: POST
 
 Launchs a discovery process, it will boot the machine behind
-a given PDU/port_id and will put this data in discover_data to
+a given PDU/port_id and will put this data in `discover_data` to
 be used by the `machine_registration.py` script.
 
     curl -X POST localhost:8000/api/v1/machine/discover \
         -H 'Content-Type: application/json' \
         -d '{"pdu": "VPDU", "port_id": '10'}'
+
+If no machines show up, the discovery process will automatically
+timeout after 150 seconds by default. This value can be specified
+using the `timeout` parameter:
+
+    curl -X POST localhost:8000/api/v1/machine/discover \
+        -H 'Content-Type: application/json' \
+        -d '{"pdu": "VPDU", "port_id": '10', "timeout": '60'}'
 
 Method: DELETE
 

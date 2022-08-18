@@ -6,6 +6,7 @@ from datetime import datetime
 import traceback
 import flask
 import json
+import time
 
 from .executor import SergentHartman, MachineState
 from .mars import Mars, Machine
@@ -98,8 +99,9 @@ def machine_add_or_update():
             raise ValueError(f"The field {key} cannot be set/modified")
 
     if mars.discover_data:
-        data["pdu_port_id"] = mars.discover_data['port_id']
-        data["pdu"] = mars.discover_data['pdu']
+        data["pdu_port_id"] = mars.discover_data.get('port_id')
+        data["pdu"] = mars.discover_data.get('pdu')
+
         # And we empty mars.discover_data
         mars.discover_data = {}
 
@@ -195,19 +197,20 @@ def discover_machine():
         mars.discover_data = {}
         return flask.jsonify(mars.discover_data)
 
+    # The following code is only run when method is POST
+    if mars.discover_data:
+        raise ValueError("There is a discovery process running already.")
+
     data = flask.request.get_json()
 
     for key in data:
-        if key not in {"pdu", "port_id"}:
+        if key not in {"pdu", "port_id", "timeout"}:
             raise ValueError(f"The field {key} is invalid")
 
     if not all(['port_id' in data, 'pdu' in data]):
         raise ValueError("You're missing at least one of the two required fields: pdu and port_id")
 
     pdu_port = find_pdu_port(data['pdu'], data['port_id'])
-
-    if mars.discover_data:
-        raise ValueError("There is a discovery process running already.")
 
     for machine in mars.mars_db.duts.values():
         # port_id is a string but user could enter an integer and we can make it work
@@ -221,12 +224,22 @@ def discover_machine():
     pdu_port.set(PDUState.ON)
 
     if pdu_port.state == PDUState.ON:
+
+        if data.get('timeout'):
+            sec = int(data.get('timeout'))
+        else:
+            sec = 150
+
         mars.discover_data = {
             "pdu": data['pdu'],
             "port_id": data['port_id'],
             "date": datetime.now(),
+            "timeout": int(sec),
+            "started_at": time.monotonic(),
         }
-        return flask.make_response(f"Booting machine behind port {data['port_id']} from PDU {data['pdu']}\n", 200)
+
+        return flask.make_response(f"Booting machine behind port {data.get('port_id')} from PDU {data.get('pdu')}. "
+                                   f"Discovery will time out after {sec} seconds.\n", 200)
     else:
         raise ValueError(f"Failed to turn on the port {data['port_id']} from PDU {data['pdu']}")
 
