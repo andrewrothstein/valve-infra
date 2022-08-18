@@ -11,6 +11,9 @@
     # PRIVATE_NETWORK_ADDR in the file @ `config_env_file`
     private_interface_ip: "10.42.0.1"
 
+    # Note: "private" is configured by network_setup to be a bridge
+    vpdu_bridge: "private"
+
     valve_infra_root: "/app/valve-infra"
 
     executor_package_location: "{{ valve_infra_root }}/executor/server"
