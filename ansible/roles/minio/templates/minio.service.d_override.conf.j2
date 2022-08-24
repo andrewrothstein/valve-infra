@@ -1,0 +1,27 @@
+[Unit]
+PartOf=infra.service
+
+[Service]
+# NOTE: We need the root user for the `ExecStartPre` commands, needed to create the base folder for influxdb
+DynamicUser=No
+User=root
+Group=root
+
+# NOTE: ignore StartPre from the Arch minio.service file since it does a check
+# for some vars in /etc/minio/minio.conf, which is not used here
+ExecStartPre=
+ExecStartPre=-mkdir -p {{ tmp_mount }}/minio
+ExecStartPre=-chown -R minio:minio {{ tmp_mount }}/minio
+ExecStartPre=-chmod -R u+rwx {{ tmp_mount }}/minio
+
+# NOTE: ignore /etc/minio/minio.conf, since options are set on the cmdline in ExecStart
+EnvironmentFile=
+EnvironmentFile={{ base_config_env_file }}
+EnvironmentFile={{ config_env_file }}
+
+ExecStart=
+# NOTE: shell has to be specified since the minio user's shell in passwd is /usr/bin/nologin
+ExecStart=-su - minio -s /bin/bash -c "/usr/bin/minio server --address :{{ minio_port }} --console-address :{{ minio_console_port }} {{ tmp_mount }}/minio"
+
+[Install]
+WantedBy=infra.service

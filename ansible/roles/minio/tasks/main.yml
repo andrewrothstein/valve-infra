@@ -1,23 +1,10 @@
 ---
-- name: minio container service
-  ansible.builtin.include_role:
-    name: "systemd_podman"
-  vars:
-    container_name: "minio"
-    container_service_target: infra.target
-    container_image: registry.freedesktop.org/mupuf/valve-infra/minio
-    container_volumes:
-      - "{{ tmp_mount }}/minio:/data"
-    container_host_network: true
-    container_env_files:
-      - "{{ base_config_env_file }}"
-    optional_container_env_files:
-      - "{{ config_env_file }}"
-    container_cmd: "server /data --console-address :9001"
-    service_pre_conditions:
-      - "mkdir -pv {{ tmp_mount }}/minio"
-    part_of:
-      - "infra.service"
+- name: Installing minio
+  become: true
+  pacman:
+    state: present
+    name:
+      - minio
 
 - name: check for existing minio password
   ansible.builtin.lineinfile:
@@ -100,6 +87,22 @@
   loop:
     - { src: 'valvetraces.json.j2', dest: '/etc/minio/valvetraces.json' }
     - { src: 'valvetraces-ro.json.j2', dest: '/etc/minio/valvetraces-ro.json' }
+
+- name: Ensure /etc/systemd/system/minio.service.d/ directory exists
+  become: true
+  ansible.builtin.file:
+    mode: 0755
+    path: /etc/systemd/system/minio.service.d/
+    state: directory
+
+- name: Installing minio service configuration override
+  become: true
+  ansible.builtin.template:
+    src: 'minio.service.d_override.conf.j2'
+    dest: '/etc/systemd/system/minio.service.d/override.conf'
+    mode: 0644
+    owner: root
+  notify: "Restart minio"
 
 - name: Enable minio_configure service
   become: true
