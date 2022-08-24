@@ -22,6 +22,7 @@ EOF
 		htop \
 		influxdb \
 		influx-cli \
+		minio-client \
 		nano vim \
 		net-snmp \
 		podman-docker \
@@ -51,9 +52,6 @@ EOF
 	# community.general, that allows affords us more room to optimise
 	# the size of the base layer.
 	$buildah_run $buildcntr ansible-galaxy collection install community.general
-
-	$buildah_run $buildcntr wget -O /usr/bin/mcli https://dl.min.io/client/mc/release/linux-amd64/mc
-	$buildah_run $buildcntr chmod +x /usr/bin/mcli
 
 	$buildah_run $buildcntr sh -c 'find /usr /etc /root -name __pycache__ -type d | xargs rm -rf'
 
