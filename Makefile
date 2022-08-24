@@ -19,7 +19,7 @@ V ?= 0
 GITLAB_URL ?= "https://gitlab.freedesktop.org"
 PRIV_MAC=$(shell printf "DE:AD:BE:EF:%02X:%02X\n" $$((RANDOM%256)) $$((RANDOM%256)))
 PUBLIC_MAC=$(shell printf "DE:AD:BE:EF:%02X:%02X\n" $$((RANDOM%256)) $$((RANDOM%256)))
-B2C_VERSION=v0.9.5
+B2C_VERSION=v0.9.8
 
 tmp/boot2container-$(B2C_VERSION)-linux_amd64.cpio.xz:
 	[ -d tmp/ ] || mkdir tmp
@@ -27,7 +27,7 @@ tmp/boot2container-$(B2C_VERSION)-linux_amd64.cpio.xz:
 
 tmp/linux-b2c-$(B2C_VERSION):
 	[ -d tmp/ ] || mkdir tmp
-	wget -O tmp/linux-b2c-$(B2C_VERSION) https://gitlab.freedesktop.org/mupuf/boot2container/-/releases/$(B2C_VERSION)/downloads/bzImage-x86_64
+	wget -O tmp/linux-b2c-$(B2C_VERSION) https://gitlab.freedesktop.org/mupuf/boot2container/-/releases/$(B2C_VERSION)/downloads/linux-x86_64-full
 
 tmp/ipxe-disk.img tmp/disk.img:
 	[ -d tmp/ ] || mkdir tmp
