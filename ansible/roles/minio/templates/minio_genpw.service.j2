@@ -1,0 +1,13 @@
+[Unit]
+Description=minio password creation service
+PartOf=infra.service
+
+[Service]
+Type=oneshot
+# This is set so a successful run will have the
+# 'active' status in systemd:
+RemainAfterExit=yes
+ExecStart=/usr/local/bin/minio_genpw
+
+[Install]
+WantedBy=infra.service

@@ -1,0 +1,26 @@
+#!/bin/sh
+
+set -eu
+
+dest_file={{ app_config }}/minio.env
+
+gen_pw() {
+	var="$1"
+
+	# do nothing if var is already set
+	grep -q "^${var}=" "$dest_file" && return
+
+	echo "generating $var..."
+
+	# this doesn't require any additional dependencies:
+	pass="$(tr -dc A-Za-z0-9 </dev/urandom | head -c 32)"
+
+	printf "%s=%s\n" "$var" "$pass" >> "$dest_file"
+}
+
+touch "$dest_file"
+
+# shellcheck disable=SC2043
+for v in MINIO_ROOT_PASSWORD; do
+	gen_pw "$v"
+done

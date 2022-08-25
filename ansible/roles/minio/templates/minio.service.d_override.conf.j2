@@ -1,5 +1,7 @@
 [Unit]
 PartOf=infra.service
+After=minio_genpw.service
+Requires=minio_genpw.service
 
 [Service]
 # NOTE: We need the root user for the `ExecStartPre` commands, needed to create the base folder for influxdb
@@ -18,6 +20,7 @@ ExecStartPre=-chmod -R u+rwx {{ tmp_mount }}/minio
 EnvironmentFile=
 EnvironmentFile={{ base_config_env_file }}
 EnvironmentFile={{ config_env_file }}
+EnvironmentFile={{ app_config }}/minio.env
 
 ExecStart=
 # NOTE: shell has to be specified since the minio user's shell in passwd is /usr/bin/nologin

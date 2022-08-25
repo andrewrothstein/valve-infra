@@ -11,6 +11,7 @@ Type=oneshot
 RemainAfterExit=yes
 EnvironmentFile={{ base_config_env_file }}
 EnvironmentFile={{ config_env_file }}
+EnvironmentFile={{ app_config }}/minio.env
 ExecStart=/usr/local/bin/minio_configure
 # If minio is not up yet, this retries:
 RestartSec=5
