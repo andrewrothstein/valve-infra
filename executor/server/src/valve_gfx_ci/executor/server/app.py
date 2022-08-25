@@ -319,11 +319,15 @@ def post_job():
             elif machine.executor.state != MachineState.IDLE:
                 return None, 409, (f"The machine {target.id} is unavailable: "
                                    f"Current state is {machine.executor.state.name}")
+            elif machine.is_retired:
+                return None, 409, (f"The machine {target.id} is retired.")
             return machine, 200, None
         else:
             found_a_candidate_machine = False
             for machine in mars.known_machines:
                 if not wanted_tags.issubset(machine.tags):
+                    continue
+                if machine.is_retired:
                     continue
 
                 found_a_candidate_machine = True
@@ -333,7 +337,7 @@ def post_job():
             if found_a_candidate_machine:
                 return None, 409, f"All machines matching the tags {wanted_tags} are busy"
             else:
-                return None, 406, f"No machines found matching the tags {wanted_tags}"
+                return None, 406, f"No active machines found matching the tags {wanted_tags}."
 
     class JobRequest:
         def __init__(self, request, version, raw_job, target, callback_endpoint,
