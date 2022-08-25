@@ -21,7 +21,7 @@ EnvironmentFile={{ config_env_file }}
 
 ExecStart=
 # NOTE: shell has to be specified since the minio user's shell in passwd is /usr/bin/nologin
-ExecStart=-su - minio -s /bin/bash -c "/usr/bin/minio server --address :{{ minio_port }} --console-address :{{ minio_console_port }} {{ tmp_mount }}/minio"
+ExecStart=-su minio -s /bin/bash -c "/usr/bin/minio server --address :{{ minio_port }} --console-address :{{ minio_console_port }} {{ tmp_mount }}/minio"
 
 [Install]
 WantedBy=infra.service
