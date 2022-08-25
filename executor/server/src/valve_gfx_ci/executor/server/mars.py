@@ -378,9 +378,6 @@ class Mars(Thread):
 
         local_only_machines = set(self.known_machines)
         for m in self.mars_db.duts.values():
-            # Ignore retired machines
-            if m.is_retired:
-                continue
 
             machine = self._machine_update_or_create(m)
 
