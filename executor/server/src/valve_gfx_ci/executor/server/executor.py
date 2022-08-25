@@ -187,7 +187,7 @@ class JobConsole(Thread):
         cur = 0
         while True:
             idx = to_process.find(b'\n', cur)
-            if idx > 0:
+            if idx >= 0:
                 line = to_process[cur:idx+1]
                 logger.info(f"{self.machine_id} -> {bytes(line)}")
                 patterns_matched |= self.console_patterns.process_line(line)
