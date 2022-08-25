@@ -2,6 +2,7 @@
   vars:
     tmp_mount: /mnt/tmp
     perm_mount: /mnt/permanent
+    app_config: "{{ perm_mount }}/config.d"
     # env files override in order of entry
     base_config_env_file: "/etc/base_config.env"
     config_env_file: "{{ perm_mount }}/config.env"

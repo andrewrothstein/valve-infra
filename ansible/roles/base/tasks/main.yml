@@ -48,3 +48,10 @@
   loop:
     - 10-printk.conf
     - 10-disable-ipv6.conf
+
+- name: creating dir for app-specific config
+  become: true
+  ansible.builtin.file:
+    mode: 0744
+    path: "{{ app_config }}"
+    state: directory
