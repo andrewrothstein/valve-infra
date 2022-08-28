@@ -4,6 +4,8 @@ PartOf=infra.service
 
 [Service]
 Type=oneshot
+ExecStartPre=
+ExecStartPre=-mkdir -p /mnt/permanent/config.d
 # This is set so a successful run will have the
 # 'active' status in systemd:
 RemainAfterExit=yes
