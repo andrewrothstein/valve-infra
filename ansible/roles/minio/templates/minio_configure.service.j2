@@ -10,8 +10,8 @@ Type=oneshot
 # 'active' status in systemd:
 RemainAfterExit=yes
 EnvironmentFile={{ base_config_env_file }}
-EnvironmentFile={{ config_env_file }}
-EnvironmentFile={{ app_config }}/minio.env
+EnvironmentFile=-{{ config_env_file }}
+EnvironmentFile=-{{ app_config }}/minio.env
 ExecStart=/usr/local/bin/minio_configure
 # If minio is not up yet, this retries:
 RestartSec=5

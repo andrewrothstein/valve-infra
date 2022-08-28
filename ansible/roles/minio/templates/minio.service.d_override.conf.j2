@@ -19,7 +19,7 @@ ExecStartPre=-chmod -R u+rwx {{ tmp_mount }}/minio
 # NOTE: ignore /etc/minio/minio.conf, since options are set on the cmdline in ExecStart
 EnvironmentFile=
 EnvironmentFile={{ base_config_env_file }}
-EnvironmentFile={{ config_env_file }}
+EnvironmentFile=-{{ config_env_file }}
 EnvironmentFile={{ app_config }}/minio.env
 
 ExecStart=
