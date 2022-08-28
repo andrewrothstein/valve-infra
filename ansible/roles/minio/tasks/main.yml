@@ -6,11 +6,11 @@
     name:
       - minio
 
-- name: configuring minio
+- name: configuring minio env
   become: true
   ansible.builtin.blockinfile:
     create: true
-    path: "{{ app_config }}/minio.env"
+    path: "{{ base_config_env_file }}"
     mode: '0644'
     marker: "# {mark} ANSIBLE MANAGED BLOCK {{ role_name }}"
     block: |
