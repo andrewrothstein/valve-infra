@@ -6,6 +6,7 @@ PartOf=infra.service
 TimeoutStartSec=0
 EnvironmentFile=/etc/base_config.env
 EnvironmentFile=-/mnt/permanent/config.env
+EnvironmentFile=-{{ app_config }}/minio.env
 ExecStartPre=-mkdir -pv /mnt/tmp/boots /mnt/tmp/gitlab-runner
 ExecStartPre=-touch /mnt/tmp/gitlab-runner/config.toml
 ExecStartPre=-touch /mnt/permanent/mars_db.yaml
