@@ -3,6 +3,7 @@
   ansible.builtin.systemd:
     name: 'minio_configure'
     state: restarted
+    daemon_reload: true
   when: pid_1_name == "systemd"
 
 - name: Restart minio
