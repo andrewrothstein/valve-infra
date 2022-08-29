@@ -19,7 +19,21 @@ upload_to_minio_if_missing() {
     }
 }
 
-mcli alias set minio http://localhost:{{ minio_port }} "$MINIO_ROOT_USER" "$MINIO_ROOT_PASSWORD"
+for try in $(seq 1 20); do
+
+	if mcli alias set minio http://localhost:{{ minio_port }} "$MINIO_ROOT_USER" "$MINIO_ROOT_PASSWORD"; then
+		break
+	fi
+
+	if [ "${try}" -eq 20 ]; then
+		echo "failed waiting for minio server";
+		exit 1
+	fi
+
+	printf "minio server not responding, try %s of 20...\n" "$try"
+	sleep 1
+
+done
 
 mcli mb --ignore-existing minio/jobs minio/boot/
 mcli policy set public minio/boot
