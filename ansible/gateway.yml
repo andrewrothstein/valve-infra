@@ -75,6 +75,7 @@
       - avahi-daemon
       - executor
       - minio
+      - minio_configure
       - salad
       - gitlab-runner
       - local-registry
