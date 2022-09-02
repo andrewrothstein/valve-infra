@@ -1,12 +1,32 @@
 ---
-- name: Install the seccomp policy for gitlab-runner
+- name: Installing gitlab runner
   become: true
-  ansible.builtin.copy:
-    src: gitlab_runner_seccomp.json
-    dest: /etc/gitlab-runner-seccomp.json
-    owner: root
-    group: root
+  pacman:
+    state: present
+    name:
+      - gitlab-runner
+
+- name: Enable gitlab-runner service
+  become: true
+  ansible.builtin.systemd:
+    name: gitlab-runner
+    enabled: true
+
+- name: Ensure /etc/systemd/system/gitlab-runner.service.d/ directory exists
+  become: true
+  ansible.builtin.file:
+    mode: 0755
+    path: /etc/systemd/system/gitlab-runner.service.d/
+    state: directory
+
+- name: Installing gitlab-runner service configuration override
+  become: true
+  ansible.builtin.template:
+    src: 'gitlab-runner.service.d_override.conf.j2'
+    dest: '/etc/systemd/system/gitlab-runner.service.d/override.conf'
     mode: 0644
+    owner: root
+  notify: "Restart gitlab-runner"
 
 - name: Install the prebuild script for gitlab-runner
   become: true
@@ -16,27 +36,3 @@
     owner: root
     group: root
     mode: 0700
-
-- name: gitlab-runner container service
-  ansible.builtin.include_role:
-    name: "systemd_podman"
-  vars:
-    container_name: "gitlab-runner"
-    container_service_target: infra.target
-    container_image: registry.freedesktop.org/mupuf/valve-infra/gitlab-runner:alpine-v13.12.0
-    container_env_files:
-      - "{{ base_config_env_file }}"
-    optional_container_env_files:
-      - "{{ config_env_file }}"
-    container_ports:
-      - "{{ gitlab_runner_port }}:80/tcp"
-      - "{{ gitlab_runner_metrics_port }}:9252/tcp"
-    container_volumes:
-      - "/mnt:/mnt"
-      - "{{ tmp_mount }}/gitlab-runner:/etc/gitlab-runner"
-      - "/var/run/docker.sock:/var/run/docker.sock"
-      - "/etc/gitlab-runner-seccomp.json:/usr/share/containers/seccomp.json"
-    container_depends:
-      - executor.service
-    part_of:
-      - "infra.service"

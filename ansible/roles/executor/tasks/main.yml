@@ -56,7 +56,7 @@
       SERGENT_HARTMAN_BOOT_COUNT={{ sergent_hartman_boot_count }}
       SERGENT_HARTMAN_QUALIFYING_BOOT_COUNT={{ sergent_hartman_qualifying_boot_count }}
       SERGENT_HARTMAN_REGISTRATION_RETRIAL_DELAY={{ sergent_hartman_registration_retrial_delay }}
-      GITLAB_CONF_FILE=/mnt/tmp/gitlab-runner/config.toml
+      GITLAB_CONF_FILE=/etc/gitlab-runner/config.toml
       BOOTS_DEFAULT_KERNEL=http://ci-gateway:{{ minio_port }}/boot/default_kernel
       BOOTS_DEFAULT_INITRD=http://ci-gateway:{{ minio_port }}/boot/default_boot2container.cpio.xz
       BOOTS_DEFAULT_CMDLINE=b2c.container="-ti --tls-verify=false docker://ci-gateway:{{ fdo_proxy_registry_port }}/mupuf/valve-infra/machine_registration:latest register" b2c.ntp_peer="ci-gateway" b2c.cache_device=none loglevel=6
