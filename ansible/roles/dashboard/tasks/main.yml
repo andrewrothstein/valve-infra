@@ -5,6 +5,7 @@
     state: present
     name:
       - jq
+      - python-urwid
       - tmux
       - tmuxp
 
