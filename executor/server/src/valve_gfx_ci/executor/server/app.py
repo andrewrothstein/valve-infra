@@ -41,6 +41,7 @@ class CustomJSONEncoder(flask.json.JSONEncoder):
                 "local_tty_device": obj.local_tty_device,
                 "tags": list(obj.tags),
                 "base_name": obj.base_name,
+                "full_name": obj.full_name,
                 "mac_address": obj.mac_address,
                 "ip_address": obj.ip_address,
                 "is_retired": obj.is_retired,
