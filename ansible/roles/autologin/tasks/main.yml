@@ -9,6 +9,11 @@
     - { regexp: '^#NAutoVTs=.*', line: 'NAutoVTs=2' }
     - { regexp: '^#KillUserProcesses=no', line: 'KillUserProcesses=yes' }
 
+- name: Ensure a locale exists
+  community.general.locale_gen:
+    name: en_US.UTF-8
+    state: present
+
 - name: Creating /etc/systemd/system/console-getty.service.d
   become: true
   ansible.builtin.file:
