@@ -256,7 +256,7 @@ gitlab:
     expose_runners: ${EXPOSE_RUNNERS}
     maximum_timeout: 21600
     gateway_runner:
-      token: <invalid>
+      token: <invalid default>
       exposed: true
 EOF
         scp $__scp_options vivian/__mars_db.yaml root@localhost:/mnt/permanent/mars_db.yaml
