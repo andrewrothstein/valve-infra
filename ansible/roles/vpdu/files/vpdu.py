@@ -17,10 +17,11 @@ DUT_DISK_SIZE = '32G'
 VPDU_DIR = os.getenv("VPDU_DIR", "./tmp_vpdu")
 os.makedirs(VPDU_DIR, exist_ok=True)
 OUTLETS = []
-
+LOG=False
 
 def log(msg, *args):
-    print(msg % args)
+    if LOG:
+        print(msg % args)
 
 
 # Returns True if the CPU supports virtualization, else False
