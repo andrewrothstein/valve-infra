@@ -7,10 +7,10 @@ from contextlib import contextmanager
 
 class VirtualPDU(PDU):  # pragma: nocover
     def __init__(self, name, config):
-        logger.info("Creating a virtual PDU named %s", name)
+        logger.debug("Creating a virtual PDU named %s", name)
         self.host, self.port = config.get('hostname', 'localhost:9191').split(':')
         self.port = int(self.port)
-        logger.info("Connecting to %s:%d", self.host, self.port)
+        logger.debug("Connecting to %s:%d", self.host, self.port)
         with self.conn() as s:
             s.sendall((0).to_bytes(4, byteorder='big'))
             num_ports = int(s.recv(1)[0])
@@ -53,7 +53,7 @@ class VirtualPDU(PDU):  # pragma: nocover
         with self.conn() as s:
             s.sendall(cmd.to_bytes(4, byteorder='big'))
             state = int(s.recv(1)[0])
-            logger.info("port state %x", state)
+            logger.debug("port state %x", state)
             if state == 0x03:
                 return PDUState.ON
             elif state == 0x04:

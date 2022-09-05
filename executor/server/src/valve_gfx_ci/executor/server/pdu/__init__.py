@@ -6,7 +6,7 @@ from logging import getLogger, getLevelName, Formatter, StreamHandler
 
 
 logger = getLogger(__name__)
-logger.setLevel(getLevelName('DEBUG'))
+logger.setLevel(getLevelName('INFO'))
 log_formatter = \
     Formatter("%(asctime)s [%(threadName)s] [%(levelname)s] %(funcName)s: "
               "%(message)s")
