@@ -145,9 +145,9 @@ class Dashboard:
                 listbox_ports = [urwid.Text(f"Port {num}:")]
 
                 if state == "TRAINING":
-                    qualifying_rate = machine.get('training').get('qualifying_rate')
+                    boot_loop_counts = machine.get('training').get('boot_loop_counts')
                     current_loop_count = machine.get('training').get('current_loop_count')
-                    listbox_ports.append(urwid.Text(f"{state} {current_loop_count}/{qualifying_rate}"))
+                    listbox_ports.append(urwid.Text(f"{state} {current_loop_count}/{boot_loop_counts}"))
                 else:
                     listbox_ports.append(urwid.Text(f"{state}"))
 
