@@ -20,7 +20,7 @@ def fetch_pdus_machines():
             pdus = json.loads(resp.read())
 
     except urllib.error.URLError as e:
-        sys.exit(e.reason)
+        sys.exit(f"urllib error requesting pdus: {e.reason}")
 
     if not pdus or ("pdus" not in pdus):
         sys.exit("error reading pdus")
@@ -33,7 +33,7 @@ def fetch_pdus_machines():
             machines = json.loads(resp.read())
 
     except urllib.error.URLError as e:
-        sys.exit(e.reason)
+        sys.exit(f"urllib error requesting machines: {e.reason}")
 
     if not machines or ("machines" not in machines):
         sys.exit("error reading machines")
