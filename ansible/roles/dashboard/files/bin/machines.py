@@ -136,22 +136,24 @@ class Dashboard:
 
         for pdu, ports in dashboard.items():
             listbox_content.append(urwid.Padding(
-                urwid.Text(("pdu", f"PDU name : {pdu}")), left=2, right=0, min_width=20))
+                urwid.Text(("pdu", f"PDU name : {pdu}")), left=1, right=0, min_width=20))
 
-            listbox_ports = []
+            list_columns = []
             for num, machine in ports.items():
                 state = machine.get('state')
 
-                listbox_ports = [urwid.Text(f"Port {num}:")]
+                list_columns = [('fixed', 10, urwid.Text(f" Port {num}:"))]
 
                 if state == "TRAINING":
                     boot_loop_counts = machine.get('training').get('boot_loop_counts')
                     current_loop_count = machine.get('training').get('current_loop_count')
-                    listbox_ports.append(urwid.Text(f"{state} {current_loop_count}/{boot_loop_counts}"))
+                    stext=f"{state} {current_loop_count}/{boot_loop_counts}"
                 else:
-                    listbox_ports.append(urwid.Text(f"{state}"))
+                    stext = f"{state}"
+                list_columns.append(('fixed', 15, urwid.Text(stext)))
 
-                listbox_ports.append(urwid.Text(f"{machine.get('full_name')}"))
+                name = machine.get('full_name', "")
+                list_columns.append(urwid.Text(name))
 
                 button_data = {
                     "pdu": pdu,
@@ -160,25 +162,23 @@ class Dashboard:
                     }
 
                 if state == "OFF":
-                    listbox_ports.append(
+                    list_columns.append(('fixed', 14,
                         urwid.AttrWrap(urwid.Button("DISCOVER", self.button_press, button_data),
-                                       'bttn_discover', 'buttnf'))
+                                       'bttn_discover', 'buttnf')))
                 elif state == "IDLE" and not machine.get('is_retired'):
-                    listbox_ports.append(
+                    list_columns.append(('fixed', 14,
                         urwid.AttrWrap(urwid.Button("RETIRE", self.button_press, button_data),
-                                       'bttn_retire', 'buttnf'))
+                                       'bttn_retire', 'buttnf')))
                 elif machine.get('is_retired'):
-                    listbox_ports.append(
+                    list_columns.append(('fixed', 14,
                         urwid.AttrWrap(urwid.Button("ACTIVATE", self.button_press, button_data),
-                                       'buttn_activate', 'buttnf'))
+                                       'buttn_activate', 'buttnf')))
                 elif state == "RUNNING":
-                    listbox_ports.append(
+                    list_columns.append(('fixed', 14,
                         urwid.AttrWrap(urwid.Button("CANCEL", self.button_press, button_data),
-                                       'bttn_cancel', 'buttnf'))
+                                       'bttn_cancel', 'buttnf')))
 
-                listbox_content.append(
-                    urwid.Padding(urwid.GridFlow(cells=listbox_ports, cell_width=17, h_sep=2, v_sep=4, align='left'),
-                                  left=4, right=3, min_width=13))
+                listbox_content.append(urwid.Columns(list_columns, min_width=10))
 
             listbox_content.append(blank)
 
