@@ -70,16 +70,17 @@ def fetch_pdus_machines():
     pdus = {}
     machines = {}
     wait_for_config = []
+    msg = None
 
     try:
         with urllib.request.urlopen(f'{host}/api/v1/pdus') as resp:
             pdus = json.loads(resp.read())
 
     except urllib.error.URLError as e:
-        sys.exit(f"urllib error requesting pdus: {e.reason}")
+        return {}, f"urllib error requesting pdus: {e.reason}"
 
     if not pdus or ("pdus" not in pdus):
-        sys.exit("error reading pdus")
+        return {}, "error reading pdus"
 
     for pdu, ports in pdus["pdus"].items():
         dashboard[pdu] = ports["ports"]
@@ -89,10 +90,10 @@ def fetch_pdus_machines():
             machines = json.loads(resp.read())
 
     except urllib.error.URLError as e:
-        sys.exit(f"urllib error requesting machines: {e.reason}")
+        return {}, f"urllib error requesting machines: {e.reason}"
 
     if not machines or ("machines" not in machines):
-        sys.exit("error reading machines")
+        return {}, "error reading machines"
 
     for mac, machine in machines["machines"].items():
         name = machine["pdu"]["name"]
@@ -114,7 +115,7 @@ def fetch_pdus_machines():
             dashboard[pdu_name][fake_port_id] = m
             fake_port_id += 1
 
-    return dashboard
+    return dashboard, ""
 
 
 def post_request(url, data=None):
@@ -184,64 +185,67 @@ class Dashboard:
 
     def setup_view(self):
 
-        dashboard = fetch_pdus_machines()
+        dashboard, error_message = fetch_pdus_machines()
 
         blank = urwid.Divider()
 
-        # Make list to feed to ListBox
-        listbox_content = []
-
-        listbox_content.append(blank)
-
-        for pdu, ports in dashboard.items():
-            listbox_content.append(urwid.Padding(
-                urwid.Text(("pdu", f"PDU name : {pdu}")), left=1, right=0, min_width=20))
-
-            list_columns = []
-            for num, machine in ports.items():
-                state = machine.get('state')
-
-                list_columns = [('fixed', 11, urwid.Text(f" Port {num}:"))]
-
-                if state == "TRAINING":
-                    boot_loop_counts = machine.get('training').get('boot_loop_counts')
-                    current_loop_count = machine.get('training').get('current_loop_count')
-                    stext=f"{state} {current_loop_count}/{boot_loop_counts}"
-                else:
-                    stext = f"{state}"
-                list_columns.append(('fixed', 16, urwid.Text(stext)))
-
-                name = machine.get('full_name', "")
-                list_columns.append(urwid.Text(name))
-
-                button_data = {
-                    "pdu": pdu,
-                    "port": num,
-                    "mac_address": machine.get('mac_address'),
-                    }
-
-                if state == "OFF":
-                    list_columns.append(('fixed', 14,
-                        urwid.AttrWrap(urwid.Button("DISCOVER", self.button_press, button_data),
-                                       'bttn_discover', 'buttnf')))
-                elif state == "IDLE" and not machine.get('is_retired'):
-                    list_columns.append(('fixed', 14,
-                        urwid.AttrWrap(urwid.Button("RETIRE", self.button_press, button_data),
-                                       'bttn_retire', 'buttnf')))
-                elif machine.get('is_retired'):
-                    list_columns.append(('fixed', 14,
-                        urwid.AttrWrap(urwid.Button("ACTIVATE", self.button_press, button_data),
-                                       'buttn_activate', 'buttnf')))
-                elif state == "RUNNING":
-                    list_columns.append(('fixed', 14,
-                        urwid.AttrWrap(urwid.Button("CANCEL", self.button_press, button_data),
-                                       'bttn_cancel', 'buttnf')))
-
-                listbox_content.append(urwid.Columns(list_columns, min_width=10))
+        if dashboard:
+            # Make list to feed to ListBox
+            listbox_content = []
 
             listbox_content.append(blank)
 
-        listbox_content.append(blank)
+            for pdu, ports in dashboard.items():
+                listbox_content.append(urwid.Padding(
+                    urwid.Text(("pdu", f"PDU name : {pdu}")), left=1, right=0, min_width=20))
+
+                list_columns = []
+                for num, machine in ports.items():
+                    state = machine.get('state')
+
+                    list_columns = [('fixed', 11, urwid.Text(f" Port {num}:"))]
+
+                    if state == "TRAINING":
+                        boot_loop_counts = machine.get('training').get('boot_loop_counts')
+                        current_loop_count = machine.get('training').get('current_loop_count')
+                        stext=f"{state} {current_loop_count}/{boot_loop_counts}"
+                    else:
+                        stext = f"{state}"
+                    list_columns.append(('fixed', 16, urwid.Text(stext)))
+
+                    name = machine.get('full_name', "")
+                    list_columns.append(urwid.Text(name))
+
+                    button_data = {
+                        "pdu": pdu,
+                        "port": num,
+                        "mac_address": machine.get('mac_address'),
+                        }
+
+                    if state == "OFF":
+                        list_columns.append(('fixed', 14,
+                            urwid.AttrWrap(urwid.Button("DISCOVER", self.button_press, button_data),
+                                        'bttn_discover', 'buttnf')))
+                    elif state == "IDLE" and not machine.get('is_retired'):
+                        list_columns.append(('fixed', 14,
+                            urwid.AttrWrap(urwid.Button("RETIRE", self.button_press, button_data),
+                                        'bttn_retire', 'buttnf')))
+                    elif machine.get('is_retired'):
+                        list_columns.append(('fixed', 14,
+                            urwid.AttrWrap(urwid.Button("ACTIVATE", self.button_press, button_data),
+                                        'buttn_activate', 'buttnf')))
+                    elif state == "RUNNING":
+                        list_columns.append(('fixed', 14,
+                            urwid.AttrWrap(urwid.Button("CANCEL", self.button_press, button_data),
+                                        'bttn_cancel', 'buttnf')))
+
+                    listbox_content.append(urwid.Columns(list_columns, min_width=10))
+
+                listbox_content.append(blank)
+
+            listbox_content.append(blank)
+        else:
+            listbox_content = [urwid.Text(error_message)]
 
         net = urwid.LineBox(networking_data(), title="Networking")
         ser = urwid.LineBox(services_data(), title="Services")
