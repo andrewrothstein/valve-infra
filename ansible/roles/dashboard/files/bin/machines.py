@@ -2,12 +2,68 @@
 # coding: utf-8
 
 import json
+import os
+import subprocess
 import sys
 import urllib.request
 import urllib.parse
 import urwid
 
 host = "http://localhost"
+networking_list = ["private", "wg0"]
+services_list = sys.argv[1:]
+
+
+def networking_data():
+    l = []
+
+    for nic in networking_list:
+        sysfs = f"/sys/class/net/{nic}"
+
+        if not os.path.isdir(sysfs):
+            l.append(urwid.AttrWrap(urwid.Text(f" {nic} does not exist!"), "red"))
+            continue
+
+        with open(f"{sysfs}/operstate") as f:
+            status = f.read().strip()
+
+        ip = subprocess.getoutput(f"ip a show {nic} | grep -e 'inet\s' |tr -s ' ' | cut -d' ' -f3")
+
+        if status == "unknown":
+            status = "???"
+            color = "yellow"
+        elif status == "up":
+            color = "green"
+        else:
+            color = "brown"
+
+        l.append(urwid.AttrWrap(urwid.Text(f" {nic: <8} {status: <4} {ip}"), color))
+
+    return urwid.Pile(l)
+
+
+def services_data():
+    l = []
+
+    for serv in services_list:
+        status = subprocess.getoutput(f"systemctl is-active {serv}")
+        expected = "active"
+
+        if ":" in serv:
+            serv, expected = serv.split(":")
+
+        if status == "activating":
+            color = "yellow"
+        elif status == expected:
+            color = "green"
+            status = "OK"
+        else:
+            color = "red"
+
+        l.append(urwid.AttrWrap(urwid.Text(f" {serv: <18} {status}"), color))
+
+    return urwid.Pile(l)
+
 
 def fetch_pdus_machines():
     dashboard = {}
@@ -89,6 +145,11 @@ class Dashboard:
         ('bttn_retire', 'black', 'yellow'),
         ('buttn_activate', 'black', 'dark cyan'),
         ('buttnf', 'white', 'dark blue', 'bold'),
+        # Colors for text
+        ('red', 'dark red', 'black'),
+        ('brown', 'brown', 'black'),
+        ('yellow', 'yellow', 'black'),
+        ('green', 'dark green', 'black'),
         ]
 
     def unhandled_input(self, key):
@@ -182,12 +243,15 @@ class Dashboard:
 
         listbox_content.append(blank)
 
+        net = urwid.LineBox(networking_data(), title="Networking")
+        ser = urwid.LineBox(services_data(), title="Services")
+        col_two = urwid.ListBox([net, ser])
         col_one = urwid.LineBox(urwid.ListBox(urwid.SimpleListWalker(listbox_content)), title="PDUs")
 
         header_line = " Control this dashboard with your mouse or " \
             "keys UP / DOWN / PAGE UP / PAGE DOWN / ENTER. Use Q to exit.\n"
         header = urwid.AttrWrap(urwid.Text(header_line), 'header')
-        columns = urwid.Columns([('weight', 100, col_one)])
+        columns = urwid.Columns([(col_one), ('fixed', 34, col_two)], dividechars=2)
         footer = urwid.AttrWrap(urwid.Text(self.footer_line), "header")
         frame = urwid.Frame(header=header, body=columns, footer=footer)
         return frame
