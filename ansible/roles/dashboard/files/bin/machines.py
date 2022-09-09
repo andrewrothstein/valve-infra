@@ -91,6 +91,10 @@ class Dashboard:
         ('buttnf', 'white', 'dark blue', 'bold'),
         ]
 
+    def unhandled_input(self, key):
+        if key in ('q', 'Q'):
+            raise urwid.ExitMainLoop()
+
     def button_press(self, button, data):
         button = button.get_label()
 
@@ -127,7 +131,7 @@ class Dashboard:
         listbox_content = []
 
         self.header_line = " Control this dashboard with your mouse or " \
-            "keys UP / DOWN / PAGE UP / PAGE DOWN / ENTER"
+            "keys UP / DOWN / PAGE UP / PAGE DOWN / ENTER. Use Q to exit.\n"
 
         listbox_content.append(urwid.AttrWrap(urwid.Text(self.header_line), 'header'))
         listbox_content.append(urwid.AttrWrap(urwid.Text(self.info_line), 'header'))
@@ -190,7 +194,7 @@ class Dashboard:
     def main(self):
         self.info_line = ""
         self.widget = self.setup_view()
-        self.loop = urwid.MainLoop(widget=self.widget, palette=self.palette)
+        self.loop = urwid.MainLoop(widget=self.widget, palette=self.palette, unhandled_input=self.unhandled_input)
         self.loop.set_alarm_in(1, self.refresh)
         # Set focus on first port of the PDU
         self.loop.widget.set_focus(4)
