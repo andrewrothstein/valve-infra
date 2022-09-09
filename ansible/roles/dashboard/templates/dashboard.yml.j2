@@ -4,4 +4,4 @@ windows:
 - window_name: dashboard
   layout: main-vertical
   panes:
-    - /usr/local/lib/dashboard/dashboard.py  {{ dashboard_monitor_services|join(' ') }}
+    - /usr/local/lib/dashboard/dashboard.py  --services {{ dashboard_monitor_services|join(' ') }}

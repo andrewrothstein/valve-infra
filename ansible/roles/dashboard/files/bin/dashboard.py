@@ -9,9 +9,15 @@ import urllib.request
 import urllib.parse
 import urwid
 
+from argparse import ArgumentParser
+
+parser = ArgumentParser()
+parser.add_argument('-s', '--services', nargs='+', default=[])
+args = parser.parse_args()
+
 host = "http://localhost"
 networking_list = ["private", "wg0"]
-services_list = sys.argv[1:]
+services_list = args.services
 
 
 def networking_data():
