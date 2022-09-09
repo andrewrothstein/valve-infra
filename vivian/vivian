@@ -355,7 +355,7 @@ case "$cmd" in
         start_gateway
         provision_infra || true
 
-        ssh $__ssh_options -t root@localhost env LC_ALL=en_US.utf8 tmuxp load .tmuxp/dashboard.yml
+        ssh $__ssh_options -t root@localhost env LC_ALL=en_US.utf8 tmuxp load -y .tmuxp/dashboard.yml
         ;;
     test-installer)
         create_host_bridge
