@@ -82,7 +82,7 @@ def post_request(url, data=None):
 class Dashboard:
     palette = [
         ('body', 'light gray', 'black', 'standout'),
-        ('header', 'black', 'dark blue', 'bold'),
+        ('header', 'dark blue', 'black', 'bold'),
         ('pdu', 'black', 'dark blue', ('standout', 'underline')),
         ('bttn_discover', 'black', 'dark green'),
         ('bttn_cancel', 'black', 'dark red'),
@@ -119,7 +119,7 @@ class Dashboard:
 
         if type(message) == bytes:
             message = ''.join(map(chr, message))
-        self.info_line = " " + button + ": " + message
+        self.footer_line = " " + button + ": " + message
 
     def setup_view(self):
 
@@ -129,12 +129,6 @@ class Dashboard:
 
         # Make list to feed to ListBox
         listbox_content = []
-
-        self.header_line = " Control this dashboard with your mouse or " \
-            "keys UP / DOWN / PAGE UP / PAGE DOWN / ENTER. Use Q to exit.\n"
-
-        listbox_content.append(urwid.AttrWrap(urwid.Text(self.header_line), 'header'))
-        listbox_content.append(urwid.AttrWrap(urwid.Text(self.info_line), 'header'))
 
         listbox_content.append(blank)
 
@@ -146,7 +140,7 @@ class Dashboard:
             for num, machine in ports.items():
                 state = machine.get('state')
 
-                list_columns = [('fixed', 10, urwid.Text(f" Port {num}:"))]
+                list_columns = [('fixed', 11, urwid.Text(f" Port {num}:"))]
 
                 if state == "TRAINING":
                     boot_loop_counts = machine.get('training').get('boot_loop_counts')
@@ -154,7 +148,7 @@ class Dashboard:
                     stext=f"{state} {current_loop_count}/{boot_loop_counts}"
                 else:
                     stext = f"{state}"
-                list_columns.append(('fixed', 15, urwid.Text(stext)))
+                list_columns.append(('fixed', 16, urwid.Text(stext)))
 
                 name = machine.get('full_name', "")
                 list_columns.append(urwid.Text(name))
@@ -188,23 +182,28 @@ class Dashboard:
 
         listbox_content.append(blank)
 
-        listbox = urwid.ListBox(urwid.SimpleListWalker(listbox_content))
-        return listbox
+        col_one = urwid.LineBox(urwid.ListBox(urwid.SimpleListWalker(listbox_content)), title="PDUs")
+
+        header_line = " Control this dashboard with your mouse or " \
+            "keys UP / DOWN / PAGE UP / PAGE DOWN / ENTER. Use Q to exit.\n"
+        header = urwid.AttrWrap(urwid.Text(header_line), 'header')
+        columns = urwid.Columns([('weight', 100, col_one)])
+        footer = urwid.AttrWrap(urwid.Text(self.footer_line), "header")
+        frame = urwid.Frame(header=header, body=columns, footer=footer)
+        return frame
 
     def main(self):
-        self.info_line = ""
+        self.footer_line = ""
         self.widget = self.setup_view()
         self.loop = urwid.MainLoop(widget=self.widget, palette=self.palette, unhandled_input=self.unhandled_input)
         self.loop.set_alarm_in(1, self.refresh)
-        # Set focus on first port of the PDU
-        self.loop.widget.set_focus(4)
         self.loop.run()
 
     def refresh(self, loop=None, data=None):
-        focus = self.loop.widget.get_focus()[-1]
+        focus = self.loop.widget.body.widget_list[0].original_widget.get_focus()[-1]
         self.loop.widget = self.setup_view()
         self.loop.set_alarm_in(1, self.refresh)
-        self.loop.widget.set_focus(focus)
+        self.loop.widget.body.widget_list[0].original_widget.set_focus(focus)
 
 
 if '__main__' == __name__:
