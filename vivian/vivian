@@ -38,6 +38,7 @@ __kernel_img=''
 __kernel_append=''
 __ramdisk=''
 
+__wait=false
 
 if [ -z ${1+x} ]; then
     usage
@@ -119,6 +120,9 @@ while test -n "$1"; do
             __boot_mode=""
             fi
             ;;
+        --wait)
+            __wait=true
+            ;;
         start|"test-installer"|"integration-tests")
             cmd="$1"
             break
@@ -156,6 +160,11 @@ start_gateway() {
 	__qemu_mount_opts=""
     fi
 
+	__qemu_start_wait="nowait"
+	if [ "$__wait" = true ]; then
+		__qemu_start_wait="wait"
+	fi
+
     set +e
     grep -q "allow $__host_bridge_name" /etc/qemu/bridge.conf 2> /dev/null
     __result=$?
@@ -181,13 +190,13 @@ start_gateway() {
 
     qemu-system-x86_64 \
         -hda "$__disk_img" \
-            -monitor unix:"$__gateway_monitor_socket",server,nowait \
+        -monitor unix:"$__gateway_monitor_socket",server,nowait \
         $__gateway_nic_opts \
         $__boot_mode \
         $__qemu_kernel_opts \
         $__qemu_mount_opts \
         -nographic \
-        -serial telnet:localhost:4321,server,nowait \
+        -serial telnet:localhost:4321,server,"$__qemu_start_wait" \
         -append "$__kernel_append console=ttyS0" \
         -m 4G \
         -cpu host \
