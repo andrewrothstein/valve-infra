@@ -180,19 +180,21 @@ start_gateway() {
     # chmod u+s /usr/lib/qemu/qemu-bridge-helper
 
     qemu-system-x86_64 \
-        -daemonize \
         -hda "$__disk_img" \
             -monitor unix:"$__gateway_monitor_socket",server,nowait \
         $__gateway_nic_opts \
         $__boot_mode \
         $__qemu_kernel_opts \
-	$__qemu_mount_opts \
-        -append "$__kernel_append" \
+        $__qemu_mount_opts \
+        -nographic \
+        -serial telnet:localhost:4321,server,nowait \
+        -append "$__kernel_append console=ttyS0" \
         -m 4G \
         -cpu host \
-        -enable-kvm -smp 4
+        -enable-kvm -smp 4 &
 
     echo "Started gateway VM"
+	echo "*Note: Console is available over telnet @ localhost:4321"
 }
 
 wait_for_ssh() {
