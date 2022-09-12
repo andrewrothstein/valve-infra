@@ -250,7 +250,9 @@ class Dashboard:
                 listbox_content.append(blank)
 
             listbox_content.append(blank)
+            self.machines_box = True
         else:
+            self.machines_box = False
             listbox_content = [urwid.Text(error_message)]
 
         net = urwid.LineBox(networking_data(), title="Networking")
@@ -277,7 +279,9 @@ class Dashboard:
         focus = self.loop.widget.body.widget_list[0].original_widget.get_focus()[-1]
         self.loop.widget = self.setup_view()
         self.loop.set_alarm_in(1, self.refresh)
-        self.loop.widget.body.widget_list[0].original_widget.set_focus(focus)
+
+        if self.machines_box:
+            self.loop.widget.body.widget_list[0].original_widget.set_focus(focus)
 
 
 if '__main__' == __name__:
