@@ -20,8 +20,10 @@ EOF
 		gcc \
 		git \
 		htop \
+		iftop \
 		influxdb \
 		influx-cli \
+		iotop \
 		minio-client \
 		nano vim \
 		net-snmp \
