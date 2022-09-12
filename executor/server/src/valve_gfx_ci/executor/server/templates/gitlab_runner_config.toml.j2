@@ -7,7 +7,7 @@ listen_address = "0.0.0.0:9252"
 [[runners]]
 name = "{{config.FARM_NAME}}-gateway"
 {% set limit = cpu_count / 8 | int %}
-limit = {{[1, limit] | max}}
+limit = {{[1, limit] | max | int}}
 url = "{{gl.url}}"
 token = "{{gl.gateway_runner.token}}"
 executor = "docker"
@@ -25,7 +25,7 @@ disable_cache = false
 volumes = [ "local-container-volume:/var/lib/containers", "/var/run/docker.sock:/var/run/docker.sock", "/cache", "/usr/local/bin/gitlab_runner_prebuild.sh:/usr/local/bin/gitlab_runner_prebuild.sh" ]
 network_mode = "host"
 shm_size = 0
-cpus = {{cpu_count}}  # Gateway runner CPU allocation
+cpus = "{{cpu_count}}"  # Gateway runner CPU allocation
 {% set memory = [ram_total_MB / 2, ram_total_MB - 4096] | max | int %}
 memory = "{{memory}} MB" # Gateway runner memory allocation
 memory_swap = "{{(memory * 1.2) | int}} MB" # Gateway runner memory hard limit
